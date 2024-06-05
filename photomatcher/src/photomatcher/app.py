@@ -1,6 +1,3 @@
-"""
-run photo matching algorithm
-"""
 import os
 from dotenv import load_dotenv
 env_file = os.path.join(os.path.dirname(__file__), "resources/config.env")
@@ -9,18 +6,17 @@ load_dotenv(env_file)
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, CENTER
-import os
 import logging
 from photomatcher.enums import IMAGE_EXTENSION
+from photomatcher.worker import run_ml_model
 from concurrent.futures import ProcessPoolExecutor, as_completed
-import photomatcher.model.yunet as yunet
-import photomatcher.model.sface as sface
 import faiss
+import asyncio
 import shutil
-
+import numpy as np
 
 class PhotoMatcher(toga.App):
-    """Fronend for the photo matching application."""
+    """Frontend for the photo matching application."""
 
     def __init__(self, formal_name=None):
         """Initialize the toga modules."""
@@ -28,7 +24,7 @@ class PhotoMatcher(toga.App):
         self.home = os.path.expanduser("~")
         self.num_processes = os.cpu_count()
         self.faiss_index = faiss.IndexFlatL2(128)
-  
+
     def startup(self):
         """Create the main window for the application."""
         main_box = toga.Box(style=Pack(direction=COLUMN, padding=10, alignment=CENTER))
@@ -193,7 +189,8 @@ class PhotoMatcher(toga.App):
             return
 
         self.log_message("Starting processing...")
-        result = await self._run_processing()
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, self._run_processing)
 
         # if none returned, do not proceed.
         if result is None:
@@ -205,9 +202,7 @@ class PhotoMatcher(toga.App):
         )
         self.log_message("Processing completed.")
 
-    async def _run_processing(
-        self,
-    ):
+    def _run_processing(self):
         """Run ML models here."""
         self.progress_bar.start()
         self.progress_bar.value = 0
@@ -238,75 +233,61 @@ class PhotoMatcher(toga.App):
             )
             return
         
-
         with ProcessPoolExecutor(max_workers=self.num_processes) as cpu_executor:
-        
             # submit jobs for sources
             result_source = [
-                cpu_executor.submit(self._run_ml_model, source_file)
+                cpu_executor.submit(run_ml_model, source_file, self.fail_path)
                 for source_file in source_list_images
             ]
 
             for source_jobs in as_completed(result_source):
-                result = source_jobs.result()
+                error_status, result = source_jobs.result()
+
+                if error_status:
+                    self.log_message(error_status)
+                    continue
 
                 # add it to the faiss index
                 if len(result) > 0:
                     for embedding in result:
-                        self.faiss_index.add(embedding)
+
+                        try:
+                            self.faiss_index.add(np.expand_dims(embedding, axis=0))
+                        except Exception as e:
+                            print(f"Error adding embedding to faiss index: {e}", embedding, type(embedding))
 
                 # update progress for 50% of the total progress
                 self.progress_bar.value = self.progress_bar.value + (50 / len(source_list_images))
 
+            print("Index added")
 
             #submit jobs for references
             result_reference = [
-                cpu_executor.submit(self._run_ml_model, reference_file)
+                cpu_executor.submit(run_ml_model, reference_file, self.fail_path)
                 for reference_file in reference_list_images
             ]
 
             for reference_jobs in as_completed(result_reference):
-                result = reference_jobs.result()
+                error_status, result = reference_jobs.result()
+
+                if error_status:
+                    self.log_message(error_status)
+                    continue
 
                 # search the faiss index
                 if len(result) > 0:
                     for embedding in result:
-                        D, I = self.faiss_index.search(embedding, 1)
-
-                        print(D, I)
+                        embedding = np.expand_dims(embedding, axis=0)
+                        try:
+                            D, I = self.faiss_index.search(embedding, 1)
+                            self.log_message(f"Match found: Distance: {D}, Index: {I}")
+                        except Exception as e:
+                            print(f"Error searching faiss index: {e}", embedding, type(embedding))
 
                 # update progress for 50% of the total progress
                 self.progress_bar.value = self.progress_bar.value + (50 / len(reference_list_images))
 
         self.progress_bar.stop()
-
-    def _run_ml_model(self, image_path: str):
-        """Process face detection and recognition for images"""
-        detection_result = yunet.run_face_detection(image_path)
-
-        failed_image = os.path.join(self.fail_path, os.path.basename(image_path))
-
-        if "error" in detection_result:
-            self.log_message(
-                f"Face detection error on source image {image_path}: {detection_result['error']}"
-            )
-            shutil.copy(image_path, failed_image)
-            return
-
-        image = detection_result["image"]
-        embedding_dict = sface.run_face_recognition(image, detection_result["faces"])
-
-        if "error" in embedding_dict:
-            self.log_message(
-                f"Face recognition error on source image {image_path}: {embedding_dict['error']}"
-            )
-            shutil.copy(image_path, failed_image)
-            return
-        
-        embedding = embedding_dict["embeddings"]
-
-        return embedding
-
 
 def main():
     return PhotoMatcher()

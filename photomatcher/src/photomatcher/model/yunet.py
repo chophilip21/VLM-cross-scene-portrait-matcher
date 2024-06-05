@@ -38,7 +38,7 @@ class YuNet:
         return np.array([]) if faces[1] is None else faces[1]
     
 
-# TODO: These should all be config file parameters in the future.
+# TODO: CHECK WITH MULTIPLE FACES. WE NEED TO DEAL WITH THIS PART.
 backend_target_pairs = [cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_CPU]
 backend_id = backend_target_pairs[0]
 target_id = backend_target_pairs[1]
