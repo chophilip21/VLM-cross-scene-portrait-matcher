@@ -174,11 +174,7 @@ class PhotoMatcher(toga.App):
         self.reference_path = self.reference_path_input.value
         self.output_path = self.output_path_input.value
         self.fail_path = self.output_path_input.value + "/missed"
-        self.fail_src = os.path.join(self.fail_path, "source")
-        self.fail_ref = os.path.join(self.fail_path, "reference")
         os.makedirs(self.fail_path, exist_ok=True)
-        os.makedirs(self.fail_src, exist_ok=True)
-        os.makedirs(self.fail_ref, exist_ok=True)
 
         if not all([self.source_path, self.reference_path, self.output_path]):
             self.main_window.error_dialog(
@@ -197,7 +193,7 @@ class PhotoMatcher(toga.App):
             return
 
         self.log_message("Starting processing...")
-        result = await self._run_ml_model()
+        result = await self._run_processing()
 
         # if none returned, do not proceed.
         if result is None:
@@ -209,7 +205,7 @@ class PhotoMatcher(toga.App):
         )
         self.log_message("Processing completed.")
 
-    async def _run_ml_model(
+    async def _run_processing(
         self,
     ):
         """Run ML models here."""
@@ -244,23 +240,51 @@ class PhotoMatcher(toga.App):
         
 
         with ProcessPoolExecutor(max_workers=self.num_processes) as cpu_executor:
-
-            detection_result_source = [
-                cpu_executor.submit(self._run_ml_model_src, source_file)
+        
+            # submit jobs for sources
+            result_source = [
+                cpu_executor.submit(self._run_ml_model, source_file)
                 for source_file in source_list_images
             ]
 
-            # # update progress bar proportionally
-            # self.progress_bar.value = (i + 1) * 100 / len(source_list_images)
+            for source_jobs in as_completed(result_source):
+                result = source_jobs.result()
+
+                # add it to the faiss index
+                if len(result) > 0:
+                    for embedding in result:
+                        self.faiss_index.add(embedding)
+
+                # update progress for 50% of the total progress
+                self.progress_bar.value = self.progress_bar.value + (50 / len(source_list_images))
+
+
+            #submit jobs for references
+            result_reference = [
+                cpu_executor.submit(self._run_ml_model, reference_file)
+                for reference_file in reference_list_images
+            ]
+
+            for reference_jobs in as_completed(result_reference):
+                result = reference_jobs.result()
+
+                # search the faiss index
+                if len(result) > 0:
+                    for embedding in result:
+                        D, I = self.faiss_index.search(embedding, 1)
+
+                        print(D, I)
+
+                # update progress for 50% of the total progress
+                self.progress_bar.value = self.progress_bar.value + (50 / len(reference_list_images))
 
         self.progress_bar.stop()
 
-    def _run_ml_model_src(self, image_path: str):
-        """Process face detection and recognition for source images"""
+    def _run_ml_model(self, image_path: str):
+        """Process face detection and recognition for images"""
         detection_result = yunet.run_face_detection(image_path)
 
-        # if the processing fails.
-        failed_image = os.path.join(self.fail_src, os.path.basename(image_path))
+        failed_image = os.path.join(self.fail_path, os.path.basename(image_path))
 
         if "error" in detection_result:
             self.log_message(
@@ -270,16 +294,16 @@ class PhotoMatcher(toga.App):
             return
 
         image = detection_result["image"]
-        embedding = sface.run_face_recognition(image, detection_result["faces"])
+        embedding_dict = sface.run_face_recognition(image, detection_result["faces"])
 
-        if "error" in embedding:
+        if "error" in embedding_dict:
             self.log_message(
-                f"Face recognition error on source image {image_path}: {embedding['error']}"
+                f"Face recognition error on source image {image_path}: {embedding_dict['error']}"
             )
             shutil.copy(image_path, failed_image)
             return
         
-        print(embedding.shape)
+        embedding = embedding_dict["embeddings"]
 
         return embedding
 
