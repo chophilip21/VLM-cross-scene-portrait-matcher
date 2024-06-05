@@ -8,12 +8,13 @@ source beeware-venv/bin/activate
 python -m pip install briefcase
 ```
 
-You may need to update some packages:
+You may need to update some packages required to run briefcase commands:
 
 ```bash
 sudo apt-get update
 sudo apt install libcairo2-dev pkg-config python3-dev
 sudo apt install cmake
+sudo apt install libgirepository1.0-dev
 pip install pycairo
 ```
 
