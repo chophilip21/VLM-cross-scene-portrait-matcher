@@ -42,14 +42,17 @@ class YuNet:
 backend_target_pairs = [cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_CPU]
 backend_id = backend_target_pairs[0]
 target_id = backend_target_pairs[1]
-conf_threshold = int(os.getenv("YUNET_CONF", 0.75))
-nms_threshold = int(os.getenv("YUNET_NMS", 0.4))
+conf_threshold = float(os.getenv("YUNET_CONF", 0.75))
+nms_threshold = float(os.getenv("YUNET_NMS", 0.4))
 top_k = 5000 ## bb to keep before nms
 
 if os.getenv("YUNET_PATH") is None:
     raise ValueError("Please set the YUNET_PATH in the environment variable.")
 
-model_path = os.getenv("YUNET_PATH")
+model_path = os.path.join(os.path.dirname(__file__), os.getenv("YUNET_PATH"))
+
+if not os.path.exists(model_path):
+    raise ValueError(f"Model path {model_path} does not exist.")
 
 # singleton entry point.
 input_size = int(os.getenv("YUNET_INPUT_SIZE", 640))

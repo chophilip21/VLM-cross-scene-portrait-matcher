@@ -1,14 +1,23 @@
 """
 run photo matching algorithm
 """
+import os
+from dotenv import load_dotenv
+env_file = os.path.join(os.path.dirname(__file__), "resources/config.env")
+load_dotenv(env_file)
 
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, CENTER
 import os
-from dotenv import load_dotenv
 import logging
 from photomatcher.enums import IMAGE_EXTENSION
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import photomatcher.model.yunet as yunet
+import photomatcher.model.sface as sface
+import faiss
+import shutil
+
 
 class PhotoMatcher(toga.App):
     """Fronend for the photo matching application."""
@@ -16,46 +25,72 @@ class PhotoMatcher(toga.App):
     def __init__(self, formal_name=None):
         """Initialize the toga modules."""
         super().__init__(formal_name=formal_name)
-        self.home = os.path.expanduser('~')
-        env_file = os.path.join(os.path.dirname(__file__), 'resources/config.env')
-        load_dotenv(env_file)
-
+        self.home = os.path.expanduser("~")
+        self.num_processes = os.cpu_count()
+        self.faiss_index = faiss.IndexFlatL2(128)
+  
     def startup(self):
         """Create the main window for the application."""
         main_box = toga.Box(style=Pack(direction=COLUMN, padding=10, alignment=CENTER))
 
         # logo
-        logo_path = os.path.join(os.path.dirname(__file__), 'resources/logo.jpg')
+        logo_path = os.path.join(os.path.dirname(__file__), "resources/logo.jpg")
         if not os.path.isfile(logo_path):
             raise RuntimeError(f"Logo file not found: {logo_path}")
-        
+
         logo = toga.Image(logo_path)
-        logo_view = toga.ImageView(logo, style=Pack(width=300, height=300, alignment=CENTER))
+        logo_view = toga.ImageView(
+            logo, style=Pack(width=300, height=300, alignment=CENTER)
+        )
 
         # Source Images Path
-        source_path_box = self.create_path_box('Source Images Path:', self.select_source_path)
+        source_path_box = self.create_path_box(
+            "Source Images Path:", self.select_source_path
+        )
         self.source_path_input = source_path_box[0]
 
         # Reference Images Path
-        reference_path_box = self.create_path_box('Reference Images Path:', self.select_reference_path)
+        reference_path_box = self.create_path_box(
+            "Reference Images Path:", self.select_reference_path
+        )
         self.reference_path_input = reference_path_box[0]
 
         # Output Path
-        output_path_box = self.create_path_box('Output Path:', self.select_output_path)
+        output_path_box = self.create_path_box("Output Path:", self.select_output_path)
         self.output_path_input = output_path_box[0]
 
         # Buttons Box
         buttons_box = toga.Box(style=Pack(direction=ROW, padding=5, alignment=CENTER))
-        self.run_button = toga.Button('Run Processing', on_press=self.run_processing, style=Pack(padding=5, background_color='#28a745', color='white', width=200))
-        self.refresh_button = toga.Button('Refresh', on_press=self.refresh_inputs, style=Pack(padding=5,background_color='#3545dc', color='white',width=200))
+        self.run_button = toga.Button(
+            "Run Processing",
+            on_press=self.run_processing,
+            style=Pack(padding=5, background_color="#28a745", color="white", width=200),
+        )
+        self.refresh_button = toga.Button(
+            "Refresh",
+            on_press=self.refresh_inputs,
+            style=Pack(padding=5, background_color="#3545dc", color="white", width=200),
+        )
         buttons_box.add(self.run_button)
         buttons_box.add(self.refresh_button)
 
         # Progress Bar
-        self.progress_bar = toga.ProgressBar(max=100, value=0, style=Pack(padding=10, width=1000, alignment=CENTER))
+        self.progress_bar = toga.ProgressBar(
+            max=100, value=0, style=Pack(padding=10, width=1000, alignment=CENTER)
+        )
 
         # Console Log Box
-        self.console_log = toga.MultilineTextInput(readonly=True, style=Pack(flex=1, padding=10, background_color='black', color='white', height=150, alignment=CENTER))
+        self.console_log = toga.MultilineTextInput(
+            readonly=True,
+            style=Pack(
+                flex=1,
+                padding=10,
+                background_color="black",
+                color="white",
+                height=150,
+                alignment=CENTER,
+            ),
+        )
 
         # Adding all components to the main box
         main_box.add(logo_view)
@@ -66,7 +101,9 @@ class PhotoMatcher(toga.App):
         main_box.add(self.progress_bar)
         main_box.add(self.console_log)
 
-        self.log_message("Welcome to Photo Matcher. Start by selecting the source, reference, and output folders above.")
+        self.log_message(
+            "Welcome to Photo Matcher. Start by selecting the source, reference, and output folders above."
+        )
 
         self.main_window = toga.MainWindow(title=self.formal_name)
         self.main_window.content = main_box
@@ -77,7 +114,9 @@ class PhotoMatcher(toga.App):
         path_box = toga.Box(style=Pack(direction=ROW, padding=5, alignment=CENTER))
         path_label = toga.Label(label_text, style=Pack(padding=(0, 5)))
         path_input = toga.TextInput(readonly=True, style=Pack(flex=1))
-        path_button = toga.Button('Choose...', on_press=on_press_handler, style=Pack(padding=5))
+        path_button = toga.Button(
+            "Choose...", on_press=on_press_handler, style=Pack(padding=5)
+        )
         path_box.add(path_label)
         path_box.add(path_input)
         path_box.add(path_button)
@@ -85,20 +124,24 @@ class PhotoMatcher(toga.App):
 
     async def select_source_path(self, widget):
         """Select the source images folder."""
-        await self.select_path(self.source_path_input, 'Select Source Images Folder')
+        await self.select_path(self.source_path_input, "Source Images Folder")
 
     async def select_reference_path(self, widget):
         """Select the reference images folder."""
-        await self.select_path(self.reference_path_input, 'Select Reference Images Folder')
+        await self.select_path(
+            self.reference_path_input, "Reference Images Folder"
+        )
 
     async def select_output_path(self, widget):
         """Select the output folder."""
-        await self.select_path(self.output_path_input, 'Select Output Folder')
+        await self.select_path(self.output_path_input, "Output Folder")
 
     async def select_path(self, input_widget, dialog_title):
         """Select the input paths using a dialog."""
         try:
-            result = await self.main_window.select_folder_dialog(dialog_title, initial_directory=self.home)
+            result = await self.main_window.select_folder_dialog(
+                dialog_title, initial_directory=self.home
+            )
             if result:
                 input_widget.value = result
                 self.log_message(f"{dialog_title} selected: {result}")
@@ -110,51 +153,136 @@ class PhotoMatcher(toga.App):
             input_widget.value = "Error selecting folder!"
             self.log_message(f"Error selecting folder: {e}")
 
-    async def run_processing(self, widget):
-        """Run the photo matching processing."""
-        source_path = self.source_path_input.value
-        reference_path = self.reference_path_input.value
-        output_path = self.output_path_input.value
-
-        if not all([source_path, reference_path, output_path]):
-            self.main_window.error_dialog('Error', 'Please select all required folders before running the processing.')
-            return
-
-        if len(os.listdir(source_path)) == 0 or len(os.listdir(reference_path)) == 0:
-            self.main_window.error_dialog('Error', 'Source and Reference folders must not be empty.')
-            return        
-        
-
-
-        self.log_message("Starting processing...")
-        await self.run_ml_model(source_path, reference_path, output_path)
-        self.main_window.info_dialog('Processing Completed', 'Your photo matching processed successfully!')
-        self.log_message("Processing completed.")
-
-    async def run_ml_model(self, source_path: str = None, reference_path: str = None, output_path: str = None):
-        """Run ML models here."""
-        self.progress_bar.value = 0
-
-
-
-
-        # for i in range(1, 11):
-        #     self.progress_bar.value = i * 10
-        #     self.log_message(f"Processing... {i * 10}% complete")
-        #     await asyncio.sleep(1)  # Simulate processing time
-
     def refresh_inputs(self, widget):
         """Clear all text inputs and reset progress bar."""
-        self.source_path_input.value = ''
-        self.reference_path_input.value = ''
-        self.output_path_input.value = ''
+        self.source_path_input.value = ""
+        self.reference_path_input.value = ""
+        self.output_path_input.value = ""
         self.progress_bar.value = 0
-        self.console_log.value = ''
-        self.log_message("Inputs refreshed. Start again by selecting the source, reference, and output folders above.")
+        self.console_log.value = ""
+        self.log_message(
+            "Inputs refreshed. Start again by selecting the source, reference, and output folders above."
+        )
 
     def log_message(self, message):
         """Append a message to the console log."""
         self.console_log.value += message + "\n"
+
+    async def run_processing(self, widget):
+        """Run the photo matching processing."""
+        self.source_path = self.source_path_input.value
+        self.reference_path = self.reference_path_input.value
+        self.output_path = self.output_path_input.value
+        self.fail_path = self.output_path_input.value + "/missed"
+        self.fail_src = os.path.join(self.fail_path, "source")
+        self.fail_ref = os.path.join(self.fail_path, "reference")
+        os.makedirs(self.fail_path, exist_ok=True)
+        os.makedirs(self.fail_src, exist_ok=True)
+        os.makedirs(self.fail_ref, exist_ok=True)
+
+        if not all([self.source_path, self.reference_path, self.output_path]):
+            self.main_window.error_dialog(
+                "Error",
+                "Please select all required folders before running the processing.",
+            )
+            return
+
+        if (
+            len(os.listdir(self.source_path)) == 0
+            or len(os.listdir(self.reference_path)) == 0
+        ):
+            self.main_window.error_dialog(
+                "Error", "Source and Reference folders must not be empty."
+            )
+            return
+
+        self.log_message("Starting processing...")
+        result = await self._run_ml_model()
+
+        # if none returned, do not proceed.
+        if result is None:
+            self.log_message("Processing failed. Check the inputs again.")
+            return
+
+        self.main_window.info_dialog(
+            "Processing Completed", "Your photo matching processed successfully!"
+        )
+        self.log_message("Processing completed.")
+
+    async def _run_ml_model(
+        self,
+    ):
+        """Run ML models here."""
+        self.progress_bar.start()
+        self.progress_bar.value = 0
+
+        source_list_images = [
+            os.path.join(self.source_path, file)
+            for file in os.listdir(self.source_path)
+            if file.split('.')[-1] in IMAGE_EXTENSION
+        ]
+
+        if len(source_list_images) == 0:
+            self.main_window.error_dialog(
+                "Error",
+                "Please make sure that there are image files in the source folder.",
+            )
+            return
+
+        reference_list_images = [
+            os.path.join(self.reference_path, file)
+            for file in os.listdir(self.reference_path)
+            if file.split('.')[-1] in IMAGE_EXTENSION
+        ]
+
+        if len(reference_list_images) == 0:
+            self.main_window.error_dialog(
+                "Error",
+                "Please make sure that there are image files in the reference folder.",
+            )
+            return
+        
+
+        with ProcessPoolExecutor(max_workers=self.num_processes) as cpu_executor:
+
+            detection_result_source = [
+                cpu_executor.submit(self._run_ml_model_src, source_file)
+                for source_file in source_list_images
+            ]
+
+            # # update progress bar proportionally
+            # self.progress_bar.value = (i + 1) * 100 / len(source_list_images)
+
+        self.progress_bar.stop()
+
+    def _run_ml_model_src(self, image_path: str):
+        """Process face detection and recognition for source images"""
+        detection_result = yunet.run_face_detection(image_path)
+
+        # if the processing fails.
+        failed_image = os.path.join(self.fail_src, os.path.basename(image_path))
+
+        if "error" in detection_result:
+            self.log_message(
+                f"Face detection error on source image {image_path}: {detection_result['error']}"
+            )
+            shutil.copy(image_path, failed_image)
+            return
+
+        image = detection_result["image"]
+        embedding = sface.run_face_recognition(image, detection_result["faces"])
+
+        if "error" in embedding:
+            self.log_message(
+                f"Face recognition error on source image {image_path}: {embedding['error']}"
+            )
+            shutil.copy(image_path, failed_image)
+            return
+        
+        print(embedding.shape)
+
+        return embedding
+
 
 def main():
     return PhotoMatcher()
