@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+
 env_file = os.path.join(os.path.dirname(__file__), "resources/config.env")
 load_dotenv(env_file)
 
@@ -8,12 +9,13 @@ from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, CENTER
 import logging
 from photomatcher.enums import IMAGE_EXTENSION
-from photomatcher.worker import run_ml_model
-from concurrent.futures import ProcessPoolExecutor, as_completed
-import faiss
+from photomatcher.worker import run_model_mp
 import asyncio
 import shutil
+import faiss
+import pickle
 import numpy as np
+
 
 class PhotoMatcher(toga.App):
     """Frontend for the photo matching application."""
@@ -23,13 +25,35 @@ class PhotoMatcher(toga.App):
         super().__init__(formal_name=formal_name)
         self.home = os.path.expanduser("~")
         self.num_processes = os.cpu_count()
-        self.faiss_index = faiss.IndexFlatL2(128)
+        self.chunksize = os.getenv("CHUNKSIZE", 10)
+
+        # set up cache path.
+        self.source_cache = os.path.join(os.path.dirname(__file__), "cache/source")
+        self.reference_cache = os.path.join(
+            os.path.dirname(__file__), "cache/reference"
+        )
+        self.source_list_images = None
+        self.reference_list_images = None
+
+    def setup_cache_dir(self):
+        """clean up cache folders on start up, and recreate dir"""
+
+        if os.path.exists(self.source_cache):
+            shutil.rmtree(self.source_cache)
+
+        if os.path.exists(self.reference_cache):
+            shutil.rmtree(self.reference_cache)
+
+        os.makedirs(self.source_cache, exist_ok=True)
+        os.makedirs(self.reference_cache, exist_ok=True)
+        print('refreshing cache')
 
     def startup(self):
         """Create the main window for the application."""
-        main_box = toga.Box(style=Pack(direction=COLUMN, padding=10, alignment=CENTER))
 
-        # logo
+        self.setup_cache_dir()
+
+        main_box = toga.Box(style=Pack(direction=COLUMN, padding=10, alignment=CENTER))
         logo_path = os.path.join(os.path.dirname(__file__), "resources/logo.jpg")
         if not os.path.isfile(logo_path):
             raise RuntimeError(f"Logo file not found: {logo_path}")
@@ -124,9 +148,7 @@ class PhotoMatcher(toga.App):
 
     async def select_reference_path(self, widget):
         """Select the reference images folder."""
-        await self.select_path(
-            self.reference_path_input, "Reference Images Folder"
-        )
+        await self.select_path(self.reference_path_input, "Reference Images Folder")
 
     async def select_output_path(self, widget):
         """Select the output folder."""
@@ -156,6 +178,7 @@ class PhotoMatcher(toga.App):
         self.output_path_input.value = ""
         self.progress_bar.value = 0
         self.console_log.value = ""
+        self.setup_cache_dir()
         self.log_message(
             "Inputs refreshed. Start again by selecting the source, reference, and output folders above."
         )
@@ -169,9 +192,7 @@ class PhotoMatcher(toga.App):
         self.source_path = self.source_path_input.value
         self.reference_path = self.reference_path_input.value
         self.output_path = self.output_path_input.value
-        self.fail_path = self.output_path_input.value + "/missed"
-        os.makedirs(self.fail_path, exist_ok=True)
-
+ 
         if not all([self.source_path, self.reference_path, self.output_path]):
             self.main_window.error_dialog(
                 "Error",
@@ -187,6 +208,9 @@ class PhotoMatcher(toga.App):
                 "Error", "Source and Reference folders must not be empty."
             )
             return
+
+        self.fail_path = self.output_path_input.value + "/missed"
+        os.makedirs(self.fail_path, exist_ok=True)
 
         self.log_message("Starting processing...")
         loop = asyncio.get_event_loop()
@@ -205,89 +229,142 @@ class PhotoMatcher(toga.App):
     def _run_processing(self):
         """Run ML models here."""
         self.progress_bar.start()
-        self.progress_bar.value = 0
+        self.progress_bar.value = 10
 
-        source_list_images = [
+        self.source_list_images = [
             os.path.join(self.source_path, file)
             for file in os.listdir(self.source_path)
-            if file.split('.')[-1] in IMAGE_EXTENSION
+            if file.split(".")[-1] in IMAGE_EXTENSION
         ]
 
-        if len(source_list_images) == 0:
+        if len(self.source_list_images) == 0:
             self.main_window.error_dialog(
                 "Error",
                 "Please make sure that there are image files in the source folder.",
             )
             return
 
-        reference_list_images = [
+        self.reference_list_images = [
             os.path.join(self.reference_path, file)
             for file in os.listdir(self.reference_path)
-            if file.split('.')[-1] in IMAGE_EXTENSION
+            if file.split(".")[-1] in IMAGE_EXTENSION
         ]
 
-        if len(reference_list_images) == 0:
+        if len(self.reference_list_images) == 0:
             self.main_window.error_dialog(
                 "Error",
                 "Please make sure that there are image files in the reference folder.",
             )
             return
-        
-        with ProcessPoolExecutor(max_workers=self.num_processes) as cpu_executor:
-            # submit jobs for sources
-            result_source = [
-                cpu_executor.submit(run_ml_model, source_file, self.fail_path)
-                for source_file in source_list_images
-            ]
 
-            for source_jobs in as_completed(result_source):
-                error_status, result = source_jobs.result()
+        self.progress_bar.value = 25
 
-                if error_status:
-                    self.log_message(error_status)
-                    continue
+        # Run the model for source
+        self.log_message(f"Processing {len(self.source_list_images)} source images.")
 
-                # add it to the faiss index
-                if len(result) > 0:
-                    for embedding in result:
+        run_model_mp(
+            self.source_list_images, self.num_processes, self.chunksize, self.source_cache, self.fail_path
+        )
 
-                        try:
-                            self.faiss_index.add(np.expand_dims(embedding, axis=0))
-                        except Exception as e:
-                            print(f"Error adding embedding to faiss index: {e}", embedding, type(embedding))
+        self.log_message(f"Processing {len(self.reference_list_images)} reference images.")
 
-                # update progress for 50% of the total progress
-                self.progress_bar.value = self.progress_bar.value + (50 / len(source_list_images))
+        self.progress_bar.value = 50
+        run_model_mp(
+            self.reference_list_images,
+            self.num_processes,
+            self.chunksize,
+            self.reference_cache,
+            self.fail_path,
+        )
+        self.progress_bar.value = 75
 
-            print("Index added")
+        self.log_message("Embedding conversion completed. Now matching and saving results.")
 
-            #submit jobs for references
-            result_reference = [
-                cpu_executor.submit(run_ml_model, reference_file, self.fail_path)
-                for reference_file in reference_list_images
-            ]
+        self.match_embeddings()
 
-            for reference_jobs in as_completed(result_reference):
-                error_status, result = reference_jobs.result()
-
-                if error_status:
-                    self.log_message(error_status)
-                    continue
-
-                # search the faiss index
-                if len(result) > 0:
-                    for embedding in result:
-                        embedding = np.expand_dims(embedding, axis=0)
-                        try:
-                            D, I = self.faiss_index.search(embedding, 1)
-                            self.log_message(f"Match found: Distance: {D}, Index: {I}")
-                        except Exception as e:
-                            print(f"Error searching faiss index: {e}", embedding, type(embedding))
-
-                # update progress for 50% of the total progress
-                self.progress_bar.value = self.progress_bar.value + (50 / len(reference_list_images))
-
+        self.progress_bar.value = 100
         self.progress_bar.stop()
+
+        return True
+
+
+    def match_embeddings(self):
+        """Match the embeddings and save the match."""
+    
+        faiss_index = faiss.IndexFlatL2(128)
+        source_embeddings = [os.path.join(self.source_cache, file) for file in os.listdir(self.source_cache) if file.split(".")[-1] == "pkl"]
+
+        reference_embeddings = [os.path.join(self.reference_cache, file) for file in os.listdir(self.reference_cache) if file.split(".")[-1] == "pkl"]
+
+        # Create quick look up table for the source and reference images.
+        source_dict = {file.split("/")[-1].split(".")[0]: file for file in self.source_list_images}
+        reference_dict = {file.split("/")[-1].split(".")[0]: file for file in self.reference_list_images}
+
+
+        # read the pickle files from the source embedding_path, and add it to the faiss index.
+        for file in source_embeddings:
+            with open(os.path.join(self.source_cache, file), "rb") as f:
+                embedding = pickle.load(f)
+
+                if isinstance(embedding, list):
+                    embedding = np.array(embedding)
+                else:
+                    raise ValueError(f"Error on {file}. Embedding must be a list, not {type(embedding)}")
+
+                if embedding.shape != (1, 128):
+                    raise ValueError(f"Error on {file}. Embedding must be a (1, 128) numpy array, not {embedding.shape}")
+
+                faiss_index.add(embedding)
+
+        print('added all the source embeddings to faiss index...')
+
+        for file in reference_embeddings:
+            with open(os.path.join(self.reference_cache, file), "rb") as f:
+                embedding = pickle.load(f)
+
+                if isinstance(embedding, list):
+                    embedding = np.array(embedding)
+                else:
+                    raise ValueError(f"Error on {file}. Embedding must be a list, not {type(embedding)}")
+
+                if embedding.shape != (1, 128):
+                    raise ValueError(f"Error on {file}. Embedding must be a (1, 128) numpy array, not {embedding.shape}")
+
+                D, I = faiss_index.search(embedding, 1)
+                distance = D[0][0]
+
+                # predicted label must exist in the lookup table.
+                predicted_label = source_embeddings[I[0][0]].split("/")[-1].split(".")[0]
+                
+                if predicted_label not in source_dict:
+                    raise ValueError(f"Predicted label {predicted_label} not found in source_dict.")
+                
+                predicted_source_input_path = source_dict[predicted_label]
+
+                # now get the equivalent reference image.
+                reference_label= file.split("/")[-1].split(".")[0]
+
+                if reference_label not in reference_dict:
+                    raise ValueError(f"Reference label {reference_label} not found in reference_dict.")
+
+                reference_image_input_path = reference_dict[reference_label]
+               
+                # to output folder, create a folder based predicted_label.
+                output_path = os.path.join(self.output_path, predicted_label)
+                os.makedirs(output_path, exist_ok=True)
+
+                # copy everything to the output folder.
+                predicted_source_output_path = os.path.join(output_path, os.path.basename(predicted_source_input_path))
+
+                shutil.copy(predicted_source_input_path, predicted_source_output_path)
+
+                reference_image_output_path = os.path.join(output_path, os.path.basename(reference_image_input_path))
+
+                shutil.copy(reference_image_input_path, reference_image_output_path)
+
+
+        return True
+
 
 def main():
     return PhotoMatcher()
