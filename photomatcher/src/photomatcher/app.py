@@ -6,7 +6,7 @@ import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, CENTER
 import os
-import asyncio
+from dotenv import load_dotenv
 import logging
 from photomatcher.enums import IMAGE_EXTENSION
 
@@ -14,10 +14,14 @@ class PhotoMatcher(toga.App):
     """Fronend for the photo matching application."""
 
     def __init__(self, formal_name=None):
+        """Initialize the toga modules."""
         super().__init__(formal_name=formal_name)
         self.home = os.path.expanduser('~')
+        env_file = os.path.join(os.path.dirname(__file__), 'resources/config.env')
+        load_dotenv(env_file)
 
     def startup(self):
+        """Create the main window for the application."""
         main_box = toga.Box(style=Pack(direction=COLUMN, padding=10, alignment=CENTER))
 
         # logo
@@ -69,6 +73,7 @@ class PhotoMatcher(toga.App):
         self.main_window.show()
 
     def create_path_box(self, label_text, on_press_handler):
+        """Create a box with a label, text input, and button to select a path."""
         path_box = toga.Box(style=Pack(direction=ROW, padding=5, alignment=CENTER))
         path_label = toga.Label(label_text, style=Pack(padding=(0, 5)))
         path_input = toga.TextInput(readonly=True, style=Pack(flex=1))
@@ -91,6 +96,7 @@ class PhotoMatcher(toga.App):
         await self.select_path(self.output_path_input, 'Select Output Folder')
 
     async def select_path(self, input_widget, dialog_title):
+        """Select the input paths using a dialog."""
         try:
             result = await self.main_window.select_folder_dialog(dialog_title, initial_directory=self.home)
             if result:
@@ -105,6 +111,7 @@ class PhotoMatcher(toga.App):
             self.log_message(f"Error selecting folder: {e}")
 
     async def run_processing(self, widget):
+        """Run the photo matching processing."""
         source_path = self.source_path_input.value
         reference_path = self.reference_path_input.value
         output_path = self.output_path_input.value
