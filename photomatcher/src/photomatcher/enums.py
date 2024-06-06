@@ -1,3 +1,10 @@
+from enum import Enum
+
+class Task(Enum):
+    """Enum for task type."""
+    SAMPLE_MATCHING = "Source (1:N samples) matching"
+    CLUSTERING = "Clustering (M:N samples) matching"
+
 IMAGE_EXTENSION = [
     "ase",
     "art",
