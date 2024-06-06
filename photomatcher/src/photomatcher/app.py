@@ -9,12 +9,10 @@ from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, CENTER
 import logging
 import photomatcher.enums as enums
-from photomatcher.worker import run_model_mp
+import photomatcher.worker as worker
+import photomatcher.utils as utils
 import asyncio
 import shutil
-import faiss
-import pickle
-import numpy as np
 
 
 class PhotoMatcher(toga.App):
@@ -54,13 +52,12 @@ class PhotoMatcher(toga.App):
         self.setup_cache_dir()
 
         # Application main box. Modules will be added to this box, from top to bottom.
-        main_box = toga.Box(style=Pack(direction=COLUMN, padding=10, alignment=CENTER))
+        self.main_box = toga.Box(
+            style=Pack(direction=COLUMN, padding=10, alignment=CENTER)
+        )
 
         # Logo module
         logo_path = os.path.join(os.path.dirname(__file__), "resources/logo.jpg")
-        if not os.path.isfile(logo_path):
-            raise RuntimeError(f"Logo file not found: {logo_path}")
-
         logo = toga.Image(logo_path)
         logo_view = toga.ImageView(
             logo, style=Pack(width=300, height=300, alignment=CENTER)
@@ -81,7 +78,9 @@ class PhotoMatcher(toga.App):
         task_box.add(self.task_selection)
 
         # Source Images Path
-        self.src_path_box = self.create_path_box("Source img path:", self.select_src_path)
+        self.src_path_box = self.create_path_box(
+            "Source img path:", self.select_src_path
+        )
         self.src_path_input = self.src_path_box[0]
 
         # Reference Images Path
@@ -128,23 +127,19 @@ class PhotoMatcher(toga.App):
         )
 
         # Adding all components to the main box
-        main_box.add(logo_view)
-        main_box.add(task_box)
-        main_box.add(self.src_path_box[1])
-        main_box.add(self.ref_path_box[1])
-        main_box.add(output_path_box[1])
-        main_box.add(buttons_box)
-        main_box.add(self.progress_bar)
-        main_box.add(self.console_log)
-
-        self.log_message(
-            "Welcome to Photo Matcher. Start by selecting the source, reference, and output folders above."
-        )
-
+        self.main_box.add(logo_view)
+        self.main_box.add(task_box)
+        self.main_box.add(self.src_path_box[1])
+        self.ref_path_box_index = len(self.main_box.children)
+        self.main_box.add(self.ref_path_box[1])
+        self.main_box.add(output_path_box[1])
+        self.main_box.add(buttons_box)
+        self.main_box.add(self.progress_bar)
+        self.main_box.add(self.console_log)
         self.main_window = toga.MainWindow(title=self.formal_name)
-        self.main_window.content = main_box
+        self.main_window.content = self.main_box
         self.main_window.show()
-
+        self.log_message(enums.StatusLogMessage.START.value)
         self.update_visibility()
 
     def create_path_box(self, label_text, on_press_handler):
@@ -159,13 +154,42 @@ class PhotoMatcher(toga.App):
         path_box.add(path_input)
         path_box.add(path_button)
         return path_input, path_box
-    
+
     def update_visibility(self, widget=None):
         """Update visibility of UI components based on selected task."""
         if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
-            self.ref_path_box[1].style.visibility = 'visible'
+            if self.ref_path_box[1] not in self.main_box.children:
+                self.main_box.insert(self.ref_path_box_index, self.ref_path_box[1])
+                self.console_log.value = ""
+                self.log_message(enums.StatusLogMessage.START.value)
         elif self.task_selection.value == enums.Task.CLUSTERING.value:
-            self.ref_path_box[1].style.visibility = 'hidden'
+            if self.ref_path_box[1] in self.main_box.children:
+                self.main_box.remove(self.ref_path_box[1])
+                self.console_log.value = ""
+                self.log_message(enums.StatusLogMessage.CLUSTERING.value)
+
+    def refresh_inputs(self, widget):
+        """Clear all text inputs and reset progress bar."""
+        self.src_path_input.value = ""
+        self.ref_path_input.value = ""
+        self.output_path_input.value = ""
+        self.progress_bar.value = 0
+        self.console_log.value = ""
+        self.setup_cache_dir()
+        self.log_message("Inputs refreshed")
+
+        if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
+            self.log_message(enums.StatusLogMessage.SAMPLE_MATCHING.value)
+        elif self.task_selection.value == enums.Task.CLUSTERING.value:
+            self.log_message(enums.StatusLogMessage.CLUSTERING.value)
+        else:
+            raise NotImplementedError(
+                f"Task {self.task_selection.value} not implemented."
+            )
+
+    def log_message(self, message):
+        """Append a message to the console log."""
+        self.console_log.value += message + "\n"
 
     async def select_src_path(self, widget):
         """Select the source images folder."""
@@ -196,46 +220,27 @@ class PhotoMatcher(toga.App):
             input_widget.value = "Error selecting folder!"
             self.log_message(f"Error selecting folder: {e}")
 
-    def refresh_inputs(self, widget):
-        """Clear all text inputs and reset progress bar."""
-        self.src_path_input.value = ""
-        self.ref_path_input.value = ""
-        self.output_path_input.value = ""
-        self.progress_bar.value = 0
-        self.console_log.value = ""
-        self.setup_cache_dir()
-        self.log_message(
-            "Inputs refreshed. Start again by selecting the source, reference, and output folders above."
-        )
-
-    def log_message(self, message):
-        """Append a message to the console log."""
-        self.console_log.value += message + "\n"
-
     async def run_processing(self, widget):
         """Run the photo matching processing."""
         self.source_path = self.src_path_input.value
         self.reference_path = self.ref_path_input.value
         self.output_path = self.output_path_input.value
-
-        if not all([self.source_path, self.reference_path, self.output_path]):
-            self.main_window.error_dialog(
-                "Error, Please select all required folders before running the processing.",
-            )
-            return
-
-        if (
-            len(os.listdir(self.source_path)) == 0
-            or len(os.listdir(self.reference_path)) == 0
-        ):
-            self.main_window.error_dialog(
-                "Error", "Source and Reference folders must not be empty."
-            )
-            return
-
         self.fail_path = self.output_path_input.value + "/missed"
-        os.makedirs(self.fail_path, exist_ok=True)
 
+        if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
+            if not all([self.source_path, self.reference_path, self.output_path]):
+                self.main_window.error_dialog(
+                    "Invalid Command", enums.ErrorMessage.PATH_NOT_SELECTED.value
+                )
+                return
+        else:
+            if not all([self.source_path, self.output_path]):
+                self.main_window.error_dialog(
+                    "Invalid Command", enums.ErrorMessage.PATH_NOT_SELECTED.value
+                )
+                return
+
+        os.makedirs(self.fail_path, exist_ok=True)
         self.log_message("Starting processing...")
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, self._run_processing)
@@ -255,36 +260,44 @@ class PhotoMatcher(toga.App):
         self.progress_bar.start()
         self.progress_bar.value = 10
 
-        self.source_list_images = [
-            os.path.join(self.source_path, file)
-            for file in os.listdir(self.source_path)
-            if file.split(".")[-1] in enums.IMAGE_EXTENSION
-        ]
+        if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
+            self.run_sample_matching()
+            print("sample matching done")
+        elif self.task_selection.value == enums.Task.CLUSTERING.value:
+            self.run_clustering()
+            print("clustering done")
+        else:
+            raise NotImplementedError(
+                f"Task {self.task_selection.value} not implemented."
+            )
+
+        self.progress_bar.value = 100
+        self.progress_bar.stop()
+
+        return True
+
+    def run_sample_matching(self):
+        """Run the matching algorithm."""
+        self.source_list_images = utils.search_all_images(self.source_path)
 
         if len(self.source_list_images) == 0:
             self.main_window.error_dialog(
-                "Error, Please make sure that there are image files in the source folder.",
+                "Invalid Command", enums.ErrorMessage.SOURCE_FOLDER_EMPTY.value
             )
             return
 
-        self.reference_list_images = [
-            os.path.join(self.reference_path, file)
-            for file in os.listdir(self.reference_path)
-            if file.split(".")[-1] in enums.IMAGE_EXTENSION
-        ]
+        self.reference_list_images = utils.search_all_images(self.reference_path)
 
         if len(self.reference_list_images) == 0:
             self.main_window.error_dialog(
-                "Error, Please make sure that there are image files in the reference folder.",
+                "Invalid Command", enums.ErrorMessage.REFERENCE_FOLDER_EMPTY.value
             )
             return
 
         self.progress_bar.value = 25
-
-        # Run the model for source
         self.log_message(f"Processing {len(self.source_list_images)} source images.")
 
-        run_model_mp(
+        worker.run_model_mp(
             self.source_list_images,
             self.num_processes,
             self.chunksize,
@@ -297,7 +310,7 @@ class PhotoMatcher(toga.App):
         )
 
         self.progress_bar.value = 50
-        run_model_mp(
+        worker.run_model_mp(
             self.reference_list_images,
             self.num_processes,
             self.chunksize,
@@ -310,117 +323,19 @@ class PhotoMatcher(toga.App):
             "Embedding conversion completed. Now matching and saving results."
         )
 
-        self.match_embeddings()
-        self.progress_bar.value = 100
-        self.progress_bar.stop()
-
-        return True
-
-    def match_embeddings(self):
-        """Match the embeddings and save the match."""
-
-        faiss_index = faiss.IndexFlatL2(128)
-        source_embeddings = [
-            os.path.join(self.source_cache, file)
-            for file in os.listdir(self.source_cache)
-            if file.split(".")[-1] == "pkl"
-        ]
-
-        reference_embeddings = [
-            os.path.join(self.reference_cache, file)
-            for file in os.listdir(self.reference_cache)
-            if file.split(".")[-1] == "pkl"
-        ]
-
-        # Create quick look up table for the source and reference images.
-        source_dict = {
-            file.split("/")[-1].split(".")[0]: file for file in self.source_list_images
-        }
-        reference_dict = {
-            file.split("/")[-1].split(".")[0]: file
-            for file in self.reference_list_images
+        inputs = {
+            "source_cache": self.source_cache,
+            "reference_cache": self.reference_cache,
+            "source_list_images": self.source_list_images,
+            "reference_list_images": self.reference_list_images,
+            "output_path": self.output_path,
         }
 
-        # read the pickle files from the source embedding_path, and add it to the faiss index.
-        for file in source_embeddings:
-            with open(os.path.join(self.source_cache, file), "rb") as f:
-                embedding = pickle.load(f)
+        worker.match_embeddings(**inputs)
 
-                if isinstance(embedding, list):
-                    embedding = np.array(embedding)
-                else:
-                    raise ValueError(
-                        f"Error on {file}. Embedding must be a list, not {type(embedding)}"
-                    )
-
-                if embedding.shape != (1, 128):
-                    raise ValueError(
-                        f"Error on {file}. Embedding must be a (1, 128) numpy array, not {embedding.shape}"
-                    )
-
-                faiss_index.add(embedding)
-
-        print("added all the source embeddings to faiss index...")
-
-        for file in reference_embeddings:
-            with open(os.path.join(self.reference_cache, file), "rb") as f:
-                embedding = pickle.load(f)
-
-                if isinstance(embedding, list):
-                    embedding = np.array(embedding)
-                else:
-                    raise ValueError(
-                        f"Error on {file}. Embedding must be a list, not {type(embedding)}"
-                    )
-
-                if embedding.shape != (1, 128):
-                    raise ValueError(
-                        f"Error on {file}. Embedding must be a (1, 128) numpy array, not {embedding.shape}"
-                    )
-
-                D, I = faiss_index.search(embedding, 1)
-                distance = D[0][0]
-
-                # predicted label must exist in the lookup table.
-                predicted_label = (
-                    source_embeddings[I[0][0]].split("/")[-1].split(".")[0]
-                )
-
-                if predicted_label not in source_dict:
-                    raise ValueError(
-                        f"Predicted label {predicted_label} not found in source_dict."
-                    )
-
-                predicted_source_input_path = source_dict[predicted_label]
-
-                # now get the equivalent reference image.
-                reference_label = file.split("/")[-1].split(".")[0]
-
-                if reference_label not in reference_dict:
-                    raise ValueError(
-                        f"Reference label {reference_label} not found in reference_dict."
-                    )
-
-                ref_img_input_path = reference_dict[reference_label]
-
-                # to output folder, create a folder based predicted_label.
-                output_path = os.path.join(self.output_path, predicted_label)
-                os.makedirs(output_path, exist_ok=True)
-
-                # copy everything to the output folder.
-                predicted_source_output_path = os.path.join(
-                    output_path, os.path.basename(predicted_source_input_path)
-                )
-
-                shutil.copy(predicted_source_input_path, predicted_source_output_path)
-
-                ref_img_output_path = os.path.join(
-                    output_path, os.path.basename(ref_img_input_path)
-                )
-
-                shutil.copy(ref_img_input_path, ref_img_output_path)
-
-        return True
+    def run_clustering(self):
+        """Run the clustering algorithm."""
+        pass
 
 
 def main():

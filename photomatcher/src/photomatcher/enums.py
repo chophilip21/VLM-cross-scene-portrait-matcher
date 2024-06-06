@@ -2,8 +2,20 @@ from enum import Enum
 
 class Task(Enum):
     """Enum for task type."""
-    SAMPLE_MATCHING = "Source (1:N samples) matching"
-    CLUSTERING = "Clustering (M:N samples) matching"
+    SAMPLE_MATCHING = "Source matching (1 source img per subject, N reference images to match)"
+    CLUSTERING = "Clustering (Unknown number of subjects gathered in a single folder)"
+
+class StatusLogMessage(Enum):
+    """Enum for status message type."""
+    START = "Welcome to Photo Matcher.\nTo run source matching, select the source and reference image folders. Make sure that source folder has 1 image per subject, and reference folder has N images to match. For each subject, a folder will be created to the output path and images will be copied to the respective subject folders."
+    SAMPLE_MATCHING = "Tips: To run source matching, select the source and reference image folders. Make sure that source folder has 1 image per subject, and reference folder has N images to match. For each subject, a folder will be created to the output path and images will be copied to the respective subject folders."
+    CLUSTERING = "Tips: To run clustering, select the folder containing images to cluster. All images will be recursively picked up. The number of clusters will be automatically determined based on the number of images found. For each cluster, folders will be created to the output path and images will be copied to the respective cluster folders."
+
+class ErrorMessage(Enum):
+    PATH_NOT_SELECTED = "Error, Please select all required valid paths."
+    SOURCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the source folder."
+    REFERENCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the reference folder."
+
 
 IMAGE_EXTENSION = [
     "ase",
