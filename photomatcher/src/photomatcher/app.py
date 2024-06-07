@@ -1,3 +1,5 @@
+"""Combines TOGO frontend app code, calling ml model code from worker.py"""
+
 import os
 from dotenv import load_dotenv
 
@@ -225,7 +227,7 @@ class PhotoMatcher(toga.App):
         self.source_path = self.src_path_input.value
         self.reference_path = self.ref_path_input.value
         self.output_path = self.output_path_input.value
-        self.fail_path = self.output_path_input.value + "/missed"
+        self.fail_path = self.output_path_input.value + "/uncertain"
 
         if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
             if not all([self.source_path, self.reference_path, self.output_path]):
@@ -261,22 +263,27 @@ class PhotoMatcher(toga.App):
         self.progress_bar.value = 10
 
         if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
-            self.run_sample_matching()
+            result = self.run_sample_matching()
             print("sample matching done")
         elif self.task_selection.value == enums.Task.CLUSTERING.value:
-            self.run_clustering()
+            result = self.run_clustering()
             print("clustering done")
         else:
             raise NotImplementedError(
                 f"Task {self.task_selection.value} not implemented."
             )
 
+        if "error" in result:
+            self.main_window.error_dialog("Processing Failed", result["error"])
+            self.progress_bar.stop()
+            return False
+
         self.progress_bar.value = 100
         self.progress_bar.stop()
 
         return True
 
-    def run_sample_matching(self):
+    def run_sample_matching(self) -> dict:
         """Run the matching algorithm."""
         self.source_list_images = utils.search_all_images(self.source_path)
 
@@ -331,11 +338,47 @@ class PhotoMatcher(toga.App):
             "output_path": self.output_path,
         }
 
-        worker.match_embeddings(**inputs)
+        matching_result = worker.match_embeddings(**inputs)
 
-    def run_clustering(self):
+        return matching_result
+
+    def run_clustering(self) -> dict:
         """Run the clustering algorithm."""
-        pass
+        self.source_list_images = utils.search_all_images(self.source_path)
+
+        if len(self.source_list_images) == 0:
+            self.main_window.error_dialog(
+                "Invalid Command", enums.ErrorMessage.SOURCE_FOLDER_EMPTY.value
+            )
+            return
+
+        self.progress_bar.value = 25
+        self.log_message(f"Processing {len(self.source_list_images)} source images.")
+
+        worker.run_model_mp(
+            self.source_list_images,
+            self.num_processes,
+            self.chunksize,
+            self.source_cache,
+            self.fail_path,
+        )
+        self.progress_bar.value = 50
+        self.log_message("Embedding conversion completed. Now Clustering the results.")
+
+        # HDBSCAN outperforms DBSCAN and OPTICS in most cases.
+        inputs = {
+            "source_cache": self.source_cache,
+            "source_list_images": self.source_list_images,
+            "clustering_algorithm": enums.ClusteringAlgorithm.HDBSCAN.value,
+            "eps": 0.5,
+            "min_samples": 3,
+            "output_path": self.output_path,
+            "fail_path": self.fail_path,
+        }
+
+        cluster_result = worker.cluster_embeddings(**inputs)
+
+        return cluster_result
 
 
 def main():

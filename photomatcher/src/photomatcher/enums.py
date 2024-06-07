@@ -7,7 +7,7 @@ class Task(Enum):
 
 class StatusLogMessage(Enum):
     """Enum for status message type."""
-    START = "Welcome to Photo Matcher.\nTo run source matching, select the source and reference image folders. Make sure that source folder has 1 image per subject, and reference folder has N images to match. For each subject, a folder will be created to the output path and images will be copied to the respective subject folders."
+    START = "Welcome to Photo Matcher!\nTo run source matching, select the source and reference image folders. Make sure that source folder has 1 image per subject, and reference folder has N images to match. For each subject, a folder will be created to the output path and images will be copied to the respective subject folders."
     SAMPLE_MATCHING = "Tips: To run source matching, select the source and reference image folders. Make sure that source folder has 1 image per subject, and reference folder has N images to match. For each subject, a folder will be created to the output path and images will be copied to the respective subject folders."
     CLUSTERING = "Tips: To run clustering, select the folder containing images to cluster. All images will be recursively picked up. The number of clusters will be automatically determined based on the number of images found. For each cluster, folders will be created to the output path and images will be copied to the respective cluster folders."
 
@@ -16,6 +16,12 @@ class ErrorMessage(Enum):
     SOURCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the source folder."
     REFERENCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the reference folder."
 
+
+class ClusteringAlgorithm(Enum):
+    """Enum for clustering algorithm."""
+    DBSCAN = "DBSCAN"
+    OPTICS = "OPTICS"
+    HDBSCAN = "HDBSCAN"
 
 IMAGE_EXTENSION = [
     "ase",
