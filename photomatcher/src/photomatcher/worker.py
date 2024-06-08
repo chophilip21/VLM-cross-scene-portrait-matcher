@@ -21,18 +21,24 @@ def _run_ml_model(image_path: str, save_path: str, fail_path: str):
 
     if "error" in detection_result:
         shutil.copy(image_path, failed_image)
-        print(
-            f"Face detection error on source image {image_path}: {detection_result['error']}"
-        )
+        warning = f"Face detection error on source image {image_path}: {detection_result['error']}"
+     
+        return warning
+    
+    if "faces" not in detection_result:
+        shutil.copy(image_path, failed_image)
+        warning = f"Face not detected on source image {image_path}. Faces probably not there, or too small."
+     
+        return warning
 
     image = detection_result["image"]
     embedding_dict = sface.run_face_recognition(image, detection_result["faces"])
 
     if "error" in embedding_dict:
         shutil.copy(image_path, failed_image)
-        print(
-            f"Face recognition error on source image {image_path}: {embedding_dict['error']}"
-        )
+        warning = f"Face recognition error on source image {image_path}: {embedding_dict['error']}"
+   
+        return warning
 
     embedding = embedding_dict["embeddings"]
     save_embedding_name = os.path.join(
@@ -61,6 +67,9 @@ def run_model_mp(
                 chunksize=chunksize,
             )
         )
+
+        if not result:
+            print(f"Warning: {result}")
 
 
 def read_embedding(embedding_path) -> np.ndarray:
@@ -248,7 +257,7 @@ def cluster_embeddings(
             )
 
             shutil.copy(source_img_path, source_img_output_path)
-            print(f"Saved {source_img_path} to {source_img_output_path}")
+            # print(f"Saved {source_img_path} to {source_img_output_path}")
 
         result['status'] = "success"
 

@@ -77,15 +77,15 @@ def run_face_detection(image_path: str) -> dict:
 
     try:
         image = cv2.imread(image_path)
+
+        if image.shape[0] > 1000:
+            image = cv2.resize(image, (0, 0),
+                            fx=500 / image.shape[0], fy=500 / image.shape[0])
     except Exception as e:
         print(f"Error reading image {image_path}. Error: {e}")
         face_table['error'] = f"Error reading image {image_path}. Error: {e}"
         return face_table
 
-
-    if image.shape[0] > 1000:
-        image = cv2.resize(image, (0, 0),
-                           fx=500 / image.shape[0], fy=500 / image.shape[0])
 
     h, w, _ = image.shape
     face_table['image'] = image # if you need the resized image.

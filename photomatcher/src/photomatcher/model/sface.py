@@ -21,7 +21,7 @@ class Sface:
         return self.__class__.__name__
 
     def align_crop_face(self, image, face) -> np.ndarray:
-        """Crop the face from the image (112, 112, 3)"""
+        """Crop the face from the image to fit size (112, 112, 3) using the face bounding box."""
 
         if not isinstance(image, np.ndarray):
             raise ValueError("image must be a numpy array.")
@@ -57,18 +57,38 @@ def get_sface():
     """Return the model."""
     return model
 
+def choose_largest_face_yunet(faces: np.ndarray) -> np.ndarray:
+    """Choose the largest face from the detected faces."""
+    if faces.shape[0] == 0:
+        raise ValueError("No faces detected.")
+
+    if faces.shape[0] == 1:
+        return faces
+
+    # get the largest face. det[0:4] = face bounding box
+    face_sizes = [(det[2] - det[0]) * (det[3] - det[1]) for det in faces]
+    largest_face_idx = np.argmax(face_sizes)
+
+    if largest_face_idx != 0:
+        print(f"Warning: Multiple faces detected, using the largest face, idx: {largest_face_idx}")
+
+    largest_face = faces[largest_face_idx]
+
+    return largest_face
+
+
 
 def run_face_recognition(image: np.ndarray, faces: np.ndarray) -> dict:
     """Run the embeddings on the faces, return list of embeddings per face."""
 
     result = {}
     result["embeddings"] = []
+    largest_face = choose_largest_face_yunet(faces)
 
     try:
-        for face in faces:
-            aligned_face = model.align_crop_face(image, face)
-            feat_embedding = model.get_feat_from_aligned_face(aligned_face).squeeze()
-            result["embeddings"].append(feat_embedding)
+        aligned_face = model.align_crop_face(image, largest_face)
+        feat_embedding = model.get_feat_from_aligned_face(aligned_face).squeeze()
+        result["embeddings"].append(feat_embedding)
 
     except Exception as e:
         result["error"] = e

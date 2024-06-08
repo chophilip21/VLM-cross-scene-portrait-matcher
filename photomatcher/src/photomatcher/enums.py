@@ -7,9 +7,9 @@ class Task(Enum):
 
 class StatusLogMessage(Enum):
     """Enum for status message type."""
-    START = "Welcome to Photo Matcher!\nTo run source matching, select the source and reference image folders. Make sure that source folder has 1 image per subject, and reference folder has N images to match. For each subject, a folder will be created to the output path and images will be copied to the respective subject folders."
-    SAMPLE_MATCHING = "Tips: To run source matching, select the source and reference image folders. Make sure that source folder has 1 image per subject, and reference folder has N images to match. For each subject, a folder will be created to the output path and images will be copied to the respective subject folders."
-    CLUSTERING = "Tips: To run clustering, select the folder containing images to cluster. All images will be recursively picked up. The number of clusters will be automatically determined based on the number of images found. For each cluster, folders will be created to the output path and images will be copied to the respective cluster folders."
+    START = "Welcome to Photo Matcher!\nTo run source matching, select the source and reference image folders. Make sure that source folder has only one image per subject. Reference folder can have any number of images. For each subject, a folder will be created to the output path and images will be copied to the respective subject folders. Note, when multiple faces found in the source image, the largest face will be used."
+    SAMPLE_MATCHING = "Tips: To run source matching, select the source and reference image folders. Make sure that source folder has only one image per subject. Reference folder can have any number of images. For each subject, a folder will be created to the output path and images will be copied to the respective subject folders. Note, when multiple faces found in the source image, the largest face will be used."
+    CLUSTERING = "Tips: If you do not have one source image per subject or you simply don't know how many subjects you have, run clustering. To start, select the folder containing images to cluster, and all images will be recursively picked up. Each cluster represents identified subject, and folders will be created to the output path and images will be copied to the respective cluster folders. Uncertain ones will be transferred to uncertain folder. Note, when multiple faces found in the image, the largest face will be used."
 
 class ErrorMessage(Enum):
     PATH_NOT_SELECTED = "Error, Please select all required valid paths."
