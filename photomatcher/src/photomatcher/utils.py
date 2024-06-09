@@ -12,9 +12,6 @@ def search_all_images(path):
         if file.split('.')[-1].lower() in enums.IMAGE_EXTENSION:
             images.append(file)
 
-        else:
-            print(f"File {file} is not an image file.")
-
     return images
 
 if __name__ == "__main__":

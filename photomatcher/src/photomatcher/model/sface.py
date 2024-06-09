@@ -65,7 +65,7 @@ def choose_largest_face_yunet(faces: np.ndarray) -> np.ndarray:
     if faces.shape[0] == 1:
         return faces
 
-    # get the largest face. det[0:4] = face bounding box
+    # get the largest face. det[0:4] = face bounding box x,y,w,h
     face_sizes = [(det[2] - det[0]) * (det[3] - det[1]) for det in faces]
     largest_face_idx = np.argmax(face_sizes)
 

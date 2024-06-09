@@ -160,3 +160,4 @@ cython_debug/
 #.idea/
 beeware-venv
 photomatcher/src/photomatcher/cache
+dataset
