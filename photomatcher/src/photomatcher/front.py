@@ -1,0 +1,89 @@
+"""Seperate some parts of the main app to make things less crowded."""
+
+import os
+import toga
+from toga.style import Pack
+from toga.style.pack import ROW, CENTER
+import shutil
+import photomatcher.enums as enums
+
+
+class PhotoMatcherFrontEnd(toga.App):
+    """Frontend for the photo matching application."""
+
+    def __init__(self, formal_name=None):
+        """Initialize the toga modules."""
+        super().__init__(formal_name=formal_name)
+    
+
+        self.home = os.path.expanduser("~")
+        self.num_processes = os.cpu_count()
+        self.chunksize = os.getenv("CHUNKSIZE", 10)
+
+        # set up cache path.
+        self.source_cache = os.path.join(os.path.dirname(__file__), "cache/source")
+        self.reference_cache = os.path.join(
+            os.path.dirname(__file__), "cache/reference"
+        )
+        self.source_list_images = None
+        self.reference_list_images = None
+
+    def setup_cache_dir(self):
+        """clean up cache folders on start up, and recreate dir"""
+
+        if os.path.exists(self.source_cache):
+            shutil.rmtree(self.source_cache)
+
+        if os.path.exists(self.reference_cache):
+            shutil.rmtree(self.reference_cache)
+
+        os.makedirs(self.source_cache, exist_ok=True)
+        os.makedirs(self.reference_cache, exist_ok=True)
+        print("refreshing cache")
+
+
+    def refresh_inputs(self, widget):
+        """Clear all text inputs and reset progress bar."""
+        self.src_path_input.value = ""
+        self.ref_path_input.value = ""
+        self.output_path_input.value = ""
+        self.progress_bar.value = 0
+        self.console_log.value = ""
+        self.setup_cache_dir()
+        self.log_message("Inputs refreshed")
+
+        if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
+            self.log_message(enums.StatusLogMessage.SAMPLE_MATCHING.value)
+        elif self.task_selection.value == enums.Task.CLUSTERING.value:
+            self.log_message(enums.StatusLogMessage.CLUSTERING.value)
+        else:
+            raise NotImplementedError(
+                f"Task {self.task_selection.value} not implemented."
+            )
+        
+    def create_path_box(self, label_text, on_press_handler):
+        """Create a box with a label, text input, and button to select a path."""
+        path_box = toga.Box(style=Pack(direction=ROW, padding=5, alignment=CENTER))
+        path_label = toga.Label(label_text, style=Pack(padding=(0, 5)))
+        path_input = toga.TextInput(readonly=True, style=Pack(flex=1))
+        path_button = toga.Button(
+            "Choose...", on_press=on_press_handler, style=Pack(padding=5)
+        )
+        path_box.add(path_label)
+        path_box.add(path_input)
+        path_box.add(path_button)
+        return path_input, path_box
+    
+    
+    def update_visibility(self, widget=None):
+        """Update visibility of UI components based on selected task."""
+        if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
+            if self.ref_path_box[1] not in self.main_box.children:
+                self.main_box.insert(self.ref_path_box_index, self.ref_path_box[1])
+                self.console_log.value = ""
+                self.log_message(enums.StatusLogMessage.START.value)
+        elif self.task_selection.value == enums.Task.CLUSTERING.value:
+            if self.ref_path_box[1] in self.main_box.children:
+                self.main_box.remove(self.ref_path_box[1])
+                self.console_log.value = ""
+                self.log_message(enums.StatusLogMessage.CLUSTERING.value)
