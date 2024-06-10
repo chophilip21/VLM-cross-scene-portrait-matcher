@@ -7,7 +7,6 @@ from toga.style.pack import ROW, CENTER
 import shutil
 import photomatcher.enums as enums
 
-
 class PhotoMatcherFrontEnd(toga.App):
     """Frontend for the photo matching application."""
 
@@ -87,3 +86,32 @@ class PhotoMatcherFrontEnd(toga.App):
                 self.main_box.remove(self.ref_path_box[1])
                 self.console_log.value = ""
                 self.log_message(enums.StatusLogMessage.CLUSTERING.value)
+    
+    
+    async def select_src_path(self, widget):
+        """Select the source images folder."""
+        await self.select_path(self.src_path_input, "Source Images Folder")
+
+    async def select_ref_path(self, widget):
+        """Select the reference images folder."""
+        await self.select_path(self.ref_path_input, "Reference Images Folder")
+
+    async def select_output_path(self, widget):
+        """Select the output folder."""
+        await self.select_path(self.output_path_input, "Output Folder")
+
+    async def select_path(self, input_widget, dialog_title):
+        """Select the input paths using a dialog."""
+        try:
+            result = await self.main_window.select_folder_dialog(
+                dialog_title, initial_directory=self.home
+            )
+            if result:
+                input_widget.value = result
+                self.log_message(f"{dialog_title} selected: {result}")
+            else:
+                input_widget.value = "No folder selected!"
+                self.log_message(f"{dialog_title} selection canceled")
+        except Exception as e:
+            input_widget.value = "Error selecting folder!"
+            self.log_message(f"Error selecting folder: {e}")

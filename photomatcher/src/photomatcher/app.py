@@ -10,8 +10,6 @@ import photomatcher.worker as worker
 import photomatcher.utils as utils
 from photomatcher.front import PhotoMatcherFrontEnd
 import asyncio
-import shutil
-
 
 class PhotoMatcher(PhotoMatcherFrontEnd):
     """Photo matching main application."""
@@ -119,35 +117,6 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
     def log_message(self, message):
         """Append a message to the console log."""
         self.console_log.value += message + "\n"
-
-    async def select_src_path(self, widget):
-        """Select the source images folder."""
-        await self.select_path(self.src_path_input, "Source Images Folder")
-
-    async def select_ref_path(self, widget):
-        """Select the reference images folder."""
-        await self.select_path(self.ref_path_input, "Reference Images Folder")
-
-    async def select_output_path(self, widget):
-        """Select the output folder."""
-        await self.select_path(self.output_path_input, "Output Folder")
-
-    async def select_path(self, input_widget, dialog_title):
-        """Select the input paths using a dialog."""
-        try:
-            result = await self.main_window.select_folder_dialog(
-                dialog_title, initial_directory=self.home
-            )
-            if result:
-                input_widget.value = result
-                self.log_message(f"{dialog_title} selected: {result}")
-            else:
-                input_widget.value = "No folder selected!"
-                self.log_message(f"{dialog_title} selection canceled")
-        except Exception as e:
-            logging.error(f"Error selecting path: {e}")
-            input_widget.value = "Error selecting folder!"
-            self.log_message(f"Error selecting folder: {e}")
 
     async def run_processing(self, widget):
         """Run the photo matching processing."""
