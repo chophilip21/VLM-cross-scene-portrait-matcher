@@ -71,9 +71,13 @@ def get_yunet():
 
 
 def run_face_detection(image_path: str) -> dict:
-    """Run face detection on the image using Yunet."""
+    """Run face detection on the image using Yunet. Face result is a numpy array that is [x, y, w, h, and landmarks].
+    
+    Return dictionary that contains the image and faces, and resize ratio to recover the original size.
+    """
 
     face_table = {}
+    face_table['resize_ratio'] = 1.0
 
     try:
         image = cv2.imread(image_path)
@@ -81,6 +85,8 @@ def run_face_detection(image_path: str) -> dict:
         if image.shape[0] > 1000:
             image = cv2.resize(image, (0, 0),
                             fx=500 / image.shape[0], fy=500 / image.shape[0])
+            resize_ratio = 500 / image.shape[0]
+            face_table['resize_ratio'] = resize_ratio
     except Exception as e:
         print(f"Error reading image {image_path}. Error: {e}")
         face_table['error'] = f"Error reading image {image_path}. Error: {e}"
@@ -88,7 +94,7 @@ def run_face_detection(image_path: str) -> dict:
 
 
     h, w, _ = image.shape
-    face_table['image'] = image # if you need the resized image.
+    face_table['image'] = image # if you need the resized image. Use resize ratio to get the original size if you need it.
 
     # Inference results saved to dict.
     try: 

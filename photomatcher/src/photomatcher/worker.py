@@ -85,9 +85,9 @@ def read_embedding(embedding_path) -> np.ndarray:
                 f"Error on {embedding_path}. Embedding must be a list, not {type(embedding)}"
             )
 
-        if embedding.shape != (1, 128):
+        if embedding.shape[1] != 128:
             raise ValueError(
-                f"Error on {embedding_path}. Embedding must be a (1, 128) numpy array, not {embedding.shape}"
+                f"Error on {embedding_path}. Embedding must be a (N, 128) numpy array, not {embedding.shape}"
             )
 
         return embedding
@@ -127,55 +127,58 @@ def match_embeddings(
         }
 
         for file in source_embeddings:
-            embedding = read_embedding(os.path.join(source_cache, file))
-            faiss_index.add(embedding)
+            face_embeddings = read_embedding(os.path.join(source_cache, file))
+            for face_embedding in face_embeddings:
+                faiss_index.add(face_embedding)
 
         print("added all the source embeddings to faiss index...")
 
         for file in reference_embeddings:
-            embedding = read_embedding(os.path.join(reference_cache, file))
+            face_embeddings = read_embedding(os.path.join(reference_cache, file))
 
-            D, I = faiss_index.search(embedding, 1)
-            distance = D[0][0]
+            # For each face, we run search and export the results.
+            for face_embedding in face_embeddings:
+                D, I = faiss_index.search(face_embedding, 1)
+                distance = D[0][0]
 
-            # predicted label must exist in the lookup table.
-            predicted_label = source_embeddings[I[0][0]].split("/")[-1].split(".")[0]
+                # predicted label must exist in the lookup table.
+                predicted_label = source_embeddings[I[0][0]].split("/")[-1].split(".")[0]
 
-            if predicted_label not in source_dict:
-                raise ValueError(
-                    f"Predicted label {predicted_label} not found in source_dict."
+                if predicted_label not in source_dict:
+                    raise ValueError(
+                        f"Predicted label {predicted_label} not found in source_dict."
+                    )
+
+                predicted_source_input_path = source_dict[predicted_label]
+
+                # now get the equivalent reference image.
+                reference_label = file.split("/")[-1].split(".")[0]
+
+                if reference_label not in reference_dict:
+                    raise ValueError(
+                        f"Reference label {reference_label} not found in reference_dict."
+                    )
+
+                ref_img_input_path = reference_dict[reference_label]
+
+                # to output folder, create a folder based predicted_label.
+                predicted_label_folder = os.path.join(output_path, predicted_label)
+                os.makedirs(predicted_label_folder, exist_ok=True)
+
+                # copy everything to the output folder.
+                predicted_source_output_path = os.path.join(
+                    predicted_label_folder, os.path.basename(predicted_source_input_path)
                 )
 
-            predicted_source_input_path = source_dict[predicted_label]
+                shutil.copy(predicted_source_input_path, predicted_source_output_path)
 
-            # now get the equivalent reference image.
-            reference_label = file.split("/")[-1].split(".")[0]
-
-            if reference_label not in reference_dict:
-                raise ValueError(
-                    f"Reference label {reference_label} not found in reference_dict."
+                # same thing for the ref photos.
+                ref_img_output_path = os.path.join(
+                    predicted_label_folder, os.path.basename(ref_img_input_path)
                 )
 
-            ref_img_input_path = reference_dict[reference_label]
-
-            # to output folder, create a folder based predicted_label.
-            predicted_label_folder = os.path.join(output_path, predicted_label)
-            os.makedirs(predicted_label_folder, exist_ok=True)
-
-            # copy everything to the output folder.
-            predicted_source_output_path = os.path.join(
-                predicted_label_folder, os.path.basename(predicted_source_input_path)
-            )
-
-            shutil.copy(predicted_source_input_path, predicted_source_output_path)
-
-            # same thing for the ref photos.
-            ref_img_output_path = os.path.join(
-                predicted_label_folder, os.path.basename(ref_img_input_path)
-            )
-
-            shutil.copy(ref_img_input_path, ref_img_output_path)
-            result['status'] = "success"
+                shutil.copy(ref_img_input_path, ref_img_output_path)
+                result['status'] = "success"
         
     except Exception as e:
         return {"error": 'matching failed because of ' + str(e)}

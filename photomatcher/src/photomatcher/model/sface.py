@@ -57,38 +57,35 @@ def get_sface():
     """Return the model."""
     return model
 
-def choose_largest_face_yunet(faces: np.ndarray) -> np.ndarray:
-    """Choose the largest face from the detected faces."""
+def choose_n_largest_face_yunet(faces: np.ndarray, faces_to_keep: int=3) -> np.ndarray:
+    """Choose the top N largest face from the detected faces."""
     if faces.shape[0] == 0:
         raise ValueError("No faces detected.")
 
     if faces.shape[0] == 1:
         return faces
 
-    # get the largest face. det[0:4] = face bounding box x,y,w,h
-    face_sizes = [(det[2] - det[0]) * (det[3] - det[1]) for det in faces]
-    largest_face_idx = np.argmax(face_sizes)
+    # det[0:4] = face bounding box x,y,w,h
+    if faces_to_keep > faces.shape[0]:
+        faces_to_keep = faces.shape[0]
 
-    if largest_face_idx != 0:
-        print(f"Warning: Multiple faces detected, using the largest face, idx: {largest_face_idx}")
+    faces = sorted(faces, key=lambda face: face[2] * face[3], reverse=True)[:faces_to_keep]
 
-    largest_face = faces[largest_face_idx]
-
-    return largest_face
+    return faces
 
 
-
-def run_face_recognition(image: np.ndarray, faces: np.ndarray) -> dict:
+def run_face_recognition(image: np.ndarray, faces: np.ndarray, faces_to_keep: int=3) -> dict:
     """Run the embeddings on the faces, return list of embeddings per face."""
 
     result = {}
     result["embeddings"] = []
-    largest_face = choose_largest_face_yunet(faces)
+    largest_faces = choose_n_largest_face_yunet(faces, faces_to_keep)
 
     try:
-        aligned_face = model.align_crop_face(image, largest_face)
-        feat_embedding = model.get_feat_from_aligned_face(aligned_face).squeeze()
-        result["embeddings"].append(feat_embedding)
+        for face in largest_faces:
+            aligned_face = model.align_crop_face(image, face)
+            feat_embedding = model.get_feat_from_aligned_face(aligned_face).squeeze()
+            result["embeddings"].append(feat_embedding)
 
     except Exception as e:
         result["error"] = e
