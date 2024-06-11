@@ -144,9 +144,9 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
                 return
 
         os.makedirs(self.fail_path, exist_ok=True)
-        self.log_message("Starting processing...")
+        self.display_console_message("Starting pre-processing step...")
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, self._run_processing)
+        receipt = await loop.run_in_executor(None, self._threaded_cpu_tasks)
 
         # if none returned, do not proceed.
         if receipt is None:
@@ -188,8 +188,8 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
         self.progress_bar.value = 10
 
         if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
-            result = self.run_sample_matching()
-            print("sample matching done")
+            result = self.preprocess_sample_matching()
+            self.debugger.info("preprocess for sample matching done")
         elif self.task_selection.value == enums.Task.CLUSTERING.value:
             result = self.preprocess_clustering()
             self.debugger.info("preprocess for clustering done")
@@ -205,15 +205,12 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
             )
             self.debugger.error(result["error"])
             self.progress_bar.stop()
-            return False
+            return None
 
-        self.progress_bar.value = 100
-        self.progress_bar.stop()
+        return result
 
-        return True
-
-    def run_sample_matching(self) -> dict:
-        """Run the matching algorithm."""
+    def preprocess_sample_matching(self) -> dict:
+        """Preprocessing for the matching algorithm."""
         self.source_list_images = utils.search_all_images(self.source_path)
 
         if len(self.source_list_images) == 0:
@@ -273,12 +270,10 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
             "output_path": self.output_path,
         }
 
-        matching_result = worker.match_embeddings(**inputs)
+        return inputs
 
-        return matching_result
-
-    def run_clustering(self) -> dict:
-        """Run the clustering algorithm."""
+    def preprocess_clustering(self) -> dict:
+        """Preprocessing for the clustering algorithm."""
         self.source_list_images = utils.search_all_images(self.source_path)
 
         if len(self.source_list_images) == 0:
