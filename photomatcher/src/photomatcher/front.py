@@ -8,6 +8,7 @@ import shutil
 import photomatcher.enums as enums
 import logging
 from datetime import datetime
+import platform
 
 timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 log_path = os.path.join(os.path.dirname(__file__), "logs")
@@ -33,6 +34,7 @@ class PhotoMatcherFrontEnd(toga.App):
         self.num_processes = os.cpu_count()
         self.chunksize = os.getenv("CHUNKSIZE", 10)
         self.top_n_face = int(os.getenv("TOP_N_FACE", 3))
+        self.min_clustering_samples = int(os.getenv("MIN_CLUSTERING_SAMPLES", 2))
 
         # set up cache path.
         self.source_cache = os.path.join(os.path.dirname(__file__), "cache/source")
@@ -42,6 +44,15 @@ class PhotoMatcherFrontEnd(toga.App):
         self.source_list_images = None
         self.reference_list_images = None
         self.debugger = logging.getLogger(__name__)
+
+        # log platform information to debugger.
+        self.debugger.info(f"platform: {platform.platform()}")
+        
+        # log all the env variables to debugger.
+        self.debugger.info(f"num_processes: {self.num_processes}")
+        self.debugger.info(f"chunksize: {self.chunksize}")
+        self.debugger.info(f"top_n_face: {self.top_n_face}")
+        self.debugger.info(f"min_clustering_samples: {self.min_clustering_samples}")
 
     def setup_cache_dir(self):
         """clean up cache folders on start up, and recreate dir"""

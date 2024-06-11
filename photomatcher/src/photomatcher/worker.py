@@ -231,79 +231,92 @@ def cluster_embeddings(
 
     result = {}
 
-    try:
-        source_embeddings = [
+    source_embeddings = [
             os.path.join(source_cache, file)
             for file in os.listdir(source_cache)
             if file.split(".")[-1] == "pkl"
+    ]
+
+    embedding_file_to_image_table = {
+        file.split("/")[-1].split(".")[0]: file for file in source_list_images
+    }
+
+    loaded_embeddings = []
+    cluster_obj = None
+
+    # init clustering algorithm.
+    if clustering_algorithm == enums.ClusteringAlgorithm.DBSCAN.value:
+        cluster_obj = c_algorithm.DBSCAN(
+            eps=eps, min_samples=min_samples, metric="euclidean", leaf_size=50
+        )
+    elif clustering_algorithm == enums.ClusteringAlgorithm.OPTICS.value:
+        cluster_obj = c_algorithm.OPTICS(min_samples=min_samples, metric="euclidean")
+
+    elif clustering_algorithm == enums.ClusteringAlgorithm.HDBSCAN.value:
+        cluster_obj = hdbscan.HDBSCAN(min_samples=min_samples)
+    else:
+        raise NotImplementedError(
+            f"Clustering algorithm {clustering_algorithm} not supported."
+        )
+
+    # because there are multiple faces, we need to keep track of the embeddings.
+    face_to_embedding_file_table = {}
+    index_count = 0
+    for file in source_embeddings:
+        
+        try:
+            embedding = read_embedding(os.path.join(source_cache, file))
+        except Exception as e:
+            result["error"] = f"Error reading embeddings file when clustering: {e}"
+            return result
+        
+        for face_embedding in embedding:
+            loaded_embeddings.append(face_embedding.flatten())
+           
+            # keep track of the face to embedding file with face index.
+            face_to_embedding_file_table[index_count] = file
+            index_count += 1
+
+    embeddings = np.array(loaded_embeddings)
+    print(f"Embeddings shape for clustering: {embeddings.shape}")
+
+    try: 
+        labels = cluster_obj.fit_predict(embeddings)
+    except Exception as e:
+        result["error"] = f"Error during cluster fit_predict embeddings: {e}"
+        return result
+
+    # now save the output.
+    for i, label in enumerate(labels):
+
+        # find the original image from look up table.
+        backtracked_file_name = face_to_embedding_file_table[i]
+
+        source_img_path = embedding_file_to_image_table[
+            backtracked_file_name.split("/")[-1].split(".")[0]
         ]
 
-        # Create quick look up table for the source and reference images.
-        source_dict = {
-            file.split("/")[-1].split(".")[0]: file for file in source_list_images
-        }
-
-        loaded_embeddings = []
-        for file in source_embeddings:
-            embedding = read_embedding(os.path.join(source_cache, file))
-            loaded_embeddings.append(embedding.flatten())
-
-        embeddings = np.array(loaded_embeddings)
-        print(f"Embeddings shape for clustering: {embeddings.shape}")
-
-        if clustering_algorithm == enums.ClusteringAlgorithm.DBSCAN.value:
-            db = c_algorithm.DBSCAN(
-                eps=eps, min_samples=min_samples, metric="euclidean", leaf_size=50
+        # label -1 indicates failed clustering.
+        if label == -1:
+            failed_img_output_path = os.path.join(
+                fail_path, os.path.basename(source_img_path)
             )
-
-            db.fit_predict(embeddings)
-            labels = db.labels_
-
-        elif clustering_algorithm == enums.ClusteringAlgorithm.OPTICS.value:
-            optics = c_algorithm.OPTICS(min_samples=min_samples, metric="euclidean")
-            labels = optics.fit_predict(embeddings)
-
-        elif clustering_algorithm == enums.ClusteringAlgorithm.HDBSCAN.value:
-            clustering = hdbscan.HDBSCAN(min_samples=min_samples)
-            labels = clustering.fit_predict(embeddings)
-        else:
-            raise NotImplementedError(
-                f"Clustering algorithm {clustering_algorithm} not supported."
+            shutil.copy(source_img_path, failed_img_output_path)
+            print(
+                f"Failed clustering on {source_img_path}. Saved to {failed_img_output_path}"
             )
+            continue
 
-        # now save the output.
-        for i, label in enumerate(labels):
+        label_folder = os.path.join(output_path, str(label))
+        os.makedirs(label_folder, exist_ok=True)
 
-            # find the original image from look up table.
-            source_img_path = source_dict[
-                source_embeddings[i].split("/")[-1].split(".")[0]
-            ]
+        source_img_output_path = os.path.join(
+            label_folder, os.path.basename(source_img_path)
+        )
 
-            # label -1 indicates failed clustering.
-            if label == -1:
-                failed_img_output_path = os.path.join(
-                    fail_path, os.path.basename(source_img_path)
-                )
-                shutil.copy(source_img_path, failed_img_output_path)
-                print(
-                    f"Failed clustering on {source_img_path}. Saved to {failed_img_output_path}"
-                )
-                continue
+        shutil.copy(source_img_path, source_img_output_path)
 
-            label_folder = os.path.join(output_path, str(label))
-            os.makedirs(label_folder, exist_ok=True)
-
-            source_img_output_path = os.path.join(
-                label_folder, os.path.basename(source_img_path)
-            )
-
-            shutil.copy(source_img_path, source_img_output_path)
-            # print(f"Saved {source_img_path} to {source_img_output_path}")
-
-        result["status"] = "success"
-
-    except Exception as e:
-        return {"error": "clustering failed because of " + str(e)}
+    result["status"] = "success"
 
     return result
 

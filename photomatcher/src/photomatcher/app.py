@@ -117,6 +117,7 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
     def display_console_message(self, message):
         """Append a message to the console log."""
         self.console_log.value += message + "\n"
+        self.debugger.info(message)
 
     async def execute(self, widget):
         """Run the photo matching processing."""
@@ -126,6 +127,7 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
         self.fail_path = self.output_path_input.value + "/uncertain"
 
         if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
+            self.debugger.info("Running sample matching.")
             if not all([self.source_path, self.reference_path, self.output_path]):
                 self.main_window.error_dialog(
                     "Invalid Command", enums.ErrorMessage.PATH_NOT_SELECTED.value
@@ -133,6 +135,7 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
                 self.debugger.error("source, reference, or output path not selected.")
                 return
         else:
+            self.debugger.info("Running clustering.")
             if not all([self.source_path, self.output_path]):
                 self.main_window.error_dialog(
                     "Invalid Command", enums.ErrorMessage.PATH_NOT_SELECTED.value
@@ -153,8 +156,10 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
         # Run rest of the tasks in the main thread
         if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
             final_result = worker.match_embeddings(**receipt)
+            self.debugger.info("postprocess for matching finished.")
         elif self.task_selection.value == enums.Task.CLUSTERING.value:
             final_result = worker.cluster_embeddings(**receipt)
+            self.debugger.info("postprocess for clustering finished.")
 
         if "error" in final_result:
             self.main_window.error_dialog(
@@ -178,11 +183,11 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
         self.progress_bar.value = 10
 
         if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
-            result = self.run_sample_matching()
-            self.debugger.info("sample matching done")
+            result = self.preprocess_sample_matching()
+            self.debugger.info("preprocess for sample matching done")
         elif self.task_selection.value == enums.Task.CLUSTERING.value:
-            result = self.run_clustering()
-            self.debugger.info("clustering done")
+            result = self.preprocess_clustering()
+            self.debugger.info("preprocess for clustering done")
         else:
             raise NotImplementedError(
                 f"Task {self.task_selection.value} not implemented."
@@ -199,8 +204,8 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
 
         return result
 
-    def run_sample_matching(self) -> dict:
-        """Run the matching algorithm."""
+    def preprocess_sample_matching(self) -> dict:
+        """Preprocessing for the matching algorithm."""
         self.source_list_images = utils.search_all_images(self.source_path)
 
         if len(self.source_list_images) == 0:
@@ -262,8 +267,8 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
 
         return inputs
 
-    def run_clustering(self) -> dict:
-        """Run the clustering algorithm."""
+    def preprocess_clustering(self) -> dict:
+        """Preprocessing for the clustering algorithm."""
         self.source_list_images = utils.search_all_images(self.source_path)
 
         if len(self.source_list_images) == 0:
@@ -295,7 +300,7 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
             "source_list_images": self.source_list_images,
             "clustering_algorithm": enums.ClusteringAlgorithm.HDBSCAN.value,
             "eps": 0.5,
-            "min_samples": 3,
+            "min_samples": 2,
             "output_path": self.output_path,
             "fail_path": self.fail_path,
         }
