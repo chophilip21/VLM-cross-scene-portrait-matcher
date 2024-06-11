@@ -1,4 +1,5 @@
 """ML algorithms for face detection and recognition, and clustering."""
+
 import photomatcher.model.yunet as yunet
 import photomatcher.model.sface as sface
 import photomatcher.enums as enums
@@ -11,10 +12,13 @@ import numpy as np
 import faiss
 import sklearn.cluster as c_algorithm
 import hdbscan
+import cv2
 
+def _run_ml_model(image_path: str, save_path: str, fail_path: str, keep_top_n: int = 3):
+    """Process face detection and recognition for images, save embeddings to save_path as pkl file.
 
-def _run_ml_model(image_path: str, save_path: str, fail_path: str):
-    """Process face detection and recognition for images, save embeddings to save_path, otherwide save the entire image to fail_path."""
+    Instead of converting all faces to embeddings, only largest top n faces are converted. Result should have both aligned face and converted embeddings as keys.
+    """
     detection_result = yunet.run_face_detection(image_path)
 
     failed_image = os.path.join(fail_path, os.path.basename(image_path))
@@ -22,47 +26,64 @@ def _run_ml_model(image_path: str, save_path: str, fail_path: str):
     if "error" in detection_result:
         shutil.copy(image_path, failed_image)
         warning = f"Face detection error on source image {image_path}: {detection_result['error']}"
-     
+
         return warning
-    
+
     if "faces" not in detection_result:
         shutil.copy(image_path, failed_image)
         warning = f"Face not detected on source image {image_path}. Faces probably not there, or too small."
-     
+
         return warning
 
     image = detection_result["image"]
-    embedding_dict = sface.run_face_recognition(image, detection_result["faces"])
+    faces = detection_result["faces"]
+
+    # Only go over the top n faces instead of going for all faces.
+    if faces.shape[0] < keep_top_n:
+        keep_top_n = faces.shape[0]
+
+    # bb = [x, y, w, h, landmarks]
+    faces = sorted(faces, key=lambda face: face[2] * face[3], reverse=True)[:keep_top_n]
+    embedding_dict = sface.run_embedding_conversion(image, faces)
 
     if "error" in embedding_dict:
         shutil.copy(image_path, failed_image)
         warning = f"Face recognition error on source image {image_path}: {embedding_dict['error']}"
-   
+
         return warning
 
-    embedding = embedding_dict["embeddings"]
     save_embedding_name = os.path.join(
         save_path, os.path.basename(image_path).split(".")[0] + ".pkl"
     )
 
-    # pickle dump embedding.
+    # pickle dump all face embeddings found in the image.
     with open(save_embedding_name, "wb") as f:
-        pickle.dump(embedding, f)
+        pickle.dump(embedding_dict, f)
 
     return True
 
 
 def run_model_mp(
-    entries, num_workers: int, chunksize: int, save_path: str, fail_path: str
+    entries,
+    num_workers: int,
+    chunksize: int,
+    save_path: str,
+    fail_path: str,
+    keep_top_n: int = 3,
 ):
-    """Use multiprocessing to run the model."""
+    """Use multiprocessing to run the models."""
     ctx = mp.get_context("spawn")
     pool = ctx.Pool(processes=num_workers)
 
     with pool as p:
         result = list(
             p.imap_unordered(
-                partial(_run_ml_model, save_path=save_path, fail_path=fail_path),
+                partial(
+                    _run_ml_model,
+                    save_path=save_path,
+                    fail_path=fail_path,
+                    keep_top_n=keep_top_n,
+                ),
                 entries,
                 chunksize=chunksize,
             )
@@ -72,25 +93,34 @@ def run_model_mp(
             print(f"Warning: {result}")
 
 
-def read_embedding(embedding_path) -> np.ndarray:
-    """Read and validate embeddings from pickle path."""
+def read_embeddingpkl(embedding_path) -> dict:
+    """Read and validate embeddings pkl file to retrieve dictionary from pickle path."""
+
+    data = {}
+
     with open(embedding_path, "rb") as f:
-        embedding = pickle.load(f)
+        embedding_dict = pickle.load(f)
 
-        # basic validation
-        if isinstance(embedding, list):
-            embedding = np.array(embedding)
-        else:
+        if "embeddings" not in embedding_dict:
             raise ValueError(
-                f"Error on {embedding_path}. Embedding must be a list, not {type(embedding)}"
+                f"Failed to read embeddings. Key for embeddings not found in {embedding_path}"
             )
 
-        if embedding.shape[1] != 128:
+        if "faces" not in embedding_dict:
             raise ValueError(
-                f"Error on {embedding_path}. Embedding must be a (N, 128) numpy array, not {embedding.shape}"
+                f"Failed to read embeddings. Key for faces not found in {embedding_path}"
             )
 
-        return embedding
+        embeddings = np.array(embedding_dict["embeddings"])
+        if embeddings.shape[1] != 128:
+            raise ValueError(
+                f"Error on {embedding_path}. Embedding must be a (N, 128) numpy array, not {embeddings.shape}"
+            )
+
+        data['faces'] = np.array(embedding_dict['faces'])
+        data['embeddings'] = embeddings
+
+    return data
 
 
 def match_embeddings(
@@ -99,50 +129,76 @@ def match_embeddings(
     source_list_images: list,
     reference_list_images: list,
     output_path: str,
-)-> dict:
+) -> dict:
     """Match the embeddings and save the match. Return result status."""
 
     result = {}
 
-    try:
-        faiss_index = faiss.IndexFlatL2(128)
-        source_embeddings = [
-            os.path.join(source_cache, file)
-            for file in os.listdir(source_cache)
-            if file.split(".")[-1] == "pkl"
-        ]
+    faiss_index = faiss.IndexFlatL2(128)
+    source_embeddings = [
+        os.path.join(source_cache, file)
+        for file in os.listdir(source_cache)
+        if file.split(".")[-1] == "pkl"
+    ]
 
-        reference_embeddings = [
-            os.path.join(reference_cache, file)
-            for file in os.listdir(reference_cache)
-            if file.split(".")[-1] == "pkl"
-        ]
+    reference_embeddings = [
+        os.path.join(reference_cache, file)
+        for file in os.listdir(reference_cache)
+        if file.split(".")[-1] == "pkl"
+    ]
 
-        # Create quick look up table for the source and reference images.
-        source_dict = {
-            file.split("/")[-1].split(".")[0]: file for file in source_list_images
-        }
-        reference_dict = {
-            file.split("/")[-1].split(".")[0]: file for file in reference_list_images
-        }
+    # Create quick look up table for the source and reference images.
+    source_dict = {
+        file.split("/")[-1].split(".")[0]: file for file in source_list_images
+    }
+    reference_dict = {
+        file.split("/")[-1].split(".")[0]: file for file in reference_list_images
+    }
 
-        for file in source_embeddings:
-            face_embeddings = read_embedding(os.path.join(source_cache, file))
-            for face_embedding in face_embeddings:
+    # start by reading each embedding file, and adding to faiss index.
+    for embedding_file in source_embeddings:
+        try:
+            source_embedding_dict = read_embeddingpkl(
+                os.path.join(source_cache, embedding_file)
+            )
+
+            source_embedding = source_embedding_dict["embeddings"]
+
+            for face_embedding in source_embedding:
+
+                # check number of dimensions. Should be (1, 128)
+                if face_embedding.ndim == 1:
+                    face_embedding = np.expand_dims(face_embedding, axis=0)
+
                 faiss_index.add(face_embedding)
 
-        print("added all the source embeddings to faiss index...")
+        except Exception as e:
+            result["error"] = f"Error adding source embeddings to faiss index: {e}"
+            return result
 
-        for file in reference_embeddings:
-            face_embeddings = read_embedding(os.path.join(reference_cache, file))
+    for file in reference_embeddings:
 
-            # For each face, we run search and export the results.
-            for face_embedding in face_embeddings:
+        try:
+            reference_embedding_dict = read_embeddingpkl(
+                os.path.join(reference_cache, file)
+            )
+
+            reference_embedding = reference_embedding_dict["embeddings"]
+
+            for face_embedding in reference_embedding:
+
+                # check number of dimensions. Should be (1, 128)
+                if face_embedding.ndim == 1:
+                    face_embedding = np.expand_dims(face_embedding, axis=0)
+
+                # search for the nearest embedding in the source embeddings.
                 D, I = faiss_index.search(face_embedding, 1)
                 distance = D[0][0]
 
                 # predicted label must exist in the lookup table.
-                predicted_label = source_embeddings[I[0][0]].split("/")[-1].split(".")[0]
+                predicted_label = (
+                    source_embeddings[I[0][0]].split("/")[-1].split(".")[0]
+                )
 
                 if predicted_label not in source_dict:
                     raise ValueError(
@@ -167,9 +223,11 @@ def match_embeddings(
 
                 # copy everything to the output folder.
                 predicted_source_output_path = os.path.join(
-                    predicted_label_folder, os.path.basename(predicted_source_input_path)
+                    predicted_label_folder,
+                    os.path.basename(predicted_source_input_path),
                 )
 
+                # print(f'Predicted source: {predicted_source_input_path} -> {predicted_source_output_path}')
                 shutil.copy(predicted_source_input_path, predicted_source_output_path)
 
                 # same thing for the ref photos.
@@ -177,11 +235,13 @@ def match_embeddings(
                     predicted_label_folder, os.path.basename(ref_img_input_path)
                 )
 
+                # print(f'Reference: {ref_img_input_path} -> {ref_img_output_path}')
                 shutil.copy(ref_img_input_path, ref_img_output_path)
-                result['status'] = "success"
-        
-    except Exception as e:
-        return {"error": 'matching failed because of ' + str(e)}
+                result["status"] = "success"
+
+        except Exception as e:
+            result["error"] = f"Error matching embeddings: {e}"
+            return result
 
     return result
 
@@ -194,78 +254,115 @@ def cluster_embeddings(
     min_samples: int,
     output_path: str,
     fail_path: str,
-)-> dict:
+) -> dict:
     """Cluster embeddings, and save the output. Return result status."""
 
     result = {}
+    result['missed_count'] = 0 
+
+    source_embeddings = [
+        os.path.join(source_cache, file)
+        for file in os.listdir(source_cache)
+        if file.split(".")[-1] == "pkl"
+    ]
+
+    embedding_file_to_image_table = {
+        file.split("/")[-1].split(".")[0]: file for file in source_list_images
+    }
+
+    loaded_embeddings = []
+    loaded_faces = []
+    cluster_obj = None
+
+    # init clustering algorithm.
+    if clustering_algorithm == enums.ClusteringAlgorithm.DBSCAN.value:
+        cluster_obj = c_algorithm.DBSCAN(
+            eps=eps, min_samples=min_samples, metric="euclidean", leaf_size=50
+        )
+    elif clustering_algorithm == enums.ClusteringAlgorithm.OPTICS.value:
+        cluster_obj = c_algorithm.OPTICS(min_samples=min_samples, metric="euclidean")
+
+    elif clustering_algorithm == enums.ClusteringAlgorithm.HDBSCAN.value:
+        cluster_obj = hdbscan.HDBSCAN(min_cluster_size=min_samples, leaf_size=50)
+    else:
+        raise NotImplementedError(
+            f"Clustering algorithm {clustering_algorithm} not supported."
+        )
+
+    # because there are multiple faces, we need to keep track of the embeddings.
+    face_to_embedding_file_table = {}
+    index_count = 0
+    for file in source_embeddings:
+
+        try:
+            embedding_dict = read_embeddingpkl(os.path.join(source_cache, file))
+            embedding = embedding_dict["embeddings"]
+            aligned_face = embedding_dict["faces"]
+
+        except Exception as e:
+            result["error"] = f"Error reading embeddings file when clustering: {e}"
+            return result
+
+        # append the embeddings and corresponding faces to a list for clustering.
+        for i, face_embedding in enumerate(embedding):
+            loaded_embeddings.append(face_embedding.flatten())
+            loaded_faces.append(aligned_face[i])
+
+            # keep track of the face to embedding file with face index.
+            face_to_embedding_file_table[index_count] = file
+            index_count += 1
+
+    embeddings = np.array(loaded_embeddings)
+    print(f"Embeddings shape for clustering: {embeddings.shape}")
 
     try:
-        source_embeddings = [
-            os.path.join(source_cache, file)
-            for file in os.listdir(source_cache)
-            if file.split(".")[-1] == "pkl"
+        labels = cluster_obj.fit_predict(embeddings)
+    except Exception as e:
+        result["error"] = f"Error during cluster fit_predict embeddings: {e}"
+        return result
+
+    # now save the output.
+    for i, label in enumerate(labels):
+
+        # find the original image from look up table.
+        backtracked_file_name = face_to_embedding_file_table[i]
+
+        source_img_path = embedding_file_to_image_table[
+            backtracked_file_name.split("/")[-1].split(".")[0]
         ]
 
-        # Create quick look up table for the source and reference images.
-        source_dict = {
-            file.split("/")[-1].split(".")[0]: file for file in source_list_images
-        }
-
-        loaded_embeddings = []
-        for file in source_embeddings:
-            embedding = read_embedding(os.path.join(source_cache, file))
-            loaded_embeddings.append(embedding.flatten())
-
-        embeddings = np.array(loaded_embeddings)
-        print(f"Embeddings shape for clustering: {embeddings.shape}")
-
-        if clustering_algorithm == enums.ClusteringAlgorithm.DBSCAN.value:
-            db = c_algorithm.DBSCAN(
-                eps=eps, min_samples=min_samples, metric="euclidean", leaf_size=50
+        # label -1 indicates failed clustering.
+        if label == -1:
+            failed_img_output_path = os.path.join(
+                fail_path, os.path.basename(source_img_path)
             )
-
-            db.fit_predict(embeddings)
-            labels = db.labels_
-
-        elif clustering_algorithm == enums.ClusteringAlgorithm.OPTICS.value:
-            optics = c_algorithm.OPTICS(min_samples=min_samples, metric="euclidean")
-            labels = optics.fit_predict(embeddings)
-
-        elif clustering_algorithm == enums.ClusteringAlgorithm.HDBSCAN.value:
-            clustering = hdbscan.HDBSCAN(min_samples=min_samples)
-            labels = clustering.fit_predict(embeddings)
-        else:
-            raise NotImplementedError(
-                f"Clustering algorithm {clustering_algorithm} not supported."
+            shutil.copy(source_img_path, failed_img_output_path)
+            print(
+                f"Failed clustering on {source_img_path}. Saved to {failed_img_output_path}"
             )
-        
-        # now save the output.
-        for i, label in enumerate(labels):
-            
-            # find the original image from look up table.
-            source_img_path = source_dict[source_embeddings[i].split("/")[-1].split(".")[0]]
+            result['missed_count'] += 1
+            continue
 
-            # label -1 indicates failed clustering.
-            if label == -1:
-                failed_img_output_path = os.path.join(fail_path, os.path.basename(source_img_path))
-                shutil.copy(source_img_path, failed_img_output_path)
-                print(f"Failed clustering on {source_img_path}. Saved to {failed_img_output_path}")
-                continue
+        label_folder = os.path.join(output_path, "subject-no-" + str(label))
+        os.makedirs(label_folder, exist_ok=True)
 
-            label_folder = os.path.join(output_path, str(label))
-            os.makedirs(label_folder, exist_ok=True)
-           
-            source_img_output_path = os.path.join(
-                label_folder, os.path.basename(source_img_path)
+        source_img_output_path = os.path.join(
+            label_folder, os.path.basename(source_img_path)
+        )
+
+        shutil.copy(source_img_path, source_img_output_path)
+
+        # save face sample for sanity check.
+        try:            
+            aligned_face_sample_output_path = os.path.join(
+                label_folder, "target_face.jpg"
             )
+            cv2.imwrite(aligned_face_sample_output_path, loaded_faces[i])
+        except Exception as e:
+            result["error"] = f"Error saving aligned face sample: {e}"
+            return result
 
-            shutil.copy(source_img_path, source_img_output_path)
-            # print(f"Saved {source_img_path} to {source_img_output_path}")
-
-        result['status'] = "success"
-
-    except Exception as e:
-        return {"error": 'clustering failed because of ' + str(e)}
+    result["status"] = "success"
 
     return result
 

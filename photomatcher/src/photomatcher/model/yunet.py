@@ -71,9 +71,9 @@ def get_yunet():
 
 
 def run_face_detection(image_path: str) -> dict:
-    """Run face detection on the image using Yunet. Face result is a numpy array that is [x, y, w, h, and landmarks].
+    """Run face detection on the image using Yunet.
     
-    Return dictionary that contains the image and faces, and resize ratio to recover the original size.
+    Faces is a list where each faces are represented as [x,y,w,h,landmarks].
     """
 
     face_table = {}
