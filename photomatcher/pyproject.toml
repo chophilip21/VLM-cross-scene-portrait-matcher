@@ -13,30 +13,25 @@ formal_name = "PhotoMatcher"
 description = "run photo matching algorithm"
 long_description = """More details about the app should go here.
 """
-sources = [
-    "src/photomatcher",
-]
-test_sources = [
-    "tests",
-]
+sources = ["src/photomatcher"]
+test_sources = ["tests"]
 
 requires = [
+    "python-dotenv",
+    "scikit-learn",
+    "hdbscan",
+    "faiss-cpu",
+    "opencv-python",
+    "packaging",
 ]
-test_requires = [
-    "pytest",
-]
+test_requires = ["pytest"]
 
 [tool.briefcase.app.photomatcher.macOS]
 universal_build = true
-requires = [
-    "toga-cocoa~=0.4.0",
-    "std-nslog~=1.0.0",
-]
+requires = ["toga-cocoa~=0.4.0", "std-nslog~=1.0.0"]
 
 [tool.briefcase.app.photomatcher.linux]
-requires = [
-    "toga-gtk~=0.4.0",
-]
+requires = ["toga-gtk~=0.4.0"]
 
 [tool.briefcase.app.photomatcher.linux.system.debian]
 system_requires = [
@@ -88,7 +83,8 @@ system_runtime_requires = [
     # Needed to provide GTK
     "gtk3",
     # Needed to support Python bindings to GTK
-    "gobject-introspection", "typelib(Gtk) = 3.0",
+    "gobject-introspection",
+    "typelib(Gtk) = 3.0",
     # Dependencies that GTK looks for at runtime
     "libcanberra-gtk3-module",
     # Needed to provide WebKit2 at runtime
@@ -139,9 +135,7 @@ system_requires = [
     "gvfs-client",
 ]
 
-linuxdeploy_plugins = [
-    "DEPLOY_GTK_VERSION=3 gtk",
-]
+linuxdeploy_plugins = ["DEPLOY_GTK_VERSION=3 gtk"]
 
 [tool.briefcase.app.photomatcher.linux.flatpak]
 flatpak_runtime = "org.gnome.Platform"
@@ -149,21 +143,14 @@ flatpak_runtime_version = "45"
 flatpak_sdk = "org.gnome.Sdk"
 
 [tool.briefcase.app.photomatcher.windows]
-requires = [
-    "toga-winforms~=0.4.0",
-]
+requires = ["toga-winforms~=0.4.0"]
 
 # Mobile deployments
 [tool.briefcase.app.photomatcher.iOS]
-requires = [
-    "toga-iOS~=0.4.0",
-    "std-nslog~=1.0.0",
-]
+requires = ["toga-iOS~=0.4.0", "std-nslog~=1.0.0"]
 
 [tool.briefcase.app.photomatcher.android]
-requires = [
-    "toga-android~=0.4.0",
-]
+requires = ["toga-android~=0.4.0"]
 
 base_theme = "Theme.MaterialComponents.Light.DarkActionBar"
 
@@ -176,8 +163,5 @@ build_gradle_dependencies = [
 
 # Web deployments
 [tool.briefcase.app.photomatcher.web]
-requires = [
-    "toga-web~=0.4.0",
-]
+requires = ["toga-web~=0.4.0"]
 style_framework = "Shoelace v2.3"
-

@@ -27,10 +27,38 @@ briefcase dev
 
 # Shipping the application
 
-When ready to ship the application, 
+When ready to ship the application, run below to build the wheel first.
 
 ```bash
+# check the Python version conflict is resolved.
 cd photomatcher
 briefcase create
+```
+
+Then build to binary,
+
+```bash
+briefcase build
+briefcase run # check everything runs.
+```
+
+Then you can package them it:
+
+```bash
+briefcase package
+```
+
+When you update the code, the easiest way to apply the changes would be:
+
+```bash
+# one command to apply update, and build.
+briefcase run -u 
+```
+
+
+# Deploying as a web app
+
+```bash
+briefcase run web
 ```
 
