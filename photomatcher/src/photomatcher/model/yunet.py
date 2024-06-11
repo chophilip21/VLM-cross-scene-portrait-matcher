@@ -71,7 +71,10 @@ def get_yunet():
 
 
 def run_face_detection(image_path: str) -> dict:
-    """Run face detection on the image using Yunet."""
+    """Run face detection on the image using Yunet.
+    
+    Faces is a list where each faces are represented as [x,y,w,h,landmarks].
+    """
 
     face_table = {}
 

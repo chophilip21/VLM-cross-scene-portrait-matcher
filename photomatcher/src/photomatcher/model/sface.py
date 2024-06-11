@@ -1,4 +1,5 @@
 """Modules for Face recognition using Sface."""
+
 import os
 
 import cv2 as cv
@@ -7,13 +8,17 @@ import numpy as np
 
 class Sface:
     """Face recognition model using Sface."""
+
     def __init__(self, modelPath, backendId=0, targetId=0):
         self._modelPath = modelPath
         self._backendId = backendId
         self._targetId = targetId
 
         self._model = cv.FaceRecognizerSF.create(
-            model=self._modelPath, config="", backend_id=self._backendId, target_id=self._targetId
+            model=self._modelPath,
+            config="",
+            backend_id=self._backendId,
+            target_id=self._targetId,
         )
 
     @property
@@ -42,6 +47,7 @@ class Sface:
 
         return self._model.feature(aligned_face)
 
+
 if os.getenv("SFACE_PATH") is None:
     raise ValueError("Please set the SFACENET_PATH in the environment variable.")
 
@@ -53,44 +59,29 @@ if not os.path.exists(model_path):
 
 model = Sface(modelPath=model_path)
 
+
 def get_sface():
     """Return the model."""
     return model
 
-def choose_largest_face_yunet(faces: np.ndarray) -> np.ndarray:
-    """Choose the largest face from the detected faces."""
-    if faces.shape[0] == 0:
-        raise ValueError("No faces detected.")
 
-    if faces.shape[0] == 1:
-        return faces
-
-    # get the largest face. det[0:4] = face bounding box x,y,w,h
-    face_sizes = [(det[2] - det[0]) * (det[3] - det[1]) for det in faces]
-    largest_face_idx = np.argmax(face_sizes)
-
-    if largest_face_idx != 0:
-        print(f"Warning: Multiple faces detected, using the largest face, idx: {largest_face_idx}")
-
-    largest_face = faces[largest_face_idx]
-
-    return largest_face
-
-
-
-def run_face_recognition(image: np.ndarray, faces: np.ndarray) -> dict:
-    """Run the embeddings on the faces, return list of embeddings per face."""
+def run_embedding_conversion(
+    image: np.ndarray, faces: list) -> dict:
+    """Run the embeddings conversion on all the faces, return list of embeddings per face."""
 
     result = {}
-    result["embeddings"] = []
-    largest_face = choose_largest_face_yunet(faces)
+    embeddings_block = np.zeros((len(faces), 128))
+    
+    # run face recognition on all faces.
+    for i, face in enumerate(faces):
+        try:
+            aligned_face = model.align_crop_face(image, face)
+            feat_embedding = model.get_feat_from_aligned_face(aligned_face).squeeze()
+            embeddings_block[i] = feat_embedding
 
-    try:
-        aligned_face = model.align_crop_face(image, largest_face)
-        feat_embedding = model.get_feat_from_aligned_face(aligned_face).squeeze()
-        result["embeddings"].append(feat_embedding)
+        except Exception as e:
+            result["error"] = e
 
-    except Exception as e:
-        result["error"] = e
+    result["embeddings"] = embeddings_block
 
     return result
