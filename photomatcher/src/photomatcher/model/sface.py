@@ -71,11 +71,13 @@ def run_embedding_conversion(
 
     result = {}
     embeddings_block = np.zeros((len(faces), 128))
-    
+    result["faces"] = []
+
     # run face recognition on all faces.
     for i, face in enumerate(faces):
         try:
             aligned_face = model.align_crop_face(image, face)
+            result["faces"].append(aligned_face)
             feat_embedding = model.get_feat_from_aligned_face(aligned_face).squeeze()
             embeddings_block[i] = feat_embedding
 

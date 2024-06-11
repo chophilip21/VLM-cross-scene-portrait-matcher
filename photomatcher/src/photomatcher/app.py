@@ -160,7 +160,7 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
         elif self.task_selection.value == enums.Task.CLUSTERING.value:
             final_result = worker.cluster_embeddings(**receipt)
             self.debugger.info("postprocess for clustering finished.")
-
+            
         if "error" in final_result:
             self.main_window.error_dialog(
                 "Post-processing Failed",
@@ -169,6 +169,11 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
             self.debugger.error(final_result["error"])
             self.progress_bar.stop()
             return
+
+        if "missed_count" in final_result:
+            self.display_console_message(
+                f"Unable to cluster {final_result['missed_count']} faces in the output. Saving them."
+            )
 
         self.progress_bar.value = 100
         self.progress_bar.stop()
