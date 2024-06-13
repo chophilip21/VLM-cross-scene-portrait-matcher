@@ -12,26 +12,26 @@ authors = [
     { name = "Alinstein Jose", email = "alinsteinjose@gmail.com" },
 ]
 
-classifiers = []
-dynamic = ["readme", "dependencies", "optional-dependencies"]
-
-[tool.setuptools]
-include-package-data = true
+[project.optional-dependencies]
+devel = [
+    "pyside6",
+    "scikit-learn",
+    "pycairo",
+    "faiss-cpu",
+    "hdbscan",
+    "opencv-python",
+    "python-dotenv",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/photolink"]
 
-[tool.setuptools.dynamic]
-dependencies = { file = ["requirements/base.txt"] }
-readme = { file = ["README.md"] }
-
-[tool.setuptools.dynamic.optional-dependencies]
-devel = { file = [
+[tool.hatch.build.targets.sdist]
+include = [
     "helpers/requirements/devel.txt",
     "helpers/requirements/test.txt",
-] }
-test = { file = ["helpers/requirements/test.txt"] }
-production = { file = ["helpers/requirements/base.txt"] }
+    "README.md",
+]
 
 #######
 # Tool configurations

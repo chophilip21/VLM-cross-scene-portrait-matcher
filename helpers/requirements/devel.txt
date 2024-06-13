@@ -1,7 +1,0 @@
-pyside6
-scikit-learn
-pycairo
-faiss-cpu
-hdbscan
-opencv-python
-python-dotenv

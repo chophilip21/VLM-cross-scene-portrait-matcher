@@ -37,10 +37,7 @@ Pyside2 (LGPL license) based on QT5 was recommended, but now that Pyside6 based 
 ## Getting started with Pyinside6
 
 ```bash
-python -m venv env
-#linux
-source env/bin/activate
-#windows
-env\Scripts\activate.bat
-pip install pyside6
+conda create --name pyinside python=3.11
+make build
+make install
 ```
