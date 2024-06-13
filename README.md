@@ -40,4 +40,5 @@ Pyside2 (LGPL license) based on QT5 was recommended, but now that Pyside6 based 
 conda create --name pyinside python=3.11
 make build
 make install
+sudo apt-get install libxcb-cursor0
 ```
