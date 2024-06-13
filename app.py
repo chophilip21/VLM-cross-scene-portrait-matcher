@@ -1,9 +1,9 @@
 """main application"""
-from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, QWidget, 
-    QComboBox, QPushButton, QTextEdit, QFileDialog, QLineEdit, QStackedWidget
+from PySide6.QtWidgets import (QApplication,
+    QMainWindow, QLabel, QVBoxLayout, QHBoxLayout, QWidget, 
+    QPushButton, QTextEdit, QFileDialog, QLineEdit, QStackedWidget
 )
-from PySide6.QtGui import QPixmap
+from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtCore import Qt
 import os
 
@@ -12,22 +12,29 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         
-        self.setWindowTitle("My PySide6 Application")
+        self.setWindowTitle("PhotoMatcher v.0.01")
         self.resize(800, 600)  # Set default window size
         
-        # Load the logo image
-        self.logo_label = QLabel(self)
-        self.logo_path = os.getenv("LOGO_PATH")
-        pixmap = QPixmap(self.logo_path)
-        pixmap = pixmap.scaled(200, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)  # Resize the logo
-        self.logo_label.setPixmap(pixmap)
-        self.logo_label.setAlignment(Qt.AlignCenter)
+        # Application title
+        self.title_label = QLabel("PhotoMatcher v.0.01", self)
+        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setStyleSheet("font-size: 24px; font-weight: bold;")
         
-        # Create a drop-down menu
-        self.task_type_combo = QComboBox(self)
-        self.task_type_combo.addItem("Sample Matching")
-        self.task_type_combo.addItem("Clustering")
-        self.task_type_combo.currentIndexChanged.connect(self.update_task_type)
+        # Create task selection boxes
+        self.sample_matching_box = self.create_task_box("Sample Matching", "#2596be", os.getenv("MATCH_ICON"))
+        self.sample_matching_box.setObjectName("sample_matching")
+        self.sample_matching_box.clicked.connect(lambda: self.select_task(0))
+
+        self.clustering_box = self.create_task_box("Clustering", "#ac2cf0", os.getenv("CLUSTER_ICON"))
+        self.clustering_box.setObjectName("clustering")
+        self.clustering_box.clicked.connect(lambda: self.select_task(1))
+        
+        # Task selection layout
+        task_layout = QHBoxLayout()
+        task_layout.addStretch(1)
+        task_layout.addWidget(self.sample_matching_box)
+        task_layout.addWidget(self.clustering_box)
+        task_layout.addStretch(1)
         
         # Create source directory selection fields for Sample Matching
         self.sample_source_dir_edit = QLineEdit(self)
@@ -104,8 +111,8 @@ class MainWindow(QMainWindow):
         
         # Create a vertical layout and add the widgets to it
         layout = QVBoxLayout()
-        layout.addWidget(self.logo_label)
-        layout.addWidget(self.task_type_combo)
+        layout.addWidget(self.title_label)
+        layout.addLayout(task_layout)
         layout.addWidget(self.task_stacked_widget)
         layout.addLayout(button_layout)
         layout.addWidget(self.console_log)
@@ -114,6 +121,39 @@ class MainWindow(QMainWindow):
         container = QWidget()
         container.setLayout(layout)
         self.setCentralWidget(container)
+    
+    def create_task_box(self, text, color, svg_path):
+        """Create a task selection box with text and SVG image."""
+        box = QPushButton(self)
+        box.setFixedSize(200, 300)
+        box.setStyleSheet(f"background-color: {color}; color: white; border: 2px solid transparent;")
+        
+        # Layout for text and SVG
+        layout = QVBoxLayout()
+        
+        # Text label
+        label = QLabel(text)
+        label.setAlignment(Qt.AlignCenter)  # Center text horizontally
+        label.setStyleSheet("font-size: 16px; font-weight: bold; padding-top: 5px; padding-bottom: 10px;")
+        layout.addWidget(label, alignment=Qt.AlignTop)  # Align text to top
+        
+        # SVG Image
+        svg_widget = QSvgWidget(svg_path)
+        svg_widget.setFixedSize(100, 100)  # Adjust size as needed
+        layout.addWidget(svg_widget, alignment=Qt.AlignCenter)  # Center SVG in the box
+        
+        box.setLayout(layout)
+        return box
+    
+    def select_task(self, index):
+        """Update the visible input fields based on the selected task type."""
+        self.task_stacked_widget.setCurrentIndex(index)
+        self.sample_matching_box.setStyleSheet("background-color: #2596be; color: white; border: 2px solid transparent;")
+        self.clustering_box.setStyleSheet("background-color: #ac2cf0; color: white; border: 2px solid transparent;")
+        if index == 0:
+            self.sample_matching_box.setStyleSheet("background-color: #2596be; color: white; border: 2px solid white;")
+        else:
+            self.clustering_box.setStyleSheet("background-color: #ac2cf0; color: white; border: 2px solid white;")
     
     def select_sample_source_directory(self):
         """Open a file dialog to select a source directory for Sample Matching."""
@@ -132,10 +172,6 @@ class MainWindow(QMainWindow):
         directory = QFileDialog.getExistingDirectory(self, "Select Cluster Source Directory")
         if directory:
             self.cluster_source_dir_edit.setText(directory)
-    
-    def update_task_type(self, index):
-        """Update the visible input fields based on the selected task type."""
-        self.task_stacked_widget.setCurrentIndex(index)
     
     def process_task(self):
         """Handle the process button click event."""

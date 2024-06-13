@@ -4,7 +4,9 @@ import signal
 from dotenv import load_dotenv
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QIcon
 from app import MainWindow
+
 def main():
     """Main entry point for the application."""
     env_file = os.path.join(os.path.dirname(__file__), "./config.env")
@@ -20,6 +22,10 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
+    # Set application icon
+    icon_path = os.getenv("LOGO_PATH")
+    app.setWindowIcon(QIcon(icon_path))
+
     # Set dark theme
     dark_theme = """
         QWidget {
@@ -33,7 +39,7 @@ def main():
             padding: 5px;
         }
         QPushButton {
-            border: 2px solid;
+            border: 2px solid transparent;
             background-color: transparent;
             color: inherit;
             padding: 5px 10px;
@@ -59,10 +65,29 @@ def main():
         QLabel {
             color: #f0f0f0;
         }
+        .task-box {
+            border: 2px solid transparent;
+            background-color: transparent;
+            padding: 10px;
+            text-align: center;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 18px;
+            border-radius: 10px;
+        }
+        .task-box.selected {
+            border: 2px solid white;
+        }
+        .task-box#sample_matching {
+            background-color: #2596be;
+        }
+        .task-box#clustering {
+            background-color: #ac2cf0;
+        }
     """
     app.setStyleSheet(dark_theme)
     
     window = MainWindow()
+    window.setWindowIcon(QIcon(icon_path))  # Set window icon
     window.show()
     
     # Example usage of the log_message method
@@ -81,6 +106,6 @@ def main():
     except KeyboardInterrupt:
         print("KeyboardInterrupt caught, exiting...")
         app.quit()
-        
+
 if __name__ == "__main__":
     main()
