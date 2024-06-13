@@ -1,5 +1,4 @@
-briefcase
-toga
+pyside6
 scikit-learn
 pycairo
 faiss-cpu

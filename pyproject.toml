@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling", "cmake"]
+build-backend = "hatchling.build"
+
+[project]
+name = "PhotolinkML"
+version = "0.0.1" # should be dynamic later on
+description = "Photolink ML side logic"
+requires-python = ">=3.9, <3.12"
+authors = [
+    { name = "Philip Cho", email = "chophilip21@gmail.com" },
+    { name = "Alinstein Jose", email = "alinsteinjose@gmail.com" },
+]
+
+classifiers = []
+dynamic = ["readme", "dependencies", "optional-dependencies"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/photolink"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements/base.txt"] }
+readme = { file = ["README.md"] }
+
+[tool.setuptools.dynamic.optional-dependencies]
+devel = { file = [
+    "helpers/requirements/devel.txt",
+    "helpers/requirements/test.txt",
+] }
+test = { file = ["helpers/requirements/test.txt"] }
+production = { file = ["helpers/requirements/base.txt"] }
+
+#######
+# Tool configurations
+
+[tool.isort]
+py_version = 311
+line_length = 100
+profile = "black"
+include_trailing_comma = true
+indent = 4
+color_output = true
+src_paths = ["src", "tests"]
+
+[tool.black]
+line_length = 100
+
+[tool.flake8]
+max-line-length = 100
+max-complexity = 25
+ignore = ['E133', 'W503', 'E203', 'C901']
+
+[tool.pydocstyle]
+ignore = ["D212", "D401", "D203"]
