@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 from app import MainWindow
-
 def main():
     """Main entry point for the application."""
     env_file = os.path.join(os.path.dirname(__file__), "./config.env")
@@ -39,7 +38,7 @@ def main():
             color: inherit;
             padding: 5px 10px;
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 14px;  # Adjust font size to fit better
+            font-size: 14px;
             border-radius: 5px;
         }
         QPushButton:hover {
@@ -82,8 +81,6 @@ def main():
     except KeyboardInterrupt:
         print("KeyboardInterrupt caught, exiting...")
         app.quit()
-
-
-
+        
 if __name__ == "__main__":
     main()

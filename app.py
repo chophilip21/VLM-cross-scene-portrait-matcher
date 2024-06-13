@@ -35,7 +35,6 @@ class MainWindow(QMainWindow):
         self.sample_source_dir_button = QPushButton("Select Source")
         self.sample_source_dir_button.setObjectName("sample_source_dir_button")
         self.sample_source_dir_button.clicked.connect(self.select_sample_source_directory)
-        self.sample_source_dir_button.setMinimumHeight(self.sample_source_dir_edit.sizeHint().height())
         
         sample_source_layout = QHBoxLayout()
         sample_source_layout.addWidget(self.sample_source_dir_edit)
@@ -47,7 +46,6 @@ class MainWindow(QMainWindow):
         self.sample_reference_dir_button = QPushButton("Select Reference")
         self.sample_reference_dir_button.setObjectName("sample_reference_dir_button")
         self.sample_reference_dir_button.clicked.connect(self.select_sample_reference_directory)
-        self.sample_reference_dir_button.setMinimumHeight(self.sample_reference_dir_edit.sizeHint().height())
         
         sample_reference_layout = QHBoxLayout()
         sample_reference_layout.addWidget(self.sample_reference_dir_edit)
@@ -67,7 +65,6 @@ class MainWindow(QMainWindow):
         self.cluster_source_dir_button = QPushButton("Select Source")
         self.cluster_source_dir_button.setObjectName("cluster_source_dir_button")
         self.cluster_source_dir_button.clicked.connect(self.select_cluster_source_directory)
-        self.cluster_source_dir_button.setMinimumHeight(self.cluster_source_dir_edit.sizeHint().height())
         
         cluster_source_layout = QHBoxLayout()
         cluster_source_layout.addWidget(self.cluster_source_dir_edit)
@@ -88,11 +85,11 @@ class MainWindow(QMainWindow):
         # Create buttons
         self.process_button = QPushButton("Process")
         self.process_button.setObjectName("process_button")
-        self.process_button.setMinimumHeight(self.sample_source_dir_edit.sizeHint().height())
+        self.process_button.clicked.connect(self.process_task)
         
         self.refresh_button = QPushButton("Refresh")
         self.refresh_button.setObjectName("refresh_button")
-        self.refresh_button.setMinimumHeight(self.sample_source_dir_edit.sizeHint().height())
+        self.refresh_button.clicked.connect(self.refresh_task)
         
         # Create a horizontal layout for the buttons and align them to the center
         button_layout = QHBoxLayout()
