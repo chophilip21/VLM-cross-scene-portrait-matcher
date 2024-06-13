@@ -9,7 +9,6 @@ import photomatcher.worker as worker
 import photomatcher.utils as utils
 from photomatcher.front import PhotoMatcherFrontEnd
 import asyncio
-import multiprocessing
 
 class PhotoMatcher(PhotoMatcherFrontEnd):
     """Photo matching main application."""
@@ -311,9 +310,3 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
         }
 
         return inputs
-
-
-def main():
-    """Main entry point for the application."""
-    multiprocessing.freeze_support() # required for windows
-    return PhotoMatcher()
