@@ -17,7 +17,7 @@ class MainWindow(QMainWindow):
         
         # Application title
         self.title_label = QLabel("PhotoMatcher v.0.01", self)
-        self.title_label.setAlignment(Qt.AlignCenter)
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title_label.setStyleSheet("font-size: 24px; font-weight: bold;")
         
         # Create task selection boxes
@@ -125,7 +125,8 @@ class MainWindow(QMainWindow):
     def create_task_box(self, text, color, svg_path):
         """Create a task selection box with text and SVG image."""
         box = QPushButton(self)
-        box.setFixedSize(200, 300)
+        box.setSizeIncrement(200, 300)
+        box.setMinimumSize(200, 300)
         box.setStyleSheet(f"background-color: {color}; color: white; border: 2px solid transparent;")
         
         # Layout for text and SVG
@@ -133,14 +134,15 @@ class MainWindow(QMainWindow):
         
         # Text label
         label = QLabel(text)
-        label.setAlignment(Qt.AlignCenter)  # Center text horizontally
+        label.setAlignment(Qt.AlignmentFlag.AlignHCenter)  # Center text horizontally
         label.setStyleSheet("font-size: 16px; font-weight: bold; padding-top: 5px; padding-bottom: 10px;")
-        layout.addWidget(label, alignment=Qt.AlignTop)  # Align text to top
+        layout.addWidget(label, alignment=Qt.AlignmentFlag.AlignTop)  # Align text to top
         
         # SVG Image
         svg_widget = QSvgWidget(svg_path)
         svg_widget.setFixedSize(100, 100)  # Adjust size as needed
-        layout.addWidget(svg_widget, alignment=Qt.AlignCenter)  # Center SVG in the box
+        svg_widget.setStyleSheet("background-color: transparent;")  # Ensure SVG has transparent background
+        layout.addWidget(svg_widget, alignment=Qt.AlignmentFlag.AlignHCenter)  # Center SVG in the box
         
         box.setLayout(layout)
         return box
@@ -148,12 +150,17 @@ class MainWindow(QMainWindow):
     def select_task(self, index):
         """Update the visible input fields based on the selected task type."""
         self.task_stacked_widget.setCurrentIndex(index)
-        self.sample_matching_box.setStyleSheet("background-color: #2596be; color: white; border: 2px solid transparent;")
-        self.clustering_box.setStyleSheet("background-color: #ac2cf0; color: white; border: 2px solid transparent;")
+        self.sample_matching_box.setObjectName("task-box")
+        self.clustering_box.setObjectName("task-box")
+        
         if index == 0:
-            self.sample_matching_box.setStyleSheet("background-color: #2596be; color: white; border: 2px solid white;")
+            self.sample_matching_box.setObjectName("task-box-selected")
         else:
-            self.clustering_box.setStyleSheet("background-color: #ac2cf0; color: white; border: 2px solid white;")
+            self.clustering_box.setObjectName("task-box-selected")
+        
+        self.sample_matching_box.setStyle(self.sample_matching_box.style())
+        self.clustering_box.setStyle(self.clustering_box.style())
+
     
     def select_sample_source_directory(self):
         """Open a file dialog to select a source directory for Sample Matching."""

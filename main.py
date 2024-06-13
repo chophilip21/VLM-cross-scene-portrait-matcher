@@ -26,7 +26,7 @@ def main():
     icon_path = os.getenv("LOGO_PATH")
     app.setWindowIcon(QIcon(icon_path))
 
-    # Set dark theme
+   # Set dark theme
     dark_theme = """
         QWidget {
             background-color: #2e2e2e;
@@ -65,27 +65,26 @@ def main():
         QLabel {
             color: #f0f0f0;
         }
-        .task-box {
+        QPushButton#task-box {
             border: 2px solid transparent;
-            background-color: transparent;
-            padding: 10px;
-            text-align: center;
+            background-color: #2596be;
+            color: white;
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 18px;
-            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
         }
-        .task-box.selected {
+        QPushButton#task-box-selected {
             border: 2px solid white;
         }
-        .task-box#sample_matching {
-            background-color: #2596be;
-        }
-        .task-box#clustering {
+        QPushButton#clustering.task-box {
             background-color: #ac2cf0;
+        }
+        QPushButton#clustering.task-box-selected {
+            background-color: #ac2cf0;
+            border: 2px solid white;
         }
     """
     app.setStyleSheet(dark_theme)
-    
     window = MainWindow()
     window.setWindowIcon(QIcon(icon_path))  # Set window icon
     window.show()
