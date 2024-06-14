@@ -10,7 +10,7 @@ if __name__ == "__main__":
     from photomatcher.app import PhotoMatcher
     import multiprocessing as mp
     mp.freeze_support() 
-    
+
     # start photomatcher app
     pm = PhotoMatcher()
     pm.main_loop()

@@ -5,7 +5,7 @@ Create a webapp using Toga. For more info, refer to [this](https://docs.beeware.
 ```bash
 python3.10 -m venv beeware-venv
 source beeware-venv/bin/activate
-pip install -r requirements
+pip install -r requirements.txt
 ```
 
 You may need to update some packages required to run briefcase commands:

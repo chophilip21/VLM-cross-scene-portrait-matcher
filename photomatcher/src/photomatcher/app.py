@@ -1,6 +1,5 @@
-"""Combines TOGO frontend app code, calling ml model code from worker.py"""
-
 import os
+import multiprocessing
 import toga
 from toga.style import Pack
 from toga.style.pack import COLUMN, ROW, CENTER
@@ -16,6 +15,9 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
     def __init__(self, formal_name="Photo Matcher"):
         """Initialize the toga modules."""
         super().__init__(formal_name=formal_name)
+        self.task_queue = multiprocessing.Queue()
+        self.result_queue = multiprocessing.Queue()
+        self.pool = multiprocessing.Pool()
 
     def startup(self):
         """Create the main window for the application."""
@@ -154,10 +156,10 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
 
         # Run rest of the tasks in the main thread
         if self.task_selection.value == enums.Task.SAMPLE_MATCHING.value:
-            final_result = worker.match_embeddings(**receipt)
+            final_result = await loop.run_in_executor(None, worker.match_embeddings, **receipt)
             self.debugger.info("postprocess for matching finished.")
         elif self.task_selection.value == enums.Task.CLUSTERING.value:
-            final_result = worker.cluster_embeddings(**receipt)
+            final_result = await loop.run_in_executor(None, worker.cluster_embeddings, **receipt)
             self.debugger.info("postprocess for clustering finished.")
             
         if "error" in final_result:
@@ -182,7 +184,7 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
         self.display_console_message("Processing completed.")
 
     def _threaded_cpu_tasks(self):
-        """Run common, cpu-intensive ML models (face detection, embedding conversion) here firs."""
+        """Run common, cpu-intensive ML models (face detection, embedding conversion) here first."""
         self.progress_bar.start()
         self.progress_bar.value = 10
 
@@ -236,10 +238,11 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
         worker.run_model_mp(
             self.source_list_images,
             self.num_processes,
-            self.chunksize,
             self.source_cache,
             self.fail_path,
             self.top_n_face,
+            self.task_queue,
+            self.result_queue
         )
 
         self.display_console_message(
@@ -250,10 +253,11 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
         worker.run_model_mp(
             self.reference_list_images,
             self.num_processes,
-            self.chunksize,
             self.reference_cache,
             self.fail_path,
             self.top_n_face,
+            self.task_queue,
+            self.result_queue
         )
         self.progress_bar.value = 75
 
@@ -289,9 +293,11 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
         worker.run_model_mp(
             self.source_list_images,
             self.num_processes,
-            self.chunksize,
             self.source_cache,
             self.fail_path,
+            self.top_n_face,
+            self.task_queue,
+            self.result_queue
         )
         self.progress_bar.value = 50
         self.display_console_message(
@@ -310,3 +316,10 @@ class PhotoMatcher(PhotoMatcherFrontEnd):
         }
 
         return inputs
+
+    def on_close(self):
+        self.pool.terminate()
+        self.pool.join()
+        self.task_queue.close()
+        self.result_queue.close()
+        self.main_window.close()

@@ -1,5 +1,3 @@
-"""ML algorithms for face detection and recognition, and clustering."""
-
 import photomatcher.model.yunet as yunet
 import photomatcher.model.sface as sface
 import photomatcher.enums as enums
@@ -63,32 +61,45 @@ def _run_ml_model(image_path: str, save_path: str, fail_path: str, keep_top_n: i
     return True
 
 
+def worker_process(task_queue, result_queue):
+    while True:
+        task = task_queue.get()
+        if task is None:
+            break
+        result = _run_ml_model(task["image_path"], task["save_path"], task["fail_path"], task["keep_top_n"])
+        result_queue.put(result)
+
 def run_model_mp(
     entries,
     num_workers: int,
-    chunksize: int,
     save_path: str,
     fail_path: str,
     keep_top_n: int = 3,
+    task_queue=None,
+    result_queue=None
 ):
     """Use multiprocessing to run the models."""
     ctx = mp.get_context("spawn")
-    pool = ctx.Pool(processes=num_workers)
 
-    with pool as p:
-        result = list(
-            p.imap_unordered(
-                partial(
-                    _run_ml_model,
-                    save_path=save_path,
-                    fail_path=fail_path,
-                    keep_top_n=keep_top_n,
-                ),
-                entries,
-                chunksize=chunksize,
-            )
-        )
+    for entry in entries:
+        task_queue.put({
+            "image_path": entry,
+            "save_path": save_path,
+            "fail_path": fail_path,
+            "keep_top_n": keep_top_n
+        })
 
+    processes = []
+    for _ in range(num_workers):
+        p = ctx.Process(target=worker_process, args=(task_queue, result_queue))
+        p.start()
+        processes.append(p)
+
+    for p in processes:
+        p.join()
+
+    if not result_queue.empty():
+        result = list(result_queue.get())
         if not result:
             print(f"Warning: {result}")
 
@@ -365,7 +376,3 @@ def cluster_embeddings(
     result["status"] = "success"
 
     return result
-
-
-if __name__ == "__main__":
-    pass
