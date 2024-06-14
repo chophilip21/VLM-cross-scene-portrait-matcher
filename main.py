@@ -11,13 +11,13 @@ def main():
     """Main entry point for the application."""
     env_file = os.path.join(os.path.dirname(__file__), "./config.env")
     load_dotenv(dotenv_path=env_file)
-    
+
     app = QApplication(sys.argv)
 
     def signal_handler(sig, frame):
         print("Received shutdown signal:", sig)
         app.quit()
-    
+
     # Set up signal handlers
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -26,7 +26,7 @@ def main():
     icon_path = os.getenv("LOGO_PATH")
     app.setWindowIcon(QIcon(icon_path))
 
-   # Set dark theme
+    # Set dark theme
     dark_theme = """
         QWidget {
             background-color: #2e2e2e;
@@ -84,21 +84,22 @@ def main():
             border: 2px solid white;
         }
     """
+    print("Applying dark theme...")
     app.setStyleSheet(dark_theme)
     window = MainWindow()
     window.setWindowIcon(QIcon(icon_path))  # Set window icon
     window.show()
-    
+
     # Example usage of the log_message method
     window.log_message("Application started")
-    
+
     # Create a timer to periodically check for signals
     timer = QTimer()
     timer.start(500)  # 500 milliseconds
 
     # Connect the timer to a no-op lambda function
     timer.timeout.connect(lambda: None)
-    
+
     try:
         # Run the application
         sys.exit(app.exec())
