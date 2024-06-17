@@ -2,7 +2,7 @@ import os
 import sys
 import signal
 from dotenv import load_dotenv
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 from app import MainWindow
@@ -13,6 +13,9 @@ def main():
     load_dotenv(dotenv_path=env_file)
 
     app = QApplication(sys.argv)
+    
+    # Enable stylesheet propagation
+    QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseStyleSheetPropagationInWidgetStyles, True)
 
     def signal_handler(sig, frame):
         print("Received shutdown signal:", sig)
@@ -26,7 +29,7 @@ def main():
     icon_path = os.getenv("LOGO_PATH")
     app.setWindowIcon(QIcon(icon_path))
 
-    # Set dark theme
+    # Set dark theme with task box selection styles
     dark_theme = """
         QWidget {
             background-color: #2e2e2e;
@@ -65,33 +68,24 @@ def main():
         QLabel {
             color: #f0f0f0;
         }
-        QPushButton#task-box {
-            border: 2px solid transparent;
+        QWidget#sample_matching, QWidget#clustering {
             background-color: #2596be;
-            color: white;
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 16px;
-            font-weight: bold;
+            border: 2px solid transparent;
         }
-        QPushButton#task-box-selected {
-            border: 2px solid white;
-        }
-        QPushButton#clustering.task-box {
+        QWidget#clustering {
             background-color: #ac2cf0;
         }
-        QPushButton#clustering.task-box-selected {
-            background-color: #ac2cf0;
+        QWidget#task-box-selected {
             border: 2px solid white;
         }
     """
-    print("Applying dark theme...")
     app.setStyleSheet(dark_theme)
     window = MainWindow()
     window.setWindowIcon(QIcon(icon_path))  # Set window icon
     window.show()
 
-    # Example usage of the log_message method
-    window.log_message("Application started")
+    # # Example usage of the log_message method
+    # window.log_message("Application started")
 
     # Create a timer to periodically check for signals
     timer = QTimer()
