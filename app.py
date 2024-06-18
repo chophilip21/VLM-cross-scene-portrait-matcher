@@ -1,33 +1,14 @@
 """UI related codes using Pyside6."""
 import photolink.utils.enums as enums
-from photolink.utils.function import read_config
-from PySide6.QtCore import Qt, QThread, Signal, Slot
-from PySide6.QtWidgets import (QMainWindow, QLabel, QVBoxLayout, QGridLayout, QWidget, QPushButton, QFileDialog, QHBoxLayout, QLineEdit, QSizePolicy, QProgressBar, QTextEdit)
+from photolink.utils.function import read_config, search_all_images
+from PySide6.QtCore import Qt, Slot
+from PySide6.QtWidgets import (QMainWindow, QLabel, QVBoxLayout, QGridLayout, QWidget, QPushButton, QFileDialog, QHBoxLayout, QLineEdit, QSizePolicy, QProgressBar, QTextEdit, QMessageBox)
 from PySide6.QtGui import QFont
-from multiprocessing import Queue
 from PySide6.QtSvgWidgets import QSvgWidget
-import time
 import os
 from qss import *
-
-class Worker(QThread):
-    progress = Signal(int)
-    finished = Signal(str)
-
-    def __init__(self, queue, parent=None):
-        super().__init__(parent)
-        self.queue = queue
-
-    def run(self):
-        while True:
-            msg = self.queue.get()
-            if msg == 'START':
-                for i in range(1, 101):
-                    time.sleep(0.05)  # Simulate a time-consuming task
-                    self.progress.emit(i)
-                self.finished.emit("Processing has finished")
-            elif msg == 'STOP':
-                break
+import json
+import shutil
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -35,7 +16,13 @@ class MainWindow(QMainWindow):
         super().__init__()
         config_file = os.path.join(os.path.dirname(__file__), "./config.ini")
         self.config = read_config(config_file)
+        self.current_task = enums.Task.SAMPLE_MATCHING.name
+        self.cache_dir = os.path.join(os.path.dirname(__file__), ".cache")
+        self.setup_cache_dir(self.cache_dir)
+        self.drawUI()
 
+    def drawUI(self):
+        """Startup by drawing UI elements"""
         # Set default window size
         self.setWindowTitle("PhotoMatcher v.0.01")
         self.setGeometry(100, 100, 800, 600)
@@ -95,7 +82,7 @@ class MainWindow(QMainWindow):
         self.start_button = QPushButton("Start Processing", self)
         self.start_button.setStyleSheet(START_BUTTON_STYLE)
         self.start_button.setFixedWidth(150)
-        self.start_button.clicked.connect(self.start_processing)
+        self.start_button.clicked.connect(self.process_jobs)
         self.processing_layout.addWidget(self.start_button)
 
         self.refresh_button = QPushButton("Refresh", self)
@@ -124,12 +111,12 @@ class MainWindow(QMainWindow):
         # Set initial font for title label
         self.update_font()
 
-        # Setup multiprocessing
-        self.queue = Queue()
-        self.worker = Worker(self.queue)
-        self.worker.progress.connect(self.update_progress)
-        self.worker.finished.connect(self.log_message)
-        self.worker.start()
+        # # Setup multiprocessing
+        # self.queue = Queue()
+        # self.worker = Worker(self.queue)
+        # self.worker.progress.connect(self.update_progress)
+        # self.worker.finished.connect(self.log_message)
+        # self.worker.start()
 
     def create_task_button(self, svg_path, button_text, color1=None, color2=None):
         button = QPushButton(self)
@@ -195,9 +182,17 @@ class MainWindow(QMainWindow):
         return container
 
     def browse_path(self, line_edit):
-        path = QFileDialog.getExistingDirectory(self, "Select Directory")
-        if path:
-            line_edit.setText(path)
+        file_dialog = QFileDialog(self)
+        file_dialog.setObjectName("customFileDialog")
+        file_dialog.setWindowTitle("Select Directory")
+        file_dialog.setStyleSheet('background-color: white; color: black;')
+        file_dialog.setFileMode(QFileDialog.Directory)
+        file_dialog.setOption(QFileDialog.ShowDirsOnly, False)
+        
+        if file_dialog.exec():
+            path = file_dialog.selectedFiles()[0]
+            if path:
+                line_edit.setText(path)
 
     @Slot()
     def handle_box_click(self):
@@ -210,10 +205,13 @@ class MainWindow(QMainWindow):
             self.instruction_label.setText(enums.Task.SAMPLE_MATCHING.value)
             self.reference_path_selector.line_edit.setPlaceholderText("")
             self.reference_path_selector.button.setEnabled(True)
+            self.current_task = enums.Task.SAMPLE_MATCHING.name
+
         elif task == "Cluster":
             self.instruction_label.setText(enums.Task.CLUSTERING.value)
             self.reference_path_selector.line_edit.setPlaceholderText("Not required for clustering")
             self.reference_path_selector.button.setEnabled(False)
+            self.current_task = enums.Task.CLUSTERING.name
 
         # Reset border colors for both boxes
         self.sample_match_box.setStyleSheet(f"background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {self.matching_color[0]}, stop:1 {self.matching_color[1]}); border: 2px solid black;")
@@ -225,19 +223,61 @@ class MainWindow(QMainWindow):
         elif task == "Cluster":
             self.cluster_box.setStyleSheet(self.cluster_box.styleSheet() + " border: 2px solid white;")
 
-    def start_processing(self):
-        self.queue.put('START')
+    def process_jobs(self):
+        """Call the multiprocessing method when the start button is clicked."""
 
-    def multiprocessing(self):
-        # Placeholder for the multiprocessing logic
-        self.progress_bar.setValue(100)  # Simulate progress completion
-        self.console.append("Processing has finished")
+        job = {}
+
+        # start by generating jobs based on the selected task
+        if self.current_task == enums.Task.SAMPLE_MATCHING.name:
+            
+            if not self.source_path_selector.line_edit.text() or not self.reference_path_selector.line_edit.text():
+                self.display_notification(enums.ErrorMessage.PATH_NOT_SELECTED.name, enums.ErrorMessage.PATH_NOT_SELECTED.value)
+                return
+            
+            job['task'] = enums.Task.SAMPLE_MATCHING.name
+            job['source'] = search_all_images(self.source_path_selector.line_edit.text())
+            job['reference'] = search_all_images(self.reference_path_selector.line_edit.text())
+
+        elif self.current_task == enums.Task.CLUSTERING.name:
+
+            if not self.source_path_selector.line_edit.text():
+                self.display_notification(enums.ErrorMessage.PATH_NOT_SELECTED.name, enums.ErrorMessage.PATH_NOT_SELECTED.value)
+                return
+            
+            job['task'] = enums.Task.CLUSTERING.name
+            job['source'] = search_all_images(self.source_path_selector.line_edit.text())
+
+        else:
+            raise ValueError("Invalid task selected")
+
+        # dump the job to a json file
+        job_json = os.path.join(self.cache_dir, "job.json")
+        with open(job_json, "w") as f:
+            json.dump(job, f)
+
+        self.progress_bar.setValue(10)
+
+    def display_notification(self, state_enum, message):
+        """Display notification message for important messages."""
+        message_box = QMessageBox(self)
+        message_box.setObjectName("customMessageBox")
+        message_box.setWindowTitle(state_enum)
+        message_box.setText(message)
+        message_box.setStandardButtons(QMessageBox.Ok)
+        message_box.setIcon(QMessageBox.Information)
+        message_box.setStyleSheet(NOTIFICATION_STYLE)
+        result = message_box.exec()
+        self.console.append(f"{state_enum}: {message}, result: {result}")
 
     def refresh(self):
+        """Reset all the tasks."""
         self.source_path_selector.line_edit.setText("")
         self.reference_path_selector.line_edit.setText("")
         self.progress_bar.setValue(0)  # Reset progress bar
-        self.console.setText("Welcome to PhotoMatcher!")  # Reset console text
+        self.console.setText("Welcome to PhotoMatcher!")  
+        self.current_task = enums.Task.SAMPLE_MATCHING.name
+        self.setup_cache_dir(self.cache_dir)
 
     def update_progress(self, value):
         self.progress_bar.setValue(value)
@@ -255,3 +295,9 @@ class MainWindow(QMainWindow):
     def update_font(self, font_size=24):
         font = QFont("Lato Hairline", font_size, QFont.Bold)
         self.title_label.setFont(font)
+
+    def setup_cache_dir(self, cache_dir):
+        """clean up cache folders on start up, and recreate dir"""
+        if os.path.exists(cache_dir):
+            shutil.rmtree(cache_dir)
+        os.makedirs(cache_dir, exist_ok=True)
