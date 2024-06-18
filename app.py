@@ -19,6 +19,7 @@ class MainWindow(QMainWindow):
         self.current_task = enums.Task.SAMPLE_MATCHING.name
         self.cache_dir = os.path.join(os.path.dirname(__file__), ".cache")
         self.setup_cache_dir(self.cache_dir)
+        self.num_faces = self.config.get("MODEL", "TOP_N_FACE")
         self.drawUI()
 
     def drawUI(self):
@@ -72,8 +73,11 @@ class MainWindow(QMainWindow):
         # Create and add source and reference path selectors
         self.source_path_selector = self.create_path_selector("Source Path")
         self.reference_path_selector = self.create_path_selector("Reference Path")
+        self.output_path_selector = self.create_path_selector("Output Path")
+
         self.path_layout.addWidget(self.source_path_selector)
         self.path_layout.addWidget(self.reference_path_selector)
+        self.path_layout.addWidget(self.output_path_selector)
 
         # Create processing button layout
         self.processing_layout = QHBoxLayout()
@@ -99,7 +103,7 @@ class MainWindow(QMainWindow):
         self.console = QTextEdit(self)
         self.console.setReadOnly(True)
         self.console.setFixedHeight(150)
-        self.console.setText("Welcome to PhotoMatcher")
+        self.console.setText(f"Welcome to PhotoMatcher! When there are more than one faces in a photo, top {self.num_faces} largest faces will be used.")
         self.main_layout.addWidget(self.console)
 
         # Set initial selection to "Sample Match"
@@ -148,10 +152,10 @@ class MainWindow(QMainWindow):
     
         text_label = QLabel(button_text, button)
         text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        text_label.setStyleSheet("background-color: transparent; border: none;")
+        text_label.setStyleSheet("background-color: transparent; border: none; font-family: Lato Black;")
 
         # Set font using QFontDatabase
-        font = QFont("Arial", 20, QFont.Bold, italic=True) 
+        font = QFont("Arial", 20, QFont.Bold) 
         text_label.setFont(font)
         text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         text_label.update()
@@ -228,6 +232,13 @@ class MainWindow(QMainWindow):
 
         job = {}
 
+        # first check there is output path.
+        if not self.output_path_selector.line_edit.text():
+            self.display_notification(enums.ErrorMessage.PATH_NOT_SELECTED.name, enums.ErrorMessage.PATH_NOT_SELECTED.value)
+            return
+
+        job['output'] = self.output_path_selector.line_edit.text()
+
         # start by generating jobs based on the selected task
         if self.current_task == enums.Task.SAMPLE_MATCHING.name:
             
@@ -274,8 +285,9 @@ class MainWindow(QMainWindow):
         """Reset all the tasks."""
         self.source_path_selector.line_edit.setText("")
         self.reference_path_selector.line_edit.setText("")
+        self.output_path_selector.line_edit.setText("")
         self.progress_bar.setValue(0)  # Reset progress bar
-        self.console.setText("Welcome to PhotoMatcher!")  
+        self.console.setText(f"Welcome to PhotoMatcher! \n When there are more than one faces in a photo, top {self.num_faces} largest faces will be used")  
         self.current_task = enums.Task.SAMPLE_MATCHING.name
         self.setup_cache_dir(self.cache_dir)
 

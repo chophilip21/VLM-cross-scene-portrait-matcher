@@ -3,7 +3,7 @@ from enum import Enum
 
 class Task(Enum):
     """Enum for task type."""
-    SAMPLE_MATCHING = "Sample match is for matching one source photo against multiple reference photos. Must have one source image per subject"
+    SAMPLE_MATCHING = "Sample match is for matching one source photo against multiple reference photos of the subject. You can have many as many subjects as you want, but ensure that you only have one source image per subject. Results will be saved to output path."
     CLUSTERING = "When you do not know how many subjects you have, place all images into a single folder and run clustering. Each cluster represents identified subject. Uncertain ones will be transferred to uncertain folder. Subject must have at least two images to be considered as a cluster."
 
 class ErrorMessage(Enum):
