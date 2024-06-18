@@ -1,6 +1,7 @@
 import photolink.utils.enums as enums
 import glob
-
+import configparser
+import os
 
 def search_all_images(path):
     """Recursively search all images in a directory."""
@@ -13,3 +14,22 @@ def search_all_images(path):
             images.append(file)
 
     return images
+
+def read_config(file):
+    """Read config file"""
+    config = configparser.ConfigParser()
+    config.read(file)
+    return config
+
+def config_to_env(config: configparser.ConfigParser, section: str):
+    """Set some of the config variables as env variables."""
+
+    if section not in config.sections():
+        raise ValueError(f"Section {section} not found in the config file.")
+
+    for section in config.sections():
+        for key, value in config.items(section):
+            env_var = f"{section.upper()}_{key.upper()}"
+            os.environ[env_var] = value
+
+    return True
