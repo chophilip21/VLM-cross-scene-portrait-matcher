@@ -176,7 +176,11 @@ def match_embeddings(
             result["error"] = f"Error adding source embeddings to faiss index: {e}"
             return result
 
-    for file in reference_embeddings:
+    for i, file in enumerate(reference_embeddings):
+
+        # Use this for progress bar update.
+        progress = 50 + ((i + 1) / len(reference_embeddings) * 50)
+        print(f"POSTPROCESS_PROGRESS: {progress}", flush=True)
 
         try:
             reference_embedding_dict = read_embeddingpkl(
@@ -313,7 +317,6 @@ def cluster_embeddings(
             index_count += 1
 
     embeddings = np.array(loaded_embeddings)
-    print(f"Embeddings shape for clustering: {embeddings.shape}")
 
     try:
         labels = cluster_obj.fit_predict(embeddings)
@@ -323,6 +326,10 @@ def cluster_embeddings(
 
     # now save the output.
     for i, label in enumerate(labels):
+
+        # Use this for progress bar update.
+        progress = 50 + ((i + 1) / len(labels) * 50)
+        print(f"POSTPROCESS_PROGRESS: {progress}", flush=True)
 
         # find the original image from look up table.
         backtracked_file_name = face_to_embedding_file_table[i]

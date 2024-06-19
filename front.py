@@ -220,8 +220,8 @@ class MainWindowFront(QMainWindow):
         message_box.setStandardButtons(QMessageBox.Ok)
         message_box.setIcon(QMessageBox.Information)
         message_box.setStyleSheet(NOTIFICATION_STYLE)
-        result = message_box.exec()
-        self.console.append(f"{state_enum}: {message}, result: {result}")
+        message_box.exec()
+        self.console.append(f"{state_enum}: {message}")
 
     def refresh(self):
         """Reset all the tasks."""

@@ -113,7 +113,7 @@ class MainWindow(MainWindowFront):
             self.change_button_status(True)
             raise ValueError("Invalid task selected")
 
-        # proceed to dump the job to json. Only then can the worker process it.
+        # proceed to dump the job to a json file. Only then can the worker process it.
         job_json = os.path.join(self.cache_dir, "job.json")
         with open(job_json, "w") as f:
             json.dump(self.job, f)
@@ -125,50 +125,73 @@ class MainWindow(MainWindowFront):
             self.p.readyReadStandardOutput.connect(self.handle_stdout)
             self.p.readyReadStandardError.connect(self.handle_stderr)
             self.p.stateChanged.connect(self.handle_state)
-            self.p.finished.connect(self.process_finished)
+            self.p.finished.connect(self.preprocess_finished)  # Connect to new method
             self.p.start("python3", ["jobs.py"])
 
             # use timer and check progress to update progress bar.
             self.timer.start(1000)
 
-        # now we do postprocessing on the main process.
+    def preprocess_finished(self):
+        """Called when the preprocessing is finished."""
+        self.log_message("Preprocessing finished.")
+        self.timer.stop()
+
+        # Now call postprocessing only when the preprocessing is done.
+        self.postprocess_jobs()
+
+    def postprocess_jobs(self):
+        """Perform the postprocessing after the preprocessing is complete."""
         self.log_message("Postprocessing...")
         source_cache = os.path.join(self.cache_dir, "source")
         reference_cache = os.path.join(self.cache_dir, "reference")
         source_list_images = self.job["source"]
-        reference_list_images = self.job["reference"]
         output_path = self.job["output"]
+        fail_path = os.path.join(output_path, "missed")
         clustering_algorithm = enums.ClusteringAlgorithm.HDBSCAN.value
         eps = 0.5
         min_samples = 2
 
         if self.current_task == enums.Task.SAMPLE_MATCHING.name:
-            result = worker.match_embeddings(
-                source_cache=source_cache,
-                reference_cache=reference_cache,
-                source_list_images=source_list_images,
-                reference_list_images=reference_list_images,
-                output_path=output_path,
-            )
+
+            # reference will only exist if it is a sample matching task.
+            reference_list_images = self.job["reference"]
+
+            try:
+                result = worker.match_embeddings(
+                    source_cache=source_cache,
+                    reference_cache=reference_cache,
+                    source_list_images=source_list_images,
+                    reference_list_images=reference_list_images,
+                    output_path=output_path,
+                )
+            except Exception as e:
+                self.display_notification("Error", str(e))
+                self.change_button_status(True)
+                return
         elif self.current_task == enums.Task.CLUSTERING.name:
-            result = worker.cluster_embeddings(
-                source_cache=source_cache,
-                source_list_images=source_list_images,
-                clustering_algorithm=clustering_algorithm,
-                eps=eps,
-                min_samples=min_samples,
-                output_path=output_path,
-            )
+            try:
+                result = worker.cluster_embeddings(
+                    source_cache=source_cache,
+                    source_list_images=source_list_images,
+                    clustering_algorithm=clustering_algorithm,
+                    eps=eps,
+                    min_samples=min_samples,
+                    output_path=output_path,
+                    fail_path=fail_path,
+                )
+            except Exception as e:
+                self.display_notification("Error", str(e))
+                self.change_button_status(True)
+                return
         else:
             raise NotImplementedError("Invalid task selected")
         
         if "error" in result:
             self.display_notification("Error", result["error"])
             self.change_button_status(True)
-            return
         else:
-            self.display_notification("Success", "All operations completed.")
             self.progress_bar.setValue(100)
+            self.display_notification("Success", "All operations completed.")
             self.change_button_status(True)
 
     def handle_stderr(self):
@@ -181,6 +204,15 @@ class MainWindow(MainWindowFront):
         stdout = bytes(data).decode("utf8")
         self.log_message(stdout)
 
+        # Check for postprocessing progress updates coming from worker.py
+        for line in stdout.split('\n'):
+
+            print(f"Received line: {line}")  # Debug print
+
+            if line.startswith('POSTPROCESS_PROGRESS:'):
+                progress = float(line.split(':')[-1])
+                self.progress_update.emit(int(progress))
+
     def handle_state(self, state):
         states = {
             QProcess.NotRunning: "Finished",
@@ -189,13 +221,6 @@ class MainWindow(MainWindowFront):
         }
         state_name = states[state]
         print(f"Worker state: {state_name}")
-
-    def process_finished(self):
-        self.log_message("Process finished.")
-        self.progress_bar.setValue(50)
-        self.change_button_status(True)
-        self.p = None
-        self.timer.stop()
 
     def check_progress(self):
         """Monitor the progress of processes running."""
