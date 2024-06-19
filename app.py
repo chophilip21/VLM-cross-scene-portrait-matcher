@@ -2,13 +2,30 @@
 import photolink.utils.enums as enums
 from photolink.utils.function import read_config, search_all_images
 from PySide6.QtCore import Qt, Slot
-from PySide6.QtWidgets import (QMainWindow, QLabel, QVBoxLayout, QGridLayout, QWidget, QPushButton, QFileDialog, QHBoxLayout, QLineEdit, QSizePolicy, QProgressBar, QTextEdit, QMessageBox)
+from PySide6.QtWidgets import (
+    QMainWindow,
+    QLabel,
+    QVBoxLayout,
+    QGridLayout,
+    QWidget,
+    QPushButton,
+    QFileDialog,
+    QHBoxLayout,
+    QLineEdit,
+    QSizePolicy,
+    QProgressBar,
+    QTextEdit,
+    QMessageBox,
+)
 from PySide6.QtGui import QFont
 from PySide6.QtSvgWidgets import QSvgWidget
 import os
 from qss import *
 import json
 import shutil
+from PySide6.QtCore import QProcess
+
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -18,8 +35,8 @@ class MainWindow(QMainWindow):
         self.config = read_config(config_file)
         self.current_task = enums.Task.SAMPLE_MATCHING.name
         self.cache_dir = os.path.join(os.path.dirname(__file__), ".cache")
+        self.process = None
         self.setup_cache_dir(self.cache_dir)
-        self.num_faces = self.config.get("MODEL", "TOP_N_FACE")
         self.drawUI()
 
     def drawUI(self):
@@ -49,8 +66,12 @@ class MainWindow(QMainWindow):
         self.clustering_color = self.config.get("UI", "CLUSTERING_TASK_COLOR").split(",")
         match_icon = self.config.get("IMAGES", "MATCH_ICON")
         cluster_icon = self.config.get("IMAGES", "CLUSTER_ICON")
-        self.sample_match_box = self.create_task_button(match_icon, "Sample Match", self.matching_color[0], self.matching_color[1])
-        self.cluster_box = self.create_task_button(cluster_icon, "Cluster", self.clustering_color[0], self.clustering_color[1])
+        self.sample_match_box = self.create_task_button(
+            match_icon, "Sample Match", self.matching_color[0], self.matching_color[1]
+        )
+        self.cluster_box = self.create_task_button(
+            cluster_icon, "Cluster", self.clustering_color[0], self.clustering_color[1]
+        )
 
         # Add boxes to the grid layout
         self.grid_layout.addWidget(self.sample_match_box, 0, 0)
@@ -103,7 +124,7 @@ class MainWindow(QMainWindow):
         self.console = QTextEdit(self)
         self.console.setReadOnly(True)
         self.console.setFixedHeight(150)
-        self.console.setText(f"Welcome to PhotoMatcher! When there are more than one faces in a photo, top {self.num_faces} largest faces will be used.")
+        self.console.setText(enums.StatusMessage.DEFAULT.value)
         self.main_layout.addWidget(self.console)
 
         # Set initial selection to "Sample Match"
@@ -115,13 +136,6 @@ class MainWindow(QMainWindow):
         # Set initial font for title label
         self.update_font()
 
-        # # Setup multiprocessing
-        # self.queue = Queue()
-        # self.worker = Worker(self.queue)
-        # self.worker.progress.connect(self.update_progress)
-        # self.worker.finished.connect(self.log_message)
-        # self.worker.start()
-
     def create_task_button(self, svg_path, button_text, color1=None, color2=None):
         button = QPushButton(self)
 
@@ -130,7 +144,9 @@ class MainWindow(QMainWindow):
 
         # use gradient when two colors are provided
         elif color1 is not None and color2 is not None:
-            button.setStyleSheet(f"background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {color1}, stop:1 {color2}); border: 2px solid black;")
+            button.setStyleSheet(
+                f"background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {color1}, stop:1 {color2}); border: 2px solid black;"
+            )
         else:
             raise ValueError("Color1 must be provided when color2 is provided")
 
@@ -149,13 +165,15 @@ class MainWindow(QMainWindow):
 
         # Add the SVG widget and text to the layout
         layout.addWidget(svg_widget, alignment=Qt.AlignmentFlag.AlignHCenter)
-    
+
         text_label = QLabel(button_text, button)
         text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        text_label.setStyleSheet("background-color: transparent; border: none; font-family: Lato Black;")
+        text_label.setStyleSheet(
+            "background-color: transparent; border: none; font-family: Lato Black;"
+        )
 
         # Set font using QFontDatabase
-        font = QFont("Arial", 20, QFont.Bold) 
+        font = QFont("Arial", 20, QFont.Bold)
         text_label.setFont(font)
         text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         text_label.update()
@@ -189,85 +207,14 @@ class MainWindow(QMainWindow):
         file_dialog = QFileDialog(self)
         file_dialog.setObjectName("customFileDialog")
         file_dialog.setWindowTitle("Select Directory")
-        file_dialog.setStyleSheet('background-color: white; color: black;')
+        file_dialog.setStyleSheet("background-color: white; color: black;")
         file_dialog.setFileMode(QFileDialog.Directory)
         file_dialog.setOption(QFileDialog.ShowDirsOnly, False)
-        
+
         if file_dialog.exec():
             path = file_dialog.selectedFiles()[0]
             if path:
                 line_edit.setText(path)
-
-    @Slot()
-    def handle_box_click(self):
-        clicked_button = self.sender()
-        task = clicked_button.findChild(QLabel).text()
-        self.select_task(task)
-
-    def select_task(self, task):
-        if task == "Sample Match":
-            self.instruction_label.setText(enums.Task.SAMPLE_MATCHING.value)
-            self.reference_path_selector.line_edit.setPlaceholderText("")
-            self.reference_path_selector.button.setEnabled(True)
-            self.current_task = enums.Task.SAMPLE_MATCHING.name
-
-        elif task == "Cluster":
-            self.instruction_label.setText(enums.Task.CLUSTERING.value)
-            self.reference_path_selector.line_edit.setPlaceholderText("Not required for clustering")
-            self.reference_path_selector.button.setEnabled(False)
-            self.current_task = enums.Task.CLUSTERING.name
-
-        # Reset border colors for both boxes
-        self.sample_match_box.setStyleSheet(f"background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {self.matching_color[0]}, stop:1 {self.matching_color[1]}); border: 2px solid black;")
-        self.cluster_box.setStyleSheet(f"background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {self.clustering_color[0]}, stop:1 {self.clustering_color[1]}); border: 2px solid black;")
-
-        # Highlight the selected box
-        if task == "Sample Match":
-            self.sample_match_box.setStyleSheet(self.sample_match_box.styleSheet() + " border: 2px solid white;")
-        elif task == "Cluster":
-            self.cluster_box.setStyleSheet(self.cluster_box.styleSheet() + " border: 2px solid white;")
-
-    def process_jobs(self):
-        """Call the multiprocessing method when the start button is clicked."""
-
-        job = {}
-
-        # first check there is output path.
-        if not self.output_path_selector.line_edit.text():
-            self.display_notification(enums.ErrorMessage.PATH_NOT_SELECTED.name, enums.ErrorMessage.PATH_NOT_SELECTED.value)
-            return
-
-        job['output'] = self.output_path_selector.line_edit.text()
-
-        # start by generating jobs based on the selected task
-        if self.current_task == enums.Task.SAMPLE_MATCHING.name:
-            
-            if not self.source_path_selector.line_edit.text() or not self.reference_path_selector.line_edit.text():
-                self.display_notification(enums.ErrorMessage.PATH_NOT_SELECTED.name, enums.ErrorMessage.PATH_NOT_SELECTED.value)
-                return
-            
-            job['task'] = enums.Task.SAMPLE_MATCHING.name
-            job['source'] = search_all_images(self.source_path_selector.line_edit.text())
-            job['reference'] = search_all_images(self.reference_path_selector.line_edit.text())
-
-        elif self.current_task == enums.Task.CLUSTERING.name:
-
-            if not self.source_path_selector.line_edit.text():
-                self.display_notification(enums.ErrorMessage.PATH_NOT_SELECTED.name, enums.ErrorMessage.PATH_NOT_SELECTED.value)
-                return
-            
-            job['task'] = enums.Task.CLUSTERING.name
-            job['source'] = search_all_images(self.source_path_selector.line_edit.text())
-
-        else:
-            raise ValueError("Invalid task selected")
-
-        # dump the job to a json file
-        job_json = os.path.join(self.cache_dir, "job.json")
-        with open(job_json, "w") as f:
-            json.dump(job, f)
-
-        self.progress_bar.setValue(10)
 
     def display_notification(self, state_enum, message):
         """Display notification message for important messages."""
@@ -287,7 +234,7 @@ class MainWindow(QMainWindow):
         self.reference_path_selector.line_edit.setText("")
         self.output_path_selector.line_edit.setText("")
         self.progress_bar.setValue(0)  # Reset progress bar
-        self.console.setText(f"Welcome to PhotoMatcher! \n When there are more than one faces in a photo, top {self.num_faces} largest faces will be used")  
+        self.console.setText(enums.StatusMessage.DEFAULT.value)
         self.current_task = enums.Task.SAMPLE_MATCHING.name
         self.setup_cache_dir(self.cache_dir)
 
@@ -313,3 +260,129 @@ class MainWindow(QMainWindow):
         if os.path.exists(cache_dir):
             shutil.rmtree(cache_dir)
         os.makedirs(cache_dir, exist_ok=True)
+
+    @Slot()
+    def handle_box_click(self):
+        clicked_button = self.sender()
+        task = clicked_button.findChild(QLabel).text()
+        self.select_task(task)
+
+    def select_task(self, task):
+        if task == "Sample Match":
+            self.instruction_label.setText(enums.Task.SAMPLE_MATCHING.value)
+            self.reference_path_selector.line_edit.setPlaceholderText("")
+            self.reference_path_selector.button.setEnabled(True)
+            self.current_task = enums.Task.SAMPLE_MATCHING.name
+
+        elif task == "Cluster":
+            self.instruction_label.setText(enums.Task.CLUSTERING.value)
+            self.reference_path_selector.line_edit.setPlaceholderText("Not required for clustering")
+            self.reference_path_selector.button.setEnabled(False)
+            self.current_task = enums.Task.CLUSTERING.name
+
+        # Reset border colors for both boxes
+        self.sample_match_box.setStyleSheet(
+            f"background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {self.matching_color[0]}, stop:1 {self.matching_color[1]}); border: 2px solid black;"
+        )
+        self.cluster_box.setStyleSheet(
+            f"background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {self.clustering_color[0]}, stop:1 {self.clustering_color[1]}); border: 2px solid black;"
+        )
+
+        # Highlight the selected box
+        if task == "Sample Match":
+            self.sample_match_box.setStyleSheet(
+                self.sample_match_box.styleSheet() + " border: 2px solid white;"
+            )
+        elif task == "Cluster":
+            self.cluster_box.setStyleSheet(
+                self.cluster_box.styleSheet() + " border: 2px solid white;"
+            )
+
+    def process_jobs(self):
+        """Call the multiprocessing method when the start button is clicked."""
+
+        job = {}
+
+        # first check there is output path.
+        if not self.output_path_selector.line_edit.text():
+            self.display_notification(
+                enums.ErrorMessage.PATH_NOT_SELECTED.name,
+                enums.ErrorMessage.PATH_NOT_SELECTED.value,
+            )
+            return
+
+        job["output"] = self.output_path_selector.line_edit.text()
+
+        # start by generating jobs based on the selected task
+        if self.current_task == enums.Task.SAMPLE_MATCHING.name:
+
+            if (
+                not self.source_path_selector.line_edit.text()
+                or not self.reference_path_selector.line_edit.text()
+            ):
+                self.display_notification(
+                    enums.ErrorMessage.PATH_NOT_SELECTED.name,
+                    enums.ErrorMessage.PATH_NOT_SELECTED.value,
+                )
+                return
+
+            job["task"] = enums.Task.SAMPLE_MATCHING.name
+            job["source"] = search_all_images(self.source_path_selector.line_edit.text())
+            job["reference"] = search_all_images(self.reference_path_selector.line_edit.text())
+
+        elif self.current_task == enums.Task.CLUSTERING.name:
+
+            if not self.source_path_selector.line_edit.text():
+                self.display_notification(
+                    enums.ErrorMessage.PATH_NOT_SELECTED.name,
+                    enums.ErrorMessage.PATH_NOT_SELECTED.value,
+                )
+                return
+
+            job["task"] = enums.Task.CLUSTERING.name
+            job["source"] = search_all_images(self.source_path_selector.line_edit.text())
+
+        else:
+            raise ValueError("Invalid task selected")
+
+        # dump the job to a json file
+        job_json = os.path.join(self.cache_dir, "job.json")
+        with open(job_json, "w") as f:
+            json.dump(job, f)
+
+        self.progress_bar.setValue(10)
+
+        # TODO: Must block the button until the process is finished
+        if self.process is None:
+            self.console.setText(f'Executing process for {job["task"]}')
+            self.p = QProcess()
+            self.p.readyReadStandardOutput.connect(self.handle_stdout)
+            self.p.readyReadStandardError.connect(self.handle_stderr)
+            self.p.stateChanged.connect(self.handle_state)
+            self.p.finished.connect(self.process_finished)
+            self.p.start("python3", ['jobs.py'])
+
+        self.progress_bar.setValue(50)
+
+    def handle_stderr(self):
+        data = self.p.readAllStandardError()
+        stderr = bytes(data).decode("utf8")
+        self.log_message(stderr)
+
+    def handle_stdout(self):
+        data = self.p.readAllStandardOutput()
+        stdout = bytes(data).decode("utf8")
+        self.log_message(stdout)
+
+    def handle_state(self, state):
+        states = {
+            QProcess.NotRunning: 'Not running',
+            QProcess.Starting: 'Starting',
+            QProcess.Running: 'Running',
+        }
+        state_name = states[state]
+        self.log_message(f"Worker state: {state_name}")
+
+    def process_finished(self):
+        self.log_message("Process finished.")
+        self.p = None

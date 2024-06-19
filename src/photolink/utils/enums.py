@@ -11,6 +11,10 @@ class ErrorMessage(Enum):
     SOURCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the source folder."
     REFERENCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the reference folder."
 
+class StatusMessage(Enum):
+    DEFAULT = "Welcome to PhotoMatcher! When there are more than one faces in a photo, top 3 largest faces will be used"
+    COMPLETE = "Task completed successfully!"
+
 
 class ClusteringAlgorithm(Enum):
     """Enum for clustering algorithm."""

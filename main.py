@@ -14,6 +14,7 @@ def main():
     config_file = os.path.join(os.path.dirname(__file__), "./config.ini")
     config = read_config(config_file)
     config_to_env(config, "MODEL")
+    os.environ['ROOT_PATH'] = os.path.dirname(__file__)
     app = QApplication(sys.argv)
     
     # Enable stylesheet propagation
@@ -36,9 +37,6 @@ def main():
     window = MainWindow()
     window.setWindowIcon(QIcon(icon_path))  # Set window icon
     window.show()
-
-    # # Example usage of the log_message method
-    # window.log_message("Application started")
 
     # Create a timer to periodically check for signals
     timer = QTimer()

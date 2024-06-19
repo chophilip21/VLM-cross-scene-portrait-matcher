@@ -29,7 +29,7 @@ def config_to_env(config: configparser.ConfigParser, section: str):
 
     for section in config.sections():
         for key, value in config.items(section):
-            env_var = f"{section.upper()}_{key.upper()}"
-            os.environ[env_var] = value
+            key = key.upper()
+            os.environ[key] = value
 
     return True

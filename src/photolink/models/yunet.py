@@ -49,7 +49,8 @@ top_k = 5000 ## bb to keep before nms
 if os.getenv("YUNET_PATH") is None:
     raise ValueError("Please set the YUNET_PATH in the environment variable.")
 
-model_path = os.path.join(os.path.dirname(__file__), os.getenv("YUNET_PATH"))
+project_root = os.getenv("ROOT_PATH")
+model_path = os.path.join(project_root, os.getenv("YUNET_PATH"))
 
 if not os.path.exists(model_path):
     raise ValueError(f"Model path {model_path} does not exist.")

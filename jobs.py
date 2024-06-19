@@ -13,7 +13,7 @@ class JobProcessor():
         if not os.path.exists(self.cache_dir):
             raise FileNotFoundError(f"Cache directory not found: {self.cache_dir}")
 
-        self.jobs_file = os.path.join(self.cache_dir, "jobs.json")
+        self.jobs_file = os.path.join(self.cache_dir, "job.json")
 
         if not os.path.exists(self.jobs_file):
             raise FileNotFoundError(f"Jobs file not found: {self.jobs_file}")
@@ -22,23 +22,30 @@ class JobProcessor():
             self.jobs = json.load(f)
 
         self.task = self.jobs["task"]
+        self.output_path = self.jobs["output"]
         self.source_list_images = None
         self.reference_list_images = None
         self.num_processes = os.cpu_count()
-        self.chunksize = os.getenv("CHUNKSIZE", 10)
+        self.chunksize = int(os.getenv("CHUNKSIZE", 10))
         self.top_n_face = int(os.getenv("TOP_N_FACE", 3))
         self.min_clustering_samples = int(os.getenv("MIN_CLUSTERING_SAMPLES", 2))
         self.source_cache = os.path.join(self.cache_dir, "source")
         self.reference_cache = os.path.join(self.cache_dir, "reference")
+        os.makedirs(self.source_cache, exist_ok=True)
+        os.makedirs(self.reference_cache, exist_ok=True)
+
+        # save the failed processing ones to a separate folder
+        self.fail_path = os.path.join(self.output_path, "missed")
+        os.makedirs(self.fail_path, exist_ok=True)
 
     def run(self):
         """Run the job processor."""
         if self.task == enums.Task.SAMPLE_MATCHING.name:
-            self.source_path = self.jobs["source_path"]
-            self.reference_path = self.jobs["reference_path"]
+            self.source_list_images = self.jobs["source"]
+            self.reference_list_images = self.jobs["reference"]
             self.preprocess_sample_matching()
         elif self.task == enums.Task.CLUSTERING.name:
-            self.source_path = self.jobs["source_path"]
+            self.source_list_images = self.jobs["source"]
             self.preprocess_clustering()
         else:
             raise NotImplementedError(f"Task not implemented: {self.task}")
@@ -58,6 +65,7 @@ class JobProcessor():
         worker.run_model_mp(
             self.source_list_images,
             self.num_processes,
+            self.chunksize,
             self.source_cache,
             self.fail_path,
             self.top_n_face,
@@ -66,6 +74,7 @@ class JobProcessor():
         worker.run_model_mp(
             self.reference_list_images,
             self.num_processes,
+            self.chunksize,
             self.reference_cache,
             self.fail_path,
             self.top_n_face,
@@ -83,31 +92,19 @@ class JobProcessor():
 
     def preprocess_clustering(self) -> dict:
         """Preprocessing for the clustering algorithm."""
-        self.source_list_images = utils.search_all_images(self.source_path)
+        result = {}
 
         if len(self.source_list_images) == 0:
-            self.main_window.error_dialog(
-                "Invalid Command", enums.ErrorMessage.SOURCE_FOLDER_EMPTY.value
-            )
-            return
-
-        self.progress_bar.value = 25
-        self.display_console_message(
-            f"Processing {len(self.source_list_images)} source images."
-        )
+            result["error"] = enums.ErrorMessage.SOURCE_FOLDER_EMPTY.value
+            return result
 
         worker.run_model_mp(
             self.source_list_images,
             self.num_processes,
+            self.chunksize,
             self.source_cache,
             self.fail_path,
             self.top_n_face,
-            self.task_queue,
-            self.result_queue
-        )
-        self.progress_bar.value = 50
-        self.display_console_message(
-            "Embedding conversion completed. Now Clustering the results."
         )
 
         # HDBSCAN outperforms DBSCAN and OPTICS in most cases.
@@ -120,7 +117,6 @@ class JobProcessor():
             "output_path": self.output_path,
             "fail_path": self.fail_path,
         }
-
         return inputs
 
 
