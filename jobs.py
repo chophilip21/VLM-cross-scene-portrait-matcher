@@ -5,7 +5,7 @@ import os
 import json
 
 class JobProcessor():
-    """Run multiprocessing code based on the jobs generated from app.py"""
+    """Preprocessing codes are the heaviest. Based on the jobs generated from app.py, run multiprocessing to expediate. Save results to predefined cache path."""
 
     def __init__(self):
         self.cache_dir = os.path.join(os.path.dirname(__file__), ".cache")

@@ -6,7 +6,6 @@ from photolink.utils.function import read_config, config_to_env
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
-from app import MainWindow
 from qss import *
 
 def main():
@@ -17,6 +16,9 @@ def main():
     os.environ['ROOT_PATH'] = os.path.dirname(__file__)
     app = QApplication(sys.argv)
     
+    # import needs to happen after env variable set.
+    from app import MainWindow
+
     # Enable stylesheet propagation
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseStyleSheetPropagationInWidgetStyles, True)
 

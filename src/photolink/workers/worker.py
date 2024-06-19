@@ -71,7 +71,7 @@ def run_model_mp(
     fail_path: str,
     keep_top_n: int = 3,
 ):
-    """Use multiprocessing to run the models."""
+    """Use multiprocessing to run the models and each results to pickle file to cache path."""
     ctx = mp.get_context("spawn")
     pool = ctx.Pool(processes=num_workers)
 

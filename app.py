@@ -1,15 +1,15 @@
 """Divide functional and UI related logic."""
 import photolink.utils.enums as enums
 from photolink.utils.function import search_all_images
+import photolink.workers.worker as worker
 from PySide6.QtCore import Slot
-from PySide6.QtWidgets import (
-    QLabel,
-)
+from PySide6.QtWidgets import QLabel
 import os
 from qss import *
 import json
 from PySide6.QtCore import QProcess, Signal, QTimer
 from front import MainWindowFront
+
 
 class MainWindow(MainWindowFront):
 
@@ -113,11 +113,12 @@ class MainWindow(MainWindowFront):
             self.change_button_status(True)
             raise ValueError("Invalid task selected")
 
-        # proceed to dump the job to a json file. Only then can the worker process it.
+        # proceed to dump the job to json. Only then can the worker process it.
         job_json = os.path.join(self.cache_dir, "job.json")
         with open(job_json, "w") as f:
             json.dump(self.job, f)
 
+        # use multiprocessing to run the job for preprocessing.
         if self.process is None:
             self.console.setText(f'Executing process for {self.job["task"]}')
             self.p = QProcess()
@@ -125,10 +126,50 @@ class MainWindow(MainWindowFront):
             self.p.readyReadStandardError.connect(self.handle_stderr)
             self.p.stateChanged.connect(self.handle_state)
             self.p.finished.connect(self.process_finished)
-            self.p.start("python3", ['jobs.py'])
+            self.p.start("python3", ["jobs.py"])
 
             # use timer and check progress to update progress bar.
             self.timer.start(1000)
+
+        # now we do postprocessing on the main process.
+        self.log_message("Postprocessing...")
+        source_cache = os.path.join(self.cache_dir, "source")
+        reference_cache = os.path.join(self.cache_dir, "reference")
+        source_list_images = self.job["source"]
+        reference_list_images = self.job["reference"]
+        output_path = self.job["output"]
+        clustering_algorithm = enums.ClusteringAlgorithm.HDBSCAN.value
+        eps = 0.5
+        min_samples = 2
+
+        if self.current_task == enums.Task.SAMPLE_MATCHING.name:
+            result = worker.match_embeddings(
+                source_cache=source_cache,
+                reference_cache=reference_cache,
+                source_list_images=source_list_images,
+                reference_list_images=reference_list_images,
+                output_path=output_path,
+            )
+        elif self.current_task == enums.Task.CLUSTERING.name:
+            result = worker.cluster_embeddings(
+                source_cache=source_cache,
+                source_list_images=source_list_images,
+                clustering_algorithm=clustering_algorithm,
+                eps=eps,
+                min_samples=min_samples,
+                output_path=output_path,
+            )
+        else:
+            raise NotImplementedError("Invalid task selected")
+        
+        if "error" in result:
+            self.display_notification("Error", result["error"])
+            self.change_button_status(True)
+            return
+        else:
+            self.display_notification("Success", "All operations completed.")
+            self.progress_bar.setValue(100)
+            self.change_button_status(True)
 
     def handle_stderr(self):
         data = self.p.readAllStandardError()
@@ -142,12 +183,12 @@ class MainWindow(MainWindowFront):
 
     def handle_state(self, state):
         states = {
-            QProcess.NotRunning: 'Not running',
-            QProcess.Starting: 'Starting',
-            QProcess.Running: 'Running',
+            QProcess.NotRunning: "Finished",
+            QProcess.Starting: "Starting",
+            QProcess.Running: "Running",
         }
         state_name = states[state]
-        self.log_message(f"Worker state: {state_name}")
+        print(f"Worker state: {state_name}")
 
     def process_finished(self):
         self.log_message("Process finished.")
@@ -162,10 +203,14 @@ class MainWindow(MainWindowFront):
         source_cache_dir = os.path.join(self.cache_dir, "source")
 
         if not os.path.exists(source_cache_dir):
-            raise FileNotFoundError(f"Source cache directory not created properly: {source_cache_dir}")
+            raise FileNotFoundError(
+                f"Source cache directory not created properly: {source_cache_dir}"
+            )
 
-        processed_files = len([name for name in os.listdir(source_cache_dir) if name.endswith('.pkl')])
-        
+        processed_files = len(
+            [name for name in os.listdir(source_cache_dir) if name.endswith(".pkl")]
+        )
+
         # preprocess should never be more than 50%
         if source_images > 0:
             progress = (processed_files / source_images) * 50
