@@ -13,6 +13,9 @@ import faiss
 import sklearn.cluster as c_algorithm
 import hdbscan
 import cv2
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning, message='.*invalid SOS parameters for sequential JPEG.*')
+
 
 def _run_ml_model(image_path: str, save_path: str, fail_path: str, keep_top_n: int = 3):
     """Process face detection and recognition for images, save embeddings to save_path as pkl file.
@@ -178,10 +181,6 @@ def match_embeddings(
 
     for i, file in enumerate(reference_embeddings):
 
-        # Use this for progress bar update.
-        progress = 50 + ((i + 1) / len(reference_embeddings) * 50)
-        print(f"POSTPROCESS_PROGRESS: {progress}", flush=True)
-
         try:
             reference_embedding_dict = read_embeddingpkl(
                 os.path.join(reference_cache, file)
@@ -326,10 +325,6 @@ def cluster_embeddings(
 
     # now save the output.
     for i, label in enumerate(labels):
-
-        # Use this for progress bar update.
-        progress = 50 + ((i + 1) / len(labels) * 50)
-        print(f"POSTPROCESS_PROGRESS: {progress}", flush=True)
 
         # find the original image from look up table.
         backtracked_file_name = face_to_embedding_file_table[i]

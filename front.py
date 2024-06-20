@@ -237,7 +237,13 @@ class MainWindowFront(QMainWindow):
         self.progress_bar.setValue(value)
         self.console.append(f"Progress: {value}%")
 
-    def log_message(self, message):
+    def log_message(self, message:str):
+        """"Log messages to the console."""
+
+        # ignore some messages.
+        if 'sos' in message.lower():
+            return
+
         self.console.append(message)
 
     def on_resize(self, event):
