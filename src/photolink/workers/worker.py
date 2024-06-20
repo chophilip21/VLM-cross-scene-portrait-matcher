@@ -158,7 +158,13 @@ def match_embeddings(
     }
 
     # start by reading each embedding file, and adding to faiss index.
-    for embedding_file in source_embeddings:
+    for i, embedding_file in enumerate(source_embeddings):
+
+        progress = math.ceil(50 + ((i + 1) / len(source_embeddings) * 25))
+
+        if int(progress) % 2 == 0:
+            print(f"POSTPROCESS_PROGRESS: {int(progress)}")
+
         try:
             source_embedding_dict = read_embeddingpkl(
                 os.path.join(source_cache, embedding_file)
@@ -180,7 +186,7 @@ def match_embeddings(
 
     for i, file in enumerate(reference_embeddings):
 
-        progress = math.ceil(50 + ((i + 1) / len(reference_embeddings) * 50))
+        progress = math.ceil(75 + ((i + 1) / len(reference_embeddings) * 25))
 
         if int(progress) % 2 == 0:
             print(f"POSTPROCESS_PROGRESS: {int(progress)}")

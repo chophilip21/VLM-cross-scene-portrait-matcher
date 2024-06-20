@@ -168,11 +168,12 @@ class MainWindow(MainWindowFront):
         # Check for postprocessing progress updates coming from worker.py
         for line in stdout.split("\n"):
             
-            # turn off check_progress logic. 
+            # turn off check_progress logic. 50% passed.
             if line.startswith("Preprocessing ended"):
                 self.preprocess_ended = True
                 return
 
+            # Use this to update progress bar after 50% mark.
             if line.startswith("POSTPROCESS_PROGRESS:"):
                 progress = int(line.split(":")[-1])
                 self.progress_bar.setValue(progress)
@@ -194,16 +195,23 @@ class MainWindow(MainWindowFront):
         source_images = len(self.job["source"])
         source_cache_dir = os.path.join(self.cache_dir, "source")
 
-        if not os.path.exists(source_cache_dir):
-            raise FileNotFoundError(
-                f"Source cache directory not created properly: {source_cache_dir}"
-            )
-
         processed_files = len(
             [name for name in os.listdir(source_cache_dir) if name.endswith(".pkl")]
         )
 
-        # Use this function to monitor progress up until 50% mark.
-        if source_images > 0 and not self.preprocess_ended:
-            progress = (processed_files / source_images) * 50
-            self.progress_update.emit(int(progress))
+        # update progress differently for each task. Use this method until 50% mark.
+        if self.current_task == enums.Task.SAMPLE_MATCHING.name:
+            reference_images = len(self.job["reference"])
+            reference_cache_dir = os.path.join(self.cache_dir, "reference")
+
+            processed_files += len(
+                [name for name in os.listdir(reference_cache_dir) if name.endswith(".pkl")]
+            )
+
+            if source_images > 0 and not self.preprocess_ended:
+                progress = (processed_files / (source_images + reference_images)) * 50
+                self.progress_update.emit(int(progress))
+        else:
+            if source_images > 0 and not self.preprocess_ended:
+                progress = (processed_files / source_images) * 50
+                self.progress_update.emit(int(progress))

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "PhotolinkML"
 version = "0.0.1" # should be dynamic later on
-description = "Photolink ML side logic"
+description = "Photolink application"
 requires-python = ">=3.9, <3.12"
 authors = [
     { name = "Philip Cho", email = "chophilip21@gmail.com" },
