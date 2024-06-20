@@ -1,20 +1,19 @@
+"""Enums for the application."""
 from enum import Enum
 
 class Task(Enum):
     """Enum for task type."""
-    SAMPLE_MATCHING = "Source matching (1 source img per subject, N reference images to match)"
-    CLUSTERING = "Clustering (Unknown number of subjects gathered in a single folder)"
-
-class StatusLogMessage(Enum):
-    """Enum for status message type."""
-    START = "Welcome to Photo Matcher!\nTo run source matching, select the source and reference image folders. Make sure that source folder has only one image per subject. Reference folder can have any number of images. For each subject, a folder will be created to the output path and images will be copied to the respective subject folders. Note, when multiple faces found in the source image, the three largest faces will be used, which means there can be duplicate matches."
-    SAMPLE_MATCHING = "To run source matching, select the source and reference image folders. Make sure that source folder has only one image per subject. Reference folder can have any number of images. For each subject, a folder will be created to the output path and images will be copied to the respective subject folders. Note, when multiple faces found in the source image, the three largest faces will be used, which means there can be duplicate matches."
-    CLUSTERING = "If you do not have one source image per subject or you simply don't know how many subjects you have, run clustering. \n\nTo start, select the folder containing images to cluster, and all images will be recursively picked up. Each cluster represents identified subject, and folders will be created to the output path and images will be copied to the respective cluster folders. Uncertain ones will be transferred to uncertain folder. Note, when multiple faces found in the image, the three largest faces will be used, which means there can be duplicate matches. The subject must have at least two images to be considered as a cluster."
+    SAMPLE_MATCHING = "Sample match is for matching one source photo against multiple reference photos of the subject. You can have many as many subjects as you want, but ensure that you only have one source image per subject. Results will be saved to output path."
+    CLUSTERING = "When you do not know how many subjects you have, place all images into a single folder and run clustering. Each cluster represents identified subject. Uncertain ones will be transferred to uncertain folder. Subject must have at least two images to be considered as a cluster."
 
 class ErrorMessage(Enum):
     PATH_NOT_SELECTED = "Error, Please select all required valid paths."
     SOURCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the source folder."
     REFERENCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the reference folder."
+
+class StatusMessage(Enum):
+    DEFAULT = "Welcome to PhotoMatcher! When there are more than one faces in a photo, top 3 largest faces will be used"
+    COMPLETE = "Task completed successfully!"
 
 
 class ClusteringAlgorithm(Enum):

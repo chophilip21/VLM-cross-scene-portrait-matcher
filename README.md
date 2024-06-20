@@ -1,64 +1,44 @@
-# TogaMatcher, getting started
+# Comparison of framework
 
-Create a webapp using Toga. For more info, refer to [this](https://docs.beeware.org/en/latest/tutorial/tutorial-0.html). Seems the recommended version of python is 3.10. [Install it first if you need to](https://gist.github.com/rutcreate/c0041e842f858ceb455b748809763ddb).
+The goal of this repository is to create a standalone ML application that can be packaged and delivered to clients using Mac or Windows. 
 
-```bash
-python3.10 -m venv beeware-venv
-source beeware-venv/bin/activate
-pip install -r requirements.txt
-```
+I have spent time tying to make things work with Toga, but despite the ease of building UI with the framework, it had major bug in terms of interaction with multiprocessing modules when packaged for Windows:
 
-You may need to update some packages required to run briefcase commands:
 
-```bash
-sudo apt-get update
-sudo apt install libcairo2-dev pkg-config python3-dev
-sudo apt install cmake
-sudo apt install libgirepository1.0-dev
-```
+| Feature                     | PyQt                               | PySide2                            | PySide6                            | Kivy                                | Tkinter                            | WxPython                          | Toga                               |
+|-----------------------------|------------------------------------|------------------------------------|------------------------------------|-------------------------------------|------------------------------------|-----------------------------------|------------------------------------|
+| **Ease of Use**             | Moderate                           | Moderate                           | Moderate                           | Moderate                            | Easy                               | Moderate                          | Easy                               |
+| **Documentation**           | Excellent                          | Good                               | Good                               | Good                                | Good                               | Good                              | Fair                               |
+| **Community Support**       | Large                              | Growing                            | Small but growing                  | Growing                             | Large                              | Moderate                          | Small                              |
+| **Cross-Platform Support**  | Yes                                | Yes                                | Yes                                | Yes                                 | Yes                                | Yes                               | Yes                                |
+| **Maturity**                | High                               | Moderate                           | Newer but stable                   | Moderate                            | High                               | High                              | Low                                |
+| **Packaging**               | Good (with PyInstaller or PyQt's tools) | Good (with PyInstaller or fbs)     | Good (with PyInstaller or fbs)     | Moderate (with Buildozer for mobile) | Good (with PyInstaller or cx_Freeze) | Good (with PyInstaller)          | Good (with Briefcase)              |
+| **Performance**             | High                               | High                               | Improved                           | High                                | Moderate                           | High                              | Moderate                           |
+| **Multiprocessing/Threading**| Good                               | Good                               | Good                               | Good                                | Limited                            | Good                              | Limited                            |
+| **Look and Feel**           | Native                             | Native                             | Native                             | Customizable, but non-native        | Basic, native                      | Native                            | Customizable, but non-native       |
+| **Learning Curve**          | Steep                              | Steep                              | Steep                              | Moderate                            | Gentle                             | Moderate                          | Gentle                             |
+| **License**                 | GPL/commercial                     | LGPL                               | LGPL                               | MIT                                 | BSD                                | LGPL                              | BSD                                |
 
-You can do some basic testing of the application in the developer mode by:
+Pyside2 (LGPL license) based on QT5 was recommended, but now that Pyside6 based on QT6 is available, I am going to try that out first.
 
-```bash
-# run as dev debug mode.
-cd photomatcher
-briefcase dev
-```
+| Feature                       | PySide2                              | PySide6                              |
+|-------------------------------|--------------------------------------|--------------------------------------|
+| **Qt Version**                | Qt 5                                 | Qt 6                                 |
+| **Stability**                 | Stable, well-tested                  | Newer, evolving but stable           |
+| **Features**                  | Comprehensive, established           | New features from Qt 6               |
+| **Performance**               | Optimized for Qt 5                   | Improved performance with Qt 6       |
+| **Support for New Technologies** | Limited to Qt 5 capabilities        | Access to latest Qt technologies     |
+| **Documentation**             | Good, extensive                      | Good, growing                        |
+| **Community Support**         | Growing                              | Small but growing                    |
+| **Backward Compatibility**    | Compatible with Qt 5                 | Not backward compatible with Qt 5    |
+| **License**                   | LGPL                                 | LGPL                                 |
 
-# Shipping the application
 
-When ready to ship the application, run below to build the wheel first.
-
-```bash
-# check the Python version conflict is resolved.
-cd photomatcher
-briefcase create
-```
-
-Then build to binary,
-
-```bash
-briefcase build
-briefcase run # check everything runs.
-```
-
-Then you can package them it:
+## Getting started with Pyinside6
 
 ```bash
-briefcase package
+conda create --name pyinside python=3.11
+make build
+make install
+sudo apt-get install libxcb-cursor0
 ```
-
-When you update the code, the easiest way to apply the changes would be:
-
-```bash
-# one command to apply update, and build.
-briefcase run -u 
-```
-
-
-# Deploying as a web app
-
-```bash
-briefcase run web
-```
-

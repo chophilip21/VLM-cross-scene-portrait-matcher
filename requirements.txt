@@ -1,8 +1,0 @@
-briefcase
-toga
-scikit-learn
-pycairo
-faiss-cpu
-hdbscan
-opencv-python
-python-dotenv

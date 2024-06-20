@@ -51,8 +51,8 @@ class Sface:
 if os.getenv("SFACE_PATH") is None:
     raise ValueError("Please set the SFACENET_PATH in the environment variable.")
 
-
-model_path = os.path.join(os.path.dirname(__file__), os.getenv("SFACE_PATH"))
+project_root = os.getenv("ROOT_PATH")
+model_path = os.path.join(project_root, os.getenv("SFACE_PATH"))
 
 if not os.path.exists(model_path):
     raise ValueError(f"Model path {model_path} does not exist.")

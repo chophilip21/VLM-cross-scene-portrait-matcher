@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling", "cmake"]
+build-backend = "hatchling.build"
+
+[project]
+name = "PhotolinkML"
+version = "0.0.1" # should be dynamic later on
+description = "Photolink application"
+requires-python = ">=3.9, <3.12"
+authors = [
+    { name = "Philip Cho", email = "chophilip21@gmail.com" },
+    { name = "Alinstein Jose", email = "alinsteinjose@gmail.com" },
+]
+
+[project.optional-dependencies]
+devel = [
+    "pyside6",
+    "scikit-learn",
+    "pycairo",
+    "faiss-cpu",
+    "hdbscan",
+    "opencv-python",
+    "python-dotenv",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/photolink"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "helpers/requirements/devel.txt",
+    "helpers/requirements/test.txt",
+    "README.md",
+]
+
+#######
+# Tool configurations
+
+[tool.isort]
+py_version = 311
+line_length = 100
+profile = "black"
+include_trailing_comma = true
+indent = 4
+color_output = true
+src_paths = ["src", "tests"]
+
+[tool.black]
+line_length = 100
+
+[tool.flake8]
+max-line-length = 100
+max-complexity = 25
+ignore = ['E133', 'W503', 'E203', 'C901']
+
+[tool.pydocstyle]
+ignore = ["D212", "D401", "D203"]

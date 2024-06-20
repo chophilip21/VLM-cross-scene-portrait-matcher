@@ -1,6 +1,8 @@
-import photomatcher.model.yunet as yunet
-import photomatcher.model.sface as sface
-import photomatcher.enums as enums
+"""ML algorithms for face detection and recognition, and clustering."""
+
+import photolink.models.yunet as yunet
+import photolink.models.sface as sface
+import photolink.utils.enums as enums
 import os
 import shutil
 from functools import partial
@@ -11,6 +13,8 @@ import faiss
 import sklearn.cluster as c_algorithm
 import hdbscan
 import cv2
+import math
+
 
 def _run_ml_model(image_path: str, save_path: str, fail_path: str, keep_top_n: int = 3):
     """Process face detection and recognition for images, save embeddings to save_path as pkl file.
@@ -61,45 +65,32 @@ def _run_ml_model(image_path: str, save_path: str, fail_path: str, keep_top_n: i
     return True
 
 
-def worker_process(task_queue, result_queue):
-    while True:
-        task = task_queue.get()
-        if task is None:
-            break
-        result = _run_ml_model(task["image_path"], task["save_path"], task["fail_path"], task["keep_top_n"])
-        result_queue.put(result)
-
 def run_model_mp(
     entries,
     num_workers: int,
+    chunksize: int,
     save_path: str,
     fail_path: str,
     keep_top_n: int = 3,
-    task_queue=None,
-    result_queue=None
 ):
-    """Use multiprocessing to run the models."""
+    """Use multiprocessing to run the models and each results to pickle file to cache path."""
     ctx = mp.get_context("spawn")
+    pool = ctx.Pool(processes=num_workers)
 
-    for entry in entries:
-        task_queue.put({
-            "image_path": entry,
-            "save_path": save_path,
-            "fail_path": fail_path,
-            "keep_top_n": keep_top_n
-        })
+    with pool as p:
+        result = list(
+            p.imap_unordered(
+                partial(
+                    _run_ml_model,
+                    save_path=save_path,
+                    fail_path=fail_path,
+                    keep_top_n=keep_top_n,
+                ),
+                entries,
+                chunksize=chunksize,
+            )
+        )
 
-    processes = []
-    for _ in range(num_workers):
-        p = ctx.Process(target=worker_process, args=(task_queue, result_queue))
-        p.start()
-        processes.append(p)
-
-    for p in processes:
-        p.join()
-
-    if not result_queue.empty():
-        result = list(result_queue.get())
         if not result:
             print(f"Warning: {result}")
 
@@ -167,7 +158,13 @@ def match_embeddings(
     }
 
     # start by reading each embedding file, and adding to faiss index.
-    for embedding_file in source_embeddings:
+    for i, embedding_file in enumerate(source_embeddings):
+
+        progress = math.ceil(50 + ((i + 1) / len(source_embeddings) * 25))
+
+        if int(progress) % 2 == 0:
+            print(f"POSTPROCESS_PROGRESS: {int(progress)}")
+
         try:
             source_embedding_dict = read_embeddingpkl(
                 os.path.join(source_cache, embedding_file)
@@ -187,7 +184,12 @@ def match_embeddings(
             result["error"] = f"Error adding source embeddings to faiss index: {e}"
             return result
 
-    for file in reference_embeddings:
+    for i, file in enumerate(reference_embeddings):
+
+        progress = math.ceil(75 + ((i + 1) / len(reference_embeddings) * 25))
+
+        if int(progress) % 2 == 0:
+            print(f"POSTPROCESS_PROGRESS: {int(progress)}")
 
         try:
             reference_embedding_dict = read_embeddingpkl(
@@ -324,7 +326,6 @@ def cluster_embeddings(
             index_count += 1
 
     embeddings = np.array(loaded_embeddings)
-    print(f"Embeddings shape for clustering: {embeddings.shape}")
 
     try:
         labels = cluster_obj.fit_predict(embeddings)
@@ -334,6 +335,12 @@ def cluster_embeddings(
 
     # now save the output.
     for i, label in enumerate(labels):
+
+        #print POSTPROCESS_PROGRESS
+        progress =math.ceil(50 + ((i + 1) / len(labels) * 50))
+
+        if int(progress) % 2 == 0:
+            print(f"POSTPROCESS_PROGRESS: {int(progress)}")
 
         # find the original image from look up table.
         backtracked_file_name = face_to_embedding_file_table[i]
@@ -376,3 +383,7 @@ def cluster_embeddings(
     result["status"] = "success"
 
     return result
+
+
+if __name__ == "__main__":
+    pass
