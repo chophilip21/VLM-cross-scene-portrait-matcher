@@ -1,15 +1,19 @@
-"""Run multiprocessing code based on the jobs generated from app.py"""
+"""Process jobs generated from app.py"""
 import photolink.workers.worker as worker
 import photolink.utils.enums as enums
 import os
 import json
+import sys
+import traceback
 
-class JobProcessor():
-    """Preprocessing codes are the heaviest. Based on the jobs generated from app.py, run multiprocessing to expediate. Save results to predefined cache path."""
+
+class JobProcessor:
+    """Preprocessing codes are the heaviest. Based on the jobs generated from app.py, run multiprocessing to expediate. Save results to predefined cache path. Postprocessing does not need multiprocessing."""
 
     def __init__(self):
         self.cache_dir = os.path.join(os.path.dirname(__file__), ".cache")
 
+        # These should never fail validation. If they do, let it die.
         if not os.path.exists(self.cache_dir):
             raise FileNotFoundError(f"Cache directory not found: {self.cache_dir}")
 
@@ -17,7 +21,7 @@ class JobProcessor():
 
         if not os.path.exists(self.jobs_file):
             raise FileNotFoundError(f"Jobs file not found: {self.jobs_file}")
-        
+
         with open(self.jobs_file, "r") as f:
             self.jobs = json.load(f)
 
@@ -40,84 +44,128 @@ class JobProcessor():
 
     def run(self):
         """Run the job processor."""
+
+        self.source_list_images = self.jobs["source"]
+
         if self.task == enums.Task.SAMPLE_MATCHING.name:
-            self.source_list_images = self.jobs["source"]
             self.reference_list_images = self.jobs["reference"]
             self.preprocess_sample_matching()
+            print("Preprocessing ended")
+            self.postprocess_sample_matching()
+
         elif self.task == enums.Task.CLUSTERING.name:
-            self.source_list_images = self.jobs["source"]
             self.preprocess_clustering()
+            print("Preprocessing ended")
+            self.postprocess_clustering()
+
         else:
             raise NotImplementedError(f"Task not implemented: {self.task}")
 
-    def preprocess_sample_matching(self) -> dict:
-        """Preprocessing for the matching algorithm."""
-        result = {}
+    def preprocess_sample_matching(self) -> None:
+        """Preprocessing for the matching algorithm. Use MP."""
 
         if len(self.source_list_images) == 0:
-            result["error"] = enums.ErrorMessage.SOURCE_FOLDER_EMPTY.value
-            return result
+            e = enums.ErrorMessage.SOURCE_FOLDER_EMPTY.value
+            print(f"preprocessing error during matching: {e}", file=sys.stderr)
+            sys.exit(1)
 
         if len(self.reference_list_images) == 0:
-            result["error"] = enums.ErrorMessage.REFERENCE_FOLDER_EMPTY.value
-            return result
-        
-        worker.run_model_mp(
-            self.source_list_images,
-            self.num_processes,
-            self.chunksize,
-            self.source_cache,
-            self.fail_path,
-            self.top_n_face,
-        )
+            e = enums.ErrorMessage.REFERENCE_FOLDER_EMPTY.value
+            print(f"preprocessing error during matching: {e}", file=sys.stderr)
+            sys.exit(1)
 
-        worker.run_model_mp(
-            self.reference_list_images,
-            self.num_processes,
-            self.chunksize,
-            self.reference_cache,
-            self.fail_path,
-            self.top_n_face,
-        )
+        try:
+            worker.run_model_mp(
+                self.source_list_images,
+                self.num_processes,
+                self.chunksize,
+                self.source_cache,
+                self.fail_path,
+                self.top_n_face,
+            )
 
-        inputs = {
-            "source_cache": self.source_cache,
-            "reference_cache": self.reference_cache,
-            "source_list_images": self.source_list_images,
-            "reference_list_images": self.reference_list_images,
-            "output_path": self.output_path,
-        }
+            worker.run_model_mp(
+                self.reference_list_images,
+                self.num_processes,
+                self.chunksize,
+                self.reference_cache,
+                self.fail_path,
+                self.top_n_face,
+            )
+        except Exception as e:
+            print(f"Unexpected preprocessing error during matching: {e}", file=sys.stderr)
+            print(traceback.format_exc())
+            sys.exit(1)
 
-        return inputs
+    def postprocess_sample_matching(self):
+        """Postprocess the matching algorithm."""
+        try:
+            result = worker.match_embeddings(
+                source_cache=self.source_cache,
+                reference_cache=self.reference_cache,
+                source_list_images=self.source_list_images,
+                reference_list_images=self.reference_list_images,
+                output_path=self.output_path,
+            )
 
-    def preprocess_clustering(self) -> dict:
-        """Preprocessing for the clustering algorithm."""
-        result = {}
+            if "error" in result:
+                print(f"Postprocessing Error during matching: {result['error']}", file=sys.stderr)
+                sys.exit(1)
+
+        except Exception as e:
+            # let handle_stderr handle the error
+            print(f"Unexpected postprocessing error during matching: {e}", file=sys.stderr)
+            print(traceback.format_exc())
+            sys.exit(1)
+
+    def preprocess_clustering(self) -> None:
+        """Preprocessing for the clustering algorithm. Use MP."""
 
         if len(self.source_list_images) == 0:
-            result["error"] = enums.ErrorMessage.SOURCE_FOLDER_EMPTY.value
-            return result
+            e = enums.ErrorMessage.SOURCE_FOLDER_EMPTY.value
+            print(f"Preprocessing error during clustering: {e}", file=sys.stderr)
+            sys.exit(1)
 
-        worker.run_model_mp(
-            self.source_list_images,
-            self.num_processes,
-            self.chunksize,
-            self.source_cache,
-            self.fail_path,
-            self.top_n_face,
-        )
+        try:
+            worker.run_model_mp(
+                self.source_list_images,
+                self.num_processes,
+                self.chunksize,
+                self.source_cache,
+                self.fail_path,
+                self.top_n_face,
+            )
+        except Exception as e:
+            print(f"Unexpected preprocessing error during clustering: {e}", file=sys.stderr)
+            print(traceback.format_exc())
+            sys.exit(1)
 
-        # HDBSCAN outperforms DBSCAN and OPTICS in most cases.
-        inputs = {
-            "source_cache": self.source_cache,
-            "source_list_images": self.source_list_images,
-            "clustering_algorithm": enums.ClusteringAlgorithm.HDBSCAN.value,
-            "eps": 0.5,
-            "min_samples": 2,
-            "output_path": self.output_path,
-            "fail_path": self.fail_path,
-        }
-        return inputs
+    def postprocess_clustering(self) -> None:
+        """Postprocess the clustering algorithm."""
+        clustering_algorithm = enums.ClusteringAlgorithm.HDBSCAN.value
+        eps = 0.5
+        min_samples = 2
+
+        try:
+            result = worker.cluster_embeddings(
+                source_cache=self.source_cache,
+                source_list_images=self.source_list_images,
+                clustering_algorithm=clustering_algorithm,
+                eps=eps,
+                min_samples=min_samples,
+                output_path=self.output_path,
+                fail_path=self.fail_path,
+            )
+
+            if "error" in result:
+                print(f"Postprocessing Error during clustering: {result['error']}", file=sys.stderr)
+                sys.exit(1)
+
+        except Exception as e:
+            # let handle_stderr handle the error
+            print(f"Unexpected postprocessing error during clustering: {e}", file=sys.stderr)
+            print(traceback.format_exc())
+            sys.exit(1)  # Exit with a non-zero status to indicate an error
 
 
 if __name__ == "__main__":

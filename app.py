@@ -1,7 +1,6 @@
 """Divide functional and UI related logic."""
 import photolink.utils.enums as enums
 from photolink.utils.function import search_all_images
-import photolink.workers.worker as worker
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QLabel
 import os
@@ -23,6 +22,8 @@ class MainWindow(MainWindowFront):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.check_progress)
         self.progress_update.connect(self.progress_bar.setValue)
+        self.all_stop = False
+        self.preprocess_ended = False
 
     @Slot()
     def handle_box_click(self):
@@ -118,100 +119,66 @@ class MainWindow(MainWindowFront):
         with open(job_json, "w") as f:
             json.dump(self.job, f)
 
-        # use multiprocessing to run the job for preprocessing.
+        # Handle all jobs in a seperate process to prevent conflict with UI.
         if self.process is None:
             self.console.setText(f'Executing process for {self.job["task"]}')
             self.p = QProcess()
             self.p.readyReadStandardOutput.connect(self.handle_stdout)
             self.p.readyReadStandardError.connect(self.handle_stderr)
             self.p.stateChanged.connect(self.handle_state)
-            self.p.finished.connect(self.preprocess_finished)  # Connect to new method
+            self.p.finished.connect(self.process_finished)  # Connect to new method
             self.p.start("python3", ["jobs.py"])
 
             # use timer and check progress to update progress bar.
             self.timer.start(1000)
 
-    def preprocess_finished(self):
-        """Called when the preprocessing is finished."""
-        self.log_message("Preprocessing finished.")
+    def process_finished(self):
+        """Called when the Processing is finished."""
         self.timer.stop()
+        self.progress_bar.setValue(100)
+        self.change_button_status(True)
 
-        # Now call postprocessing only when the preprocessing is done.
-        self.postprocess_jobs()
-
-    def postprocess_jobs(self):
-        """Perform the postprocessing after the preprocessing is complete."""
-        self.log_message("Postprocessing...")
-        source_cache = os.path.join(self.cache_dir, "source")
-        reference_cache = os.path.join(self.cache_dir, "reference")
-        source_list_images = self.job["source"]
-        output_path = self.job["output"]
-        fail_path = os.path.join(output_path, "missed")
-        clustering_algorithm = enums.ClusteringAlgorithm.HDBSCAN.value
-        eps = 0.5
-        min_samples = 2
-
-        if self.current_task == enums.Task.SAMPLE_MATCHING.name:
-
-            # reference will only exist if it is a sample matching task.
-            reference_list_images = self.job["reference"]
-
-            try:
-                result = worker.match_embeddings(
-                    source_cache=source_cache,
-                    reference_cache=reference_cache,
-                    source_list_images=source_list_images,
-                    reference_list_images=reference_list_images,
-                    output_path=output_path,
-                )
-            except Exception as e:
-                self.display_notification("Error", str(e))
-                self.change_button_status(True)
-                return
-        elif self.current_task == enums.Task.CLUSTERING.name:
-            try:
-                result = worker.cluster_embeddings(
-                    source_cache=source_cache,
-                    source_list_images=source_list_images,
-                    clustering_algorithm=clustering_algorithm,
-                    eps=eps,
-                    min_samples=min_samples,
-                    output_path=output_path,
-                    fail_path=fail_path,
-                )
-            except Exception as e:
-                self.display_notification("Error", str(e))
-                self.change_button_status(True)
-                return
-        else:
-            raise NotImplementedError("Invalid task selected")
-        
-        if "error" in result:
-            self.display_notification("Error", result["error"])
-            self.change_button_status(True)
-        else:
-            self.progress_bar.setValue(100)
-            self.display_notification("Success", "All operations completed.")
-            self.change_button_status(True)
+        if not self.all_stop:
+            self.display_notification("Complete", "All operations completed successfully.")
+            self.log_message("Processing finished.")
 
     def handle_stderr(self):
+        """Gracefully handle errors coming from process."""
         data = self.p.readAllStandardError()
         stderr = bytes(data).decode("utf8")
+        print(stderr, end="")
+
+        # ignore these ones. Only I should be able to see it. 
+        for line in stderr.split("\n"):
+            if line.startswith("Traceback"):
+                return
+            
+            if line.startswith("Invalid SOS parameters for sequential JPEG"):
+                return
+
+        self.all_stop = True
         self.log_message(stderr)
+        self.display_notification("Error has occured", stderr)
 
     def handle_stdout(self):
         data = self.p.readAllStandardOutput()
         stdout = bytes(data).decode("utf8")
-        self.log_message(stdout)
+        print(stdout, end="")
 
         # Check for postprocessing progress updates coming from worker.py
-        for line in stdout.split('\n'):
+        for line in stdout.split("\n"):
+            
+            # turn off check_progress logic. 
+            if line.startswith("Preprocessing ended"):
+                self.preprocess_ended = True
+                return
 
-            print(f"Received line: {line}")  # Debug print
+            if line.startswith("POSTPROCESS_PROGRESS:"):
+                progress = int(line.split(":")[-1])
+                self.progress_bar.setValue(progress)
+                return
 
-            if line.startswith('POSTPROCESS_PROGRESS:'):
-                progress = float(line.split(':')[-1])
-                self.progress_update.emit(int(progress))
+        self.log_message(stdout)
 
     def handle_state(self, state):
         states = {
@@ -236,8 +203,7 @@ class MainWindow(MainWindowFront):
             [name for name in os.listdir(source_cache_dir) if name.endswith(".pkl")]
         )
 
-        # preprocess should never be more than 50%
-        if source_images > 0:
+        # Use this function to monitor progress up until 50% mark.
+        if source_images > 0 and not self.preprocess_ended:
             progress = (processed_files / source_images) * 50
-            print(f"Preprocess Progress: {int(progress)}%")
             self.progress_update.emit(int(progress))

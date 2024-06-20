@@ -13,8 +13,7 @@ import faiss
 import sklearn.cluster as c_algorithm
 import hdbscan
 import cv2
-import warnings
-warnings.filterwarnings('ignore', category=UserWarning, message='.*invalid SOS parameters for sequential JPEG.*')
+import math
 
 
 def _run_ml_model(image_path: str, save_path: str, fail_path: str, keep_top_n: int = 3):
@@ -181,6 +180,11 @@ def match_embeddings(
 
     for i, file in enumerate(reference_embeddings):
 
+        progress = math.ceil(50 + ((i + 1) / len(reference_embeddings) * 50))
+
+        if int(progress) % 2 == 0:
+            print(f"POSTPROCESS_PROGRESS: {int(progress)}")
+
         try:
             reference_embedding_dict = read_embeddingpkl(
                 os.path.join(reference_cache, file)
@@ -325,6 +329,12 @@ def cluster_embeddings(
 
     # now save the output.
     for i, label in enumerate(labels):
+
+        #print POSTPROCESS_PROGRESS
+        progress =math.ceil(50 + ((i + 1) / len(labels) * 50))
+
+        if int(progress) % 2 == 0:
+            print(f"POSTPROCESS_PROGRESS: {int(progress)}")
 
         # find the original image from look up table.
         backtracked_file_name = face_to_embedding_file_table[i]
