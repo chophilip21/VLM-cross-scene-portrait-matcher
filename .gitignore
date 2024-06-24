@@ -161,3 +161,5 @@ cython_debug/
 *.json
 beeware-venv
 *.dist-info
+*.exe
+!photolink.spec

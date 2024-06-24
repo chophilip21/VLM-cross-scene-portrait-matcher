@@ -10,10 +10,23 @@ from qss import *
 
 def main():
     """Main entry point for the application."""
-    config_file = os.path.join(os.path.dirname(__file__), "./config.ini")
+
+    # these will be used to get the path to the temporary directory when the application is bundled
+    if getattr(sys, 'frozen', False):
+        # Get the path to the temporary directory
+        application_path = sys._MEIPASS
+    else:
+        # Use the script directory for non-bundled execution
+        application_path = os.path.dirname(os.path.abspath(__file__))
+
+    config_file = os.path.join(application_path, "./config.ini")
     config = read_config(config_file)
-    config_to_env(config, "MODEL")
-    os.environ['ROOT_PATH'] = os.path.dirname(__file__)
+    try:
+        config_to_env(config, "MODEL")
+    except Exception as e:
+        print(f"Error: {e} in reading config file {config_file}. Check again.")
+        sys.exit(1)
+    os.environ['ROOT_PATH'] = application_path
     app = QApplication(sys.argv)
     
     # import needs to happen after env variable set.
