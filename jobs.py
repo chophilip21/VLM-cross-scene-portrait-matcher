@@ -11,7 +11,7 @@ class JobProcessor:
     """Preprocessing codes are the heaviest. Based on the jobs generated from app.py, run multiprocessing to expediate. Save results to predefined cache path. Postprocessing does not need multiprocessing."""
 
     def __init__(self):
-        self.cache_dir = os.path.join(os.path.dirname(__file__), ".cache")
+        self.cache_dir = os.path.join(os.environ['ROOT_PATH'], ".cache")
 
         # These should never fail validation. If they do, let it die.
         if not os.path.exists(self.cache_dir):

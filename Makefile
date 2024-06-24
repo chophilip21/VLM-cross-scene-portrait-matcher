@@ -10,6 +10,10 @@ build:
 	python3 -m pip install --upgrade build
 	python3 -m build
 
+package:
+	rm -rf dist/
+	pyinstaller photolink.spec
+
 lint:
 	flake8 src tests
 

@@ -27,10 +27,10 @@ class MainWindowFront(QMainWindow):
     def __init__(self):
         """All UI related codes go here."""
         super().__init__()
-        config_file = os.path.join(os.path.dirname(__file__), "./config.ini")
+        config_file = os.path.join(os.environ['ROOT_PATH'], "./config.ini")
         self.config = read_config(config_file)
         self.current_task = enums.Task.SAMPLE_MATCHING.name
-        self.cache_dir = os.path.join(os.path.dirname(__file__), ".cache")
+        self.cache_dir = os.path.join(os.environ['ROOT_PATH'], ".cache")
         self.setup_cache_dir(self.cache_dir)
         self.drawUI()
 

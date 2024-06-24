@@ -36,8 +36,8 @@ The application works internally, so we need to package it using Pyinstaller.
 ```bash
 pip3 install PyInstaller
 
-# build without spec file 
-pyinstaller --name photolink --log-level=DEBUG main.py
+# Do not build directly. Use spec file.
+# pyinstaller --name photolink --log-level=DEBUG main.py
 
 # build against spec file
 pyinstaller photolink.spec

@@ -26,6 +26,8 @@ def main():
     except Exception as e:
         print(f"Error: {e} in reading config file {config_file}. Check again.")
         sys.exit(1)
+
+    # save this path to the ROOT_PATH environment variable
     os.environ['ROOT_PATH'] = application_path
     app = QApplication(sys.argv)
     

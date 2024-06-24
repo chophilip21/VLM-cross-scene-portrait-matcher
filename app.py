@@ -127,7 +127,11 @@ class MainWindow(MainWindowFront):
             self.p.readyReadStandardError.connect(self.handle_stderr)
             self.p.stateChanged.connect(self.handle_state)
             self.p.finished.connect(self.process_finished)  # Connect to new method
-            self.p.start("python3", ["jobs.py"])
+
+            # run as subprocess.
+            job_script_path = os.path.join(os.path.join(os.environ['ROOT_PATH'], 'jobs.py'))
+
+            self.p.start("python3", job_script_path)
 
             # use timer and check progress to update progress bar.
             self.timer.start(1000)

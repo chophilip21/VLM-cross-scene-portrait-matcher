@@ -1,15 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-from PyInstaller.utils.hooks import collect_all
-block_cipher = None
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[
-        ('config.ini', '.')
-    ] + collect_all('assets/img')[0] + collect_all('assets/weights')[0],
+    datas=[('./config.ini', '.'), ('./jobs.py', '.'), ('./assets', 'assets')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
