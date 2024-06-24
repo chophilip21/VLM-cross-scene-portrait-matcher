@@ -22,7 +22,7 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name='photolink',
-    debug=False,
+    debug=True,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
@@ -32,6 +32,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='assets/img/logo.ico',
 )
 coll = COLLECT(
     exe,
