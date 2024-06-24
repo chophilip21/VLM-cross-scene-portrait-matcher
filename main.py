@@ -19,7 +19,9 @@ def main():
         # Use the script directory for non-bundled execution
         application_path = os.path.dirname(os.path.abspath(__file__))
 
+    print(f"Application path: {application_path}")
     config_file = os.path.join(application_path, "./config.ini")
+    print(f"Config file path: {config_file}")
     config = read_config(config_file)
     try:
         config_to_env(config, "MODEL")
