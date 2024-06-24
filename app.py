@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QLabel
 import os
 from qss import *
 import json
-from PySide6.QtCore import QProcess, Signal, QTimer
+from PySide6.QtCore import QProcess, Signal, QTimer, QDir
 from front import MainWindowFront
 from main import get_application_path
 from pathlib import Path
@@ -133,9 +133,15 @@ class MainWindow(MainWindowFront):
 
             # run as subprocess.
             job_script_path = self.application_path / Path("jobs.py")
-            print(f"Running job script at {job_script_path}")
+            job_script_directory = job_script_path.parent
+            self.p.setWorkingDirectory(str(job_script_directory))
 
-            self.p.start("python3", job_script_path.name)
+            # Convert path to native separators. This is required for Windows.
+            native_job_script_path = QDir.toNativeSeparators(str(job_script_path))
+            print(f"Running job script at {native_job_script_path}")
+
+            # Start the process with the correct path
+            self.p.start("python3", [native_job_script_path])
 
             # use timer and check progress to update progress bar.
             self.timer.start(1000)
