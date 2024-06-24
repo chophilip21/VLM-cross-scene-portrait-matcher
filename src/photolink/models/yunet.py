@@ -3,6 +3,8 @@
 import numpy as np
 import cv2
 import os
+from main import get_application_path
+from pathlib import Path
 
 class YuNet:
     """Face detection model using Yunet."""
@@ -49,10 +51,10 @@ top_k = 5000 ## bb to keep before nms
 if os.getenv("YUNET_PATH") is None:
     raise ValueError("Please set the YUNET_PATH in the environment variable.")
 
-project_root = os.getenv("ROOT_PATH")
-model_path = os.path.join(project_root, os.getenv("YUNET_PATH"))
+project_root = get_application_path()
+model_path = project_root / Path(os.getenv("YUNET_PATH"))
 
-if not os.path.exists(model_path):
+if not model_path.exists():
     raise ValueError(f"Model path {model_path} does not exist.")
 
 # singleton entry point.

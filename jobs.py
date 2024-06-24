@@ -1,46 +1,52 @@
 """Process jobs generated from app.py"""
 import photolink.workers.worker as worker
 import photolink.utils.enums as enums
-import os
 import json
 import sys
 import traceback
+from main import get_application_path, get_config_file
+from photolink.utils.function import read_config
+import os
+from pathlib import Path
 
 
 class JobProcessor:
     """Preprocessing codes are the heaviest. Based on the jobs generated from app.py, run multiprocessing to expediate. Save results to predefined cache path. Postprocessing does not need multiprocessing."""
 
     def __init__(self):
-        self.cache_dir = os.path.join(os.environ['ROOT_PATH'], ".cache")
+        self.application_path = get_application_path()
+        config = get_config_file(self.application_path)
+        self.config = read_config(config)
+        self.cache_dir = self.application_path / ".cache"
 
         # These should never fail validation. If they do, let it die.
-        if not os.path.exists(self.cache_dir):
+        if not self.cache_dir.exists():
             raise FileNotFoundError(f"Cache directory not found: {self.cache_dir}")
 
-        self.jobs_file = os.path.join(self.cache_dir, "job.json")
+        self.jobs_file = self.cache_dir / Path("job.json")
 
-        if not os.path.exists(self.jobs_file):
+        if not self.jobs_file.exists():
             raise FileNotFoundError(f"Jobs file not found: {self.jobs_file}")
 
         with open(self.jobs_file, "r") as f:
             self.jobs = json.load(f)
 
         self.task = self.jobs["task"]
-        self.output_path = self.jobs["output"]
+        self.output_path = Path(self.jobs["output"])
         self.source_list_images = None
         self.reference_list_images = None
         self.num_processes = os.cpu_count()
         self.chunksize = int(os.getenv("CHUNKSIZE", 10))
         self.top_n_face = int(os.getenv("TOP_N_FACE", 3))
         self.min_clustering_samples = int(os.getenv("MIN_CLUSTERING_SAMPLES", 2))
-        self.source_cache = os.path.join(self.cache_dir, "source")
-        self.reference_cache = os.path.join(self.cache_dir, "reference")
-        os.makedirs(self.source_cache, exist_ok=True)
-        os.makedirs(self.reference_cache, exist_ok=True)
+        self.source_cache = self.cache_dir / "source"
+        self.reference_cache = self.reference_cache = self.cache_dir / "reference"
+        self.source_cache.mkdir(parents=True, exist_ok=True)
+        self.reference_cache.mkdir(parents=True, exist_ok=True)
 
         # save the failed processing ones to a separate folder
-        self.fail_path = os.path.join(self.output_path, "missed")
-        os.makedirs(self.fail_path, exist_ok=True)
+        self.fail_path = self.output_path / "missed"
+        self.fail_path.mkdir(parents=True, exist_ok=True)
 
     def run(self):
         """Run the job processor."""

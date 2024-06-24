@@ -14,16 +14,17 @@ import sklearn.cluster as c_algorithm
 import hdbscan
 import cv2
 import math
+from pathlib import Path
 
 
-def _run_ml_model(image_path: str, save_path: str, fail_path: str, keep_top_n: int = 3):
+def _run_ml_model(image_path: str, save_path: Path, fail_path: Path, keep_top_n: int = 3):
     """Process face detection and recognition for images, save embeddings to save_path as pkl file.
 
     Instead of converting all faces to embeddings, only largest top n faces are converted. Result should have both aligned face and converted embeddings as keys.
     """
     detection_result = yunet.run_face_detection(image_path)
 
-    failed_image = os.path.join(fail_path, os.path.basename(image_path))
+    failed_image = fail_path / Path(os.path.basename(image_path))
 
     if "error" in detection_result:
         shutil.copy(image_path, failed_image)
@@ -54,9 +55,7 @@ def _run_ml_model(image_path: str, save_path: str, fail_path: str, keep_top_n: i
 
         return warning
 
-    save_embedding_name = os.path.join(
-        save_path, os.path.basename(image_path).split(".")[0] + ".pkl"
-    )
+    save_embedding_name = save_path / Path(os.path.basename(image_path).split(".")[0] + ".pkl")
 
     # pickle dump all face embeddings found in the image.
     with open(save_embedding_name, "wb") as f:
@@ -119,18 +118,18 @@ def read_embeddingpkl(embedding_path) -> dict:
                 f"Error on {embedding_path}. Embedding must be a (N, 128) numpy array, not {embeddings.shape}"
             )
 
-        data['faces'] = np.array(embedding_dict['faces'])
-        data['embeddings'] = embeddings
+        data["faces"] = np.array(embedding_dict["faces"])
+        data["embeddings"] = embeddings
 
     return data
 
 
 def match_embeddings(
-    source_cache: str,
-    reference_cache: str,
+    source_cache: Path,
+    reference_cache: Path,
     source_list_images: list,
     reference_list_images: list,
-    output_path: str,
+    output_path: Path,
 ) -> dict:
     """Match the embeddings and save the match. Return result status."""
 
@@ -138,24 +137,20 @@ def match_embeddings(
 
     faiss_index = faiss.IndexFlatL2(128)
     source_embeddings = [
-        os.path.join(source_cache, file)
+        source_cache / Path(file)
         for file in os.listdir(source_cache)
         if file.split(".")[-1] == "pkl"
     ]
 
     reference_embeddings = [
-        os.path.join(reference_cache, file)
+        reference_cache / Path(file)
         for file in os.listdir(reference_cache)
         if file.split(".")[-1] == "pkl"
     ]
 
     # Create quick look up table for the source and reference images.
-    source_dict = {
-        file.split("/")[-1].split(".")[0]: file for file in source_list_images
-    }
-    reference_dict = {
-        file.split("/")[-1].split(".")[0]: file for file in reference_list_images
-    }
+    source_dict = {file.split("/")[-1].split(".")[0]: file for file in source_list_images}
+    reference_dict = {file.split("/")[-1].split(".")[0]: file for file in reference_list_images}
 
     # start by reading each embedding file, and adding to faiss index.
     for i, embedding_file in enumerate(source_embeddings):
@@ -166,9 +161,7 @@ def match_embeddings(
             print(f"POSTPROCESS_PROGRESS: {int(progress)}")
 
         try:
-            source_embedding_dict = read_embeddingpkl(
-                os.path.join(source_cache, embedding_file)
-            )
+            source_embedding_dict = read_embeddingpkl(source_cache / Path(embedding_file))
 
             source_embedding = source_embedding_dict["embeddings"]
 
@@ -192,9 +185,7 @@ def match_embeddings(
             print(f"POSTPROCESS_PROGRESS: {int(progress)}")
 
         try:
-            reference_embedding_dict = read_embeddingpkl(
-                os.path.join(reference_cache, file)
-            )
+            reference_embedding_dict = read_embeddingpkl(reference_cache / Path(file))
 
             reference_embedding = reference_embedding_dict["embeddings"]
 
@@ -209,14 +200,10 @@ def match_embeddings(
                 distance = D[0][0]
 
                 # predicted label must exist in the lookup table.
-                predicted_label = (
-                    source_embeddings[I[0][0]].split("/")[-1].split(".")[0]
-                )
+                predicted_label = source_embeddings[I[0][0]].split("/")[-1].split(".")[0]
 
                 if predicted_label not in source_dict:
-                    raise ValueError(
-                        f"Predicted label {predicted_label} not found in source_dict."
-                    )
+                    raise ValueError(f"Predicted label {predicted_label} not found in source_dict.")
 
                 predicted_source_input_path = source_dict[predicted_label]
 
@@ -231,24 +218,18 @@ def match_embeddings(
                 ref_img_input_path = reference_dict[reference_label]
 
                 # to output folder, create a folder based predicted_label.
-                predicted_label_folder = os.path.join(output_path, predicted_label)
-                os.makedirs(predicted_label_folder, exist_ok=True)
+                predicted_label_folder = output_path / Path(predicted_label)
+                predicted_label_folder.mkdir(parents=True, exist_ok=True)
 
                 # copy everything to the output folder.
-                predicted_source_output_path = os.path.join(
-                    predicted_label_folder,
+                predicted_source_output_path = predicted_label_folder / Path(
                     os.path.basename(predicted_source_input_path),
                 )
 
-                # print(f'Predicted source: {predicted_source_input_path} -> {predicted_source_output_path}')
                 shutil.copy(predicted_source_input_path, predicted_source_output_path)
 
-                # same thing for the ref photos.
-                ref_img_output_path = os.path.join(
-                    predicted_label_folder, os.path.basename(ref_img_input_path)
-                )
+                ref_img_output_path = predicted_label_folder / Path(os.path.basename(ref_img_input_path))
 
-                # print(f'Reference: {ref_img_input_path} -> {ref_img_output_path}')
                 shutil.copy(ref_img_input_path, ref_img_output_path)
                 result["status"] = "success"
 
@@ -260,21 +241,21 @@ def match_embeddings(
 
 
 def cluster_embeddings(
-    source_cache: str,
-    source_list_images: str,
+    source_cache: Path,
+    source_list_images: list,
     clustering_algorithm: str,
     eps: float,
     min_samples: int,
-    output_path: str,
-    fail_path: str,
+    output_path: Path,
+    fail_path: Path,
 ) -> dict:
     """Cluster embeddings, and save the output. Return result status."""
 
     result = {}
-    result['missed_count'] = 0 
+    result["missed_count"] = 0
 
     source_embeddings = [
-        os.path.join(source_cache, file)
+        source_cache/ Path(file)
         for file in os.listdir(source_cache)
         if file.split(".")[-1] == "pkl"
     ]
@@ -298,9 +279,7 @@ def cluster_embeddings(
     elif clustering_algorithm == enums.ClusteringAlgorithm.HDBSCAN.value:
         cluster_obj = hdbscan.HDBSCAN(min_cluster_size=min_samples, leaf_size=50)
     else:
-        raise NotImplementedError(
-            f"Clustering algorithm {clustering_algorithm} not supported."
-        )
+        raise NotImplementedError(f"Clustering algorithm {clustering_algorithm} not supported.")
 
     # because there are multiple faces, we need to keep track of the embeddings.
     face_to_embedding_file_table = {}
@@ -308,7 +287,7 @@ def cluster_embeddings(
     for file in source_embeddings:
 
         try:
-            embedding_dict = read_embeddingpkl(os.path.join(source_cache, file))
+            embedding_dict = read_embeddingpkl(source_cache / Path(file))
             embedding = embedding_dict["embeddings"]
             aligned_face = embedding_dict["faces"]
 
@@ -336,8 +315,8 @@ def cluster_embeddings(
     # now save the output.
     for i, label in enumerate(labels):
 
-        #print POSTPROCESS_PROGRESS
-        progress =math.ceil(50 + ((i + 1) / len(labels) * 50))
+        # print POSTPROCESS_PROGRESS
+        progress = math.ceil(50 + ((i + 1) / len(labels) * 50))
 
         if int(progress) % 2 == 0:
             print(f"POSTPROCESS_PROGRESS: {int(progress)}")
@@ -351,30 +330,22 @@ def cluster_embeddings(
 
         # label -1 indicates failed clustering.
         if label == -1:
-            failed_img_output_path = os.path.join(
-                fail_path, os.path.basename(source_img_path)
-            )
+            failed_img_output_path = fail_path / Path(os.path.basename(source_img_path))
             shutil.copy(source_img_path, failed_img_output_path)
-            print(
-                f"Failed clustering on {source_img_path}. Saved to {failed_img_output_path}"
-            )
-            result['missed_count'] += 1
+            print(f"Failed clustering on {source_img_path}. Saved to {failed_img_output_path}")
+            result["missed_count"] += 1
             continue
 
-        label_folder = os.path.join(output_path, "subject-no-" + str(label))
-        os.makedirs(label_folder, exist_ok=True)
+        label_folder = output_path / Path("subject-no-" + str(label))
+        label_folder.mkdir(parents=True, exist_ok=True)
 
-        source_img_output_path = os.path.join(
-            label_folder, os.path.basename(source_img_path)
-        )
+        source_img_output_path = label_folder / Path(os.path.basename(source_img_path))
 
         shutil.copy(source_img_path, source_img_output_path)
 
         # save face sample for sanity check.
-        try:            
-            aligned_face_sample_output_path = os.path.join(
-                label_folder, "target_face.jpg"
-            )
+        try:
+            aligned_face_sample_output_path = label_folder / Path("target_face.jpg")
             cv2.imwrite(aligned_face_sample_output_path, loaded_faces[i])
         except Exception as e:
             result["error"] = f"Error saving aligned face sample: {e}"

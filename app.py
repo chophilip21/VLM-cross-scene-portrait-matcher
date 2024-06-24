@@ -8,6 +8,8 @@ from qss import *
 import json
 from PySide6.QtCore import QProcess, Signal, QTimer
 from front import MainWindowFront
+from main import get_application_path
+from pathlib import Path
 
 
 class MainWindow(MainWindowFront):
@@ -18,6 +20,7 @@ class MainWindow(MainWindowFront):
         """All functional codes go here."""
         super().__init__()
         self.process = None
+        self.application_path = get_application_path()
         self.job = {}
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.check_progress)
@@ -115,7 +118,7 @@ class MainWindow(MainWindowFront):
             raise ValueError("Invalid task selected")
 
         # proceed to dump the job to a json file. Only then can the worker process it.
-        job_json = os.path.join(self.cache_dir, "job.json")
+        job_json = self.cache_dir / "job.json"
         with open(job_json, "w") as f:
             json.dump(self.job, f)
 
@@ -129,9 +132,10 @@ class MainWindow(MainWindowFront):
             self.p.finished.connect(self.process_finished)  # Connect to new method
 
             # run as subprocess.
-            job_script_path = os.path.join(os.path.join(os.environ['ROOT_PATH'], 'jobs.py'))
+            job_script_path = self.application_path / Path("jobs.py")
+            print(f"Running job script at {job_script_path}")
 
-            self.p.start("python3", job_script_path)
+            self.p.start("python3", job_script_path.name)
 
             # use timer and check progress to update progress bar.
             self.timer.start(1000)
@@ -152,13 +156,11 @@ class MainWindow(MainWindowFront):
         stderr = bytes(data).decode("utf8")
         print(stderr, end="")
 
-        # ignore these ones. Only I should be able to see it. 
-        for line in stderr.split("\n"):
-            if line.startswith("Traceback"):
-                return
-            
-            if line.startswith("Invalid SOS parameters for sequential JPEG"):
-                return
+        # # ignore these ones. Only I should be able to see it. 
+        # for line in stderr.split("\n"):
+    
+            # if line.startswith("Invalid SOS parameters for sequential JPEG"):
+            #     return
 
         self.all_stop = True
         self.log_message(stderr)
@@ -197,7 +199,7 @@ class MainWindow(MainWindowFront):
     def check_progress(self):
         """Monitor the progress of processes running."""
         source_images = len(self.job["source"])
-        source_cache_dir = os.path.join(self.cache_dir, "source")
+        source_cache_dir = self.cache_dir / "source"
 
         processed_files = len(
             [name for name in os.listdir(source_cache_dir) if name.endswith(".pkl")]
@@ -206,7 +208,7 @@ class MainWindow(MainWindowFront):
         # update progress differently for each task. Use this method until 50% mark.
         if self.current_task == enums.Task.SAMPLE_MATCHING.name:
             reference_images = len(self.job["reference"])
-            reference_cache_dir = os.path.join(self.cache_dir, "reference")
+            reference_cache_dir = self.cache_dir / "reference"
 
             processed_files += len(
                 [name for name in os.listdir(reference_cache_dir) if name.endswith(".pkl")]

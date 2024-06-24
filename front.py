@@ -22,15 +22,19 @@ from PySide6.QtSvgWidgets import QSvgWidget
 import os
 from qss import *
 import shutil
+from main import get_application_path, get_config_file
+from pathlib import Path
+
 
 class MainWindowFront(QMainWindow):
     def __init__(self):
         """All UI related codes go here."""
         super().__init__()
-        config_file = os.path.join(os.environ['ROOT_PATH'], "config.ini")
-        self.config = read_config(config_file)
+        self.application_path = get_application_path()
+        config = get_config_file(self.application_path)
+        self.config = read_config(config)
         self.current_task = enums.Task.SAMPLE_MATCHING.name
-        self.cache_dir = os.path.join(os.environ['ROOT_PATH'], ".cache")
+        self.cache_dir = self.application_path / ".cache"
         print(f"Cache dir: {self.cache_dir}")
         self.setup_cache_dir(self.cache_dir)
         self.drawUI()
@@ -257,11 +261,11 @@ class MainWindowFront(QMainWindow):
         font = QFont("Lato Hairline", font_size, QFont.Bold)
         self.title_label.setFont(font)
 
-    def setup_cache_dir(self, cache_dir):
+    def setup_cache_dir(self, cache_dir: Path):
         """clean up cache folders on start up, and recreate dir"""
-        if os.path.exists(cache_dir):
+        if cache_dir.exists():
             shutil.rmtree(cache_dir)
-        os.makedirs(cache_dir, exist_ok=True)
+        cache_dir.mkdir(parents=True, exist_ok=True)
 
     def change_button_status(self, enable=True):
         """Change the status of the start and refresh buttons."""

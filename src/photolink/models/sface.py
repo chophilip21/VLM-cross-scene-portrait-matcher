@@ -4,7 +4,8 @@ import os
 
 import cv2 as cv
 import numpy as np
-
+from main import get_application_path
+from pathlib import Path
 
 class Sface:
     """Face recognition model using Sface."""
@@ -51,10 +52,10 @@ class Sface:
 if os.getenv("SFACE_PATH") is None:
     raise ValueError("Please set the SFACENET_PATH in the environment variable.")
 
-project_root = os.getenv("ROOT_PATH")
-model_path = os.path.join(project_root, os.getenv("SFACE_PATH"))
+project_root = get_application_path()
+model_path = project_root / Path(os.getenv("SFACE_PATH"))
 
-if not os.path.exists(model_path):
+if not model_path.exists():
     raise ValueError(f"Model path {model_path} does not exist.")
 
 model = Sface(modelPath=model_path)

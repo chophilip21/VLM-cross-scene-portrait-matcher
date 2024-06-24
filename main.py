@@ -1,5 +1,4 @@
 """Main entry point for the application."""
-import os
 import sys
 import signal
 from photolink.utils.function import read_config, config_to_env
@@ -7,30 +6,38 @@ from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 from qss import *
+from pathlib import Path
+
+
+def get_application_path():
+    """Get the application path."""
+    if getattr(sys, 'frozen', False):
+        # Get the path to the temporary directory
+        return sys._MEIPASS
+    else:
+        # Use the script directory for non-bundled execution
+        return Path(__file__).parent
+    
+def get_config_file(application_path: Path):
+    """Get the config file path."""
+    return application_path / "config.ini"
+
 
 def main():
     """Main entry point for the application."""
 
-    # these will be used to get the path to the temporary directory when the application is bundled
-    if getattr(sys, 'frozen', False):
-        # Get the path to the temporary directory
-        application_path = sys._MEIPASS
-    else:
-        # Use the script directory for non-bundled execution
-        application_path = os.path.dirname(os.path.abspath(__file__))
-
-    print(f"Application path: {application_path}")
-    config_file = os.path.join(application_path, "./config.ini")
-    print(f"Config file path: {config_file}")
+    application_path = get_application_path()
+    config_file = get_config_file(application_path)
     config = read_config(config_file)
+    print(f"Application path: {application_path}")
+    print(f"Config file path: {config_file}")
+
     try:
         config_to_env(config, "MODEL")
     except Exception as e:
         print(f"Error: {e} in reading config file {config_file}. Check again.")
         sys.exit(1)
 
-    # save this path to the ROOT_PATH environment variable
-    os.environ['ROOT_PATH'] = application_path
     app = QApplication(sys.argv)
     
     # import needs to happen after env variable set.
