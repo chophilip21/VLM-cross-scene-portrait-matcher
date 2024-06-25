@@ -75,10 +75,19 @@ class MainWindow(MainWindowFront):
     def process_jobs(self):
         """Call the multiprocessing method when the start button is clicked."""
 
+        # check if the process needs refreshing.
+        if self.progress_bar.value() > 0:
+            self.display_notification(enums.ErrorMessage.REFRESH_REQUIRED.name, enums.ErrorMessage.REFRESH_REQUIRED.value)
+            self.change_button_status(True)
+            return
+
         self.change_button_status(False)
 
         # use timer and check progress to update progress bar.
         self.timer.start(1000)
+
+        if not self.timer.isActive() or self.timer.remainingTime() == 0:
+            raise RuntimeError("Timer is not active or has no remaining time.")
 
         # first check there is output path.
         if not self.output_path_selector.line_edit.text():
@@ -224,6 +233,10 @@ class MainWindow(MainWindowFront):
 
     def check_progress(self):
         """Monitor the progress of processes running."""
+
+        if 'source' not in self.job or "reference" not in self.job:
+            return
+
         source_images = len(self.job["source"])
         source_cache_dir = self.cache_dir / "source"
         source_cache_dir.mkdir(parents=True, exist_ok=True)
@@ -241,6 +254,8 @@ class MainWindow(MainWindowFront):
             processed_files += len(
                 [name for name in os.listdir(reference_cache_dir) if name.endswith(".pkl")]
             )
+
+            print('attempting to update progress')
 
             if source_images > 0 and not self.preprocess_ended:
                 progress = (processed_files / (source_images + reference_images)) * 50

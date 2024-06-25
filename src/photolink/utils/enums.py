@@ -10,6 +10,7 @@ class ErrorMessage(Enum):
     PATH_NOT_SELECTED = "Error, Please select all required valid paths."
     SOURCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the source folder."
     REFERENCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the reference folder."
+    REFRESH_REQUIRED = "Please hit refresh first and try again."
 
 class StatusMessage(Enum):
     DEFAULT = "Welcome to PhotoMatcher! When there are more than one faces in a photo, top 3 largest faces will be used"
