@@ -1,18 +1,8 @@
-install:
-	pip install --upgrade pip
-	pip install --upgrade -e .[devel]
-
-install-production:
-	pip install --upgrade pip
-	pip install --upgrade -e .
-
-build:
-	python3 -m pip install --upgrade build
-	python3 -m build
+setup:
+	./helpers/setup.sh
 
 package:
-	rm -rf dist/
-	pyinstaller photolink.spec
+	./helpers/package.sh
 
 lint:
 	flake8 src tests

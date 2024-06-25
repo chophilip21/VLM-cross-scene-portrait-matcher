@@ -175,5 +175,6 @@ class JobProcessor:
 
 
 if __name__ == "__main__":
+
     processor = JobProcessor()
     processor.run()

@@ -15,6 +15,12 @@ class StatusMessage(Enum):
     DEFAULT = "Welcome to PhotoMatcher! When there are more than one faces in a photo, top 3 largest faces will be used"
     COMPLETE = "Task completed successfully!"
 
+class OperatingSystem(Enum):
+    """Enum for operating system."""
+    WINDOWS = "win32"
+    MACOS = "darwin"
+    LINUX = "linux"
+
 
 class ClusteringAlgorithm(Enum):
     """Enum for clustering algorithm."""

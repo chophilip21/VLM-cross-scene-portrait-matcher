@@ -1,15 +1,16 @@
 """Divide functional and UI related logic."""
 import photolink.utils.enums as enums
-from photolink.utils.function import search_all_images
+from photolink.utils.function import search_all_images, read_config
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QLabel
 import os
 from qss import *
 import json
-from PySide6.QtCore import QProcess, Signal, QTimer, QDir
+from PySide6.QtCore import QProcess, Signal, QTimer, QDir, QProcessEnvironment
 from front import MainWindowFront
-from main import get_application_path
+from main import get_application_path, get_config_file
 from pathlib import Path
+import sys
 
 
 class MainWindow(MainWindowFront):
@@ -21,12 +22,17 @@ class MainWindow(MainWindowFront):
         super().__init__()
         self.process = None
         self.application_path = get_application_path()
+        config = get_config_file(self.application_path)
+        self.config = read_config(config)
+        self.venv_path = Path(os.getenv("VIRTUAL_ENV"))
         self.job = {}
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.check_progress)
         self.progress_update.connect(self.progress_bar.setValue)
         self.all_stop = False
         self.preprocess_ended = False
+        self.operating_system = sys.platform
+        print(f"Operating system: {self.operating_system}")
 
     @Slot()
     def handle_box_click(self):
@@ -136,12 +142,27 @@ class MainWindow(MainWindowFront):
             job_script_directory = job_script_path.parent
             self.p.setWorkingDirectory(str(job_script_directory))
 
-            # Convert path to native separators. This is required for Windows.
-            native_job_script_path = QDir.toNativeSeparators(str(job_script_path))
-            print(f"Running job script at {native_job_script_path}")
+            # Windows need special handling for venv and path
+            if self.operating_system == enums.OperatingSystem.WINDOWS.name:
+                env = QProcessEnvironment.systemEnvironment()
+                python_executable = Path(self.venv_path) / "Scripts" / "python.exe"
 
-            # Start the process with the correct path
-            self.p.start("python3", [native_job_script_path])
+                if not python_executable.exists():
+                    raise FileNotFoundError(f"Python executable not found at {python_executable}")
+                
+                env.insert("PYTHONHOME", self.venv_path)
+                env.insert("PYTHONPATH", os.path.join(self.venv_path, 'Lib', 'site-packages'))
+                self.p.setProcessEnvironment(env)
+                native_job_script_path = QDir.toNativeSeparators(str(job_script_path))
+                self.p.start(python_executable, [native_job_script_path])
+                
+            # Linux is more straightforward
+            elif self.operating_system == enums.OperatingSystem.LINUX.name:
+                native_job_script_path = job_script_path
+                self.p.start("python", [native_job_script_path])
+
+            else:
+                raise NotImplementedError(f"Operating system not supported: {self.operating_system}")           
 
             # use timer and check progress to update progress bar.
             self.timer.start(1000)
