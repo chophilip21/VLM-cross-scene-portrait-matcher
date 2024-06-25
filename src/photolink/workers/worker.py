@@ -148,9 +148,9 @@ def match_embeddings(
         if file.split(".")[-1] == "pkl"
     ]
 
-    # Create quick look up table for the source and reference images.
-    source_dict = {file.split("/")[-1].split(".")[0]: file for file in source_list_images}
-    reference_dict = {file.split("/")[-1].split(".")[0]: file for file in reference_list_images}
+    # create look up table using Pathlib.
+    source_dict = {Path(file).stem: file for file in source_list_images}
+    reference_dict = {Path(file).stem: file for file in reference_list_images}
 
     # start by reading each embedding file, and adding to faiss index.
     for i, embedding_file in enumerate(source_embeddings):
@@ -200,7 +200,7 @@ def match_embeddings(
                 distance = D[0][0]
 
                 # predicted label must exist in the lookup table.
-                predicted_label = source_embeddings[I[0][0]].split("/")[-1].split(".")[0]
+                predicted_label = Path(source_embeddings[I[0][0]]).stem
 
                 if predicted_label not in source_dict:
                     raise ValueError(f"Predicted label {predicted_label} not found in source_dict.")
@@ -208,7 +208,7 @@ def match_embeddings(
                 predicted_source_input_path = source_dict[predicted_label]
 
                 # now get the equivalent reference image.
-                reference_label = file.split("/")[-1].split(".")[0]
+                reference_label = Path(file).stem
 
                 if reference_label not in reference_dict:
                     raise ValueError(
@@ -228,7 +228,9 @@ def match_embeddings(
 
                 shutil.copy(predicted_source_input_path, predicted_source_output_path)
 
-                ref_img_output_path = predicted_label_folder / Path(os.path.basename(ref_img_input_path))
+                ref_img_output_path = predicted_label_folder / Path(
+                    os.path.basename(ref_img_input_path)
+                )
 
                 shutil.copy(ref_img_input_path, ref_img_output_path)
                 result["status"] = "success"
@@ -255,13 +257,13 @@ def cluster_embeddings(
     result["missed_count"] = 0
 
     source_embeddings = [
-        source_cache/ Path(file)
+        source_cache / Path(file)
         for file in os.listdir(source_cache)
         if file.split(".")[-1] == "pkl"
     ]
 
     embedding_file_to_image_table = {
-        file.split("/")[-1].split(".")[0]: file for file in source_list_images
+        Path(file).stem: file for file in source_list_images
     }
 
     loaded_embeddings = []
@@ -322,15 +324,15 @@ def cluster_embeddings(
             print(f"POSTPROCESS_PROGRESS: {int(progress)}")
 
         # find the original image from look up table.
-        backtracked_file_name = face_to_embedding_file_table[i]
+        backtracked_file_name = Path(face_to_embedding_file_table[i])
 
         source_img_path = embedding_file_to_image_table[
-            backtracked_file_name.split("/")[-1].split(".")[0]
+            backtracked_file_name.stem
         ]
 
         # label -1 indicates failed clustering.
         if label == -1:
-            failed_img_output_path = fail_path / Path(os.path.basename(source_img_path))
+            failed_img_output_path = str(fail_path / Path(os.path.basename(source_img_path)))
             shutil.copy(source_img_path, failed_img_output_path)
             print(f"Failed clustering on {source_img_path}. Saved to {failed_img_output_path}")
             result["missed_count"] += 1
@@ -339,7 +341,7 @@ def cluster_embeddings(
         label_folder = output_path / Path("subject-no-" + str(label))
         label_folder.mkdir(parents=True, exist_ok=True)
 
-        source_img_output_path = label_folder / Path(os.path.basename(source_img_path))
+        source_img_output_path = str(label_folder / Path(os.path.basename(source_img_path)))
 
         shutil.copy(source_img_path, source_img_output_path)
 

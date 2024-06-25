@@ -1,4 +1,5 @@
 """Divide functional and UI related logic."""
+
 import photolink.utils.enums as enums
 from photolink.utils.function import search_all_images, read_config
 from PySide6.QtCore import Slot
@@ -6,7 +7,7 @@ from PySide6.QtWidgets import QLabel
 import os
 from qss import *
 import json
-from PySide6.QtCore import QProcess, Signal, QTimer, QDir, QProcessEnvironment
+from PySide6.QtCore import QProcess, Signal, QTimer, QDir
 from front import MainWindowFront
 from main import get_application_path, get_config_file
 from pathlib import Path
@@ -24,7 +25,7 @@ class MainWindow(MainWindowFront):
         self.application_path = get_application_path()
         config = get_config_file(self.application_path)
         self.config = read_config(config)
-        self.venv_path = Path(os.getenv("VIRTUAL_ENV"))
+        self.venv_path = Path(self.config["WINDOWS"]["VIRTUAL_ENV"])
         self.job = {}
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.check_progress)
@@ -75,6 +76,9 @@ class MainWindow(MainWindowFront):
         """Call the multiprocessing method when the start button is clicked."""
 
         self.change_button_status(False)
+
+        # use timer and check progress to update progress bar.
+        self.timer.start(1000)
 
         # first check there is output path.
         if not self.output_path_selector.line_edit.text():
@@ -137,35 +141,30 @@ class MainWindow(MainWindowFront):
             self.p.stateChanged.connect(self.handle_state)
             self.p.finished.connect(self.process_finished)  # Connect to new method
 
-            # run as subprocess.
+            # run jobs.py as subprocess.
             job_script_path = self.application_path / Path("jobs.py")
             job_script_directory = job_script_path.parent
             self.p.setWorkingDirectory(str(job_script_directory))
 
             # Windows need special handling for venv and path
-            if self.operating_system == enums.OperatingSystem.WINDOWS.name:
-                env = QProcessEnvironment.systemEnvironment()
+            if self.operating_system == enums.OperatingSystem.WINDOWS.value:
                 python_executable = Path(self.venv_path) / "Scripts" / "python.exe"
 
                 if not python_executable.exists():
                     raise FileNotFoundError(f"Python executable not found at {python_executable}")
-                
-                env.insert("PYTHONHOME", self.venv_path)
-                env.insert("PYTHONPATH", os.path.join(self.venv_path, 'Lib', 'site-packages'))
-                self.p.setProcessEnvironment(env)
+
                 native_job_script_path = QDir.toNativeSeparators(str(job_script_path))
-                self.p.start(python_executable, [native_job_script_path])
-                
+                self.p.start(str(python_executable), [native_job_script_path])
+
             # Linux is more straightforward
-            elif self.operating_system == enums.OperatingSystem.LINUX.name:
+            elif self.operating_system == enums.OperatingSystem.LINUX.value:
                 native_job_script_path = job_script_path
-                self.p.start("python", [native_job_script_path])
+                self.p.start("python3", [native_job_script_path])
 
             else:
-                raise NotImplementedError(f"Operating system not supported: {self.operating_system}")           
-
-            # use timer and check progress to update progress bar.
-            self.timer.start(1000)
+                raise NotImplementedError(
+                    f"Operating system not supported: {self.operating_system}"
+                )
 
     def process_finished(self):
         """Called when the Processing is finished."""
@@ -183,11 +182,11 @@ class MainWindow(MainWindowFront):
         stderr = bytes(data).decode("utf8")
         print(stderr, end="")
 
-        # # ignore these ones. Only I should be able to see it. 
-        # for line in stderr.split("\n"):
-    
-            # if line.startswith("Invalid SOS parameters for sequential JPEG"):
-            #     return
+        # ignore these ones. Only I should be able to see it.
+        for l in stderr.split("\n"):
+
+            if l.startswith("Invalid SOS parameters for sequential JPEG"):
+                return
 
         self.all_stop = True
         self.log_message(stderr)
@@ -200,7 +199,7 @@ class MainWindow(MainWindowFront):
 
         # Check for postprocessing progress updates coming from worker.py
         for line in stdout.split("\n"):
-            
+
             # turn off check_progress logic. 50% passed.
             if line.startswith("Preprocessing ended"):
                 self.preprocess_ended = True
@@ -227,6 +226,7 @@ class MainWindow(MainWindowFront):
         """Monitor the progress of processes running."""
         source_images = len(self.job["source"])
         source_cache_dir = self.cache_dir / "source"
+        source_cache_dir.mkdir(parents=True, exist_ok=True)
 
         processed_files = len(
             [name for name in os.listdir(source_cache_dir) if name.endswith(".pkl")]
@@ -236,6 +236,7 @@ class MainWindow(MainWindowFront):
         if self.current_task == enums.Task.SAMPLE_MATCHING.name:
             reference_images = len(self.job["reference"])
             reference_cache_dir = self.cache_dir / "reference"
+            reference_cache_dir.mkdir(parents=True, exist_ok=True)
 
             processed_files += len(
                 [name for name in os.listdir(reference_cache_dir) if name.endswith(".pkl")]

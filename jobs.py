@@ -36,6 +36,7 @@ class JobProcessor:
         self.source_list_images = None
         self.reference_list_images = None
         self.num_processes = os.cpu_count()
+        print(f"Number of processes: {self.num_processes}")
         self.chunksize = int(os.getenv("CHUNKSIZE", 10))
         self.top_n_face = int(os.getenv("TOP_N_FACE", 3))
         self.min_clustering_samples = int(os.getenv("MIN_CLUSTERING_SAMPLES", 2))
