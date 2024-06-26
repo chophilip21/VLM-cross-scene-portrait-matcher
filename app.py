@@ -26,11 +26,14 @@ class MainWindow(MainWindowFront):
         self.venv_path = Path(self.config["WINDOWS"]["VIRTUAL_ENV"])
         self.job = {}
         self.all_stop = False
-        self.current_progress = 0
-        self.init_time = 0
-        self.preprocess_ended = False
         self.operating_system = sys.platform
         print(f"Operating system: {self.operating_system}")
+
+        # progress bar monitoring purposes
+        self.current_progress = 0
+        self.preprocess_total = 0
+        self.num_preprocessed = 0
+        self.num_postprocessed = 0
 
     @Slot()
     def handle_box_click(self):
@@ -73,7 +76,6 @@ class MainWindow(MainWindowFront):
         """Call the multiprocessing method when the start button is clicked."""
         self.change_button_status(False)
         self.init_time = time.time()
-        self.first_processing = 0
 
         # first check there is output path.
         if not self.output_path_selector.line_edit.text():
@@ -105,6 +107,8 @@ class MainWindow(MainWindowFront):
             self.job["source"] = search_all_images(self.source_path_selector.line_edit.text())
             self.job["reference"] = search_all_images(self.reference_path_selector.line_edit.text())
 
+            self.preprocess_total = len(self.job["source"]) + len(self.job["reference"])
+
         elif self.current_task == enums.Task.CLUSTERING.name:
 
             if not self.source_path_selector.line_edit.text():
@@ -117,6 +121,7 @@ class MainWindow(MainWindowFront):
 
             self.job["task"] = enums.Task.CLUSTERING.name
             self.job["source"] = search_all_images(self.source_path_selector.line_edit.text())
+            self.preprocess_total = len(self.job["source"])
 
         else:
             self.change_button_status(True)
@@ -137,8 +142,6 @@ class MainWindow(MainWindowFront):
         with open(job_json, "w") as f:
             json.dump(self.job, f)
 
-        self.progress_widget.setValue(10)
-
         # Handle all jobs in a seperate process to prevent conflict with UI.
         if self.process is None:
             self.console.setText(f'Executing process for {self.job["task"]}')
@@ -153,7 +156,6 @@ class MainWindow(MainWindowFront):
             job_script_directory = job_script_path.parent
             self.process.setWorkingDirectory(str(job_script_directory))
 
-            self.progress_widget.setValue(20)
             # Windows need special handling for venv and path
             if self.operating_system == enums.OperatingSystem.WINDOWS.value:
                 python_executable = Path(self.venv_path) / "Scripts" / "python.exe"
@@ -182,29 +184,25 @@ class MainWindow(MainWindowFront):
             self.display_notification("Complete", "All operations completed successfully.")
             self.log_message("Processing finished.")
             self.stop_processing()
-
-            # how long did first processing take?
-            if self.first_processing != 0:
-                duration  = self.init_time - self.first_processing
-                print(f"First processing took: {duration}")  
+            self.progress_widget.setValue(100)
 
     def stop_processing(self):
         """Force stop the processing."""
-        self.process.kill()
-        self.progress_message_box.reject()
-        self.progress_widget.setValue(0)
-        self.process = None
+        if self.process is not None:
+            self.process.kill()
 
-    @Slot()
-    def on_postprocessing_finished(self):
-        print("Postprocessing finished")
         self.progress_message_box.accept()
+        self.process = None
+        self.num_preprocessed = 0
+        self.num_postprocessed = 0
+        self.current_progress = 0
+        self.preprocess_total = 0
 
     def update_progress(self, value):
         """Update the progress bar."""
         if value > int(self.current_progress):
             self.current_progress = value
-            self.progress_widget.setValue(value)
+            self.progress_widget.setValue(self.current_progress)
 
     def handle_stderr(self):
         """Gracefully handle errors coming from process."""
@@ -231,26 +229,20 @@ class MainWindow(MainWindowFront):
 
         # Check for postprocessing progress updates coming from worker.py
         for line in stdout.split("\n"):
-
-            # turn off check_progress logic. 50% passed.
-            if line.startswith("Preprocessing ended"):
-                self.preprocess_ended = True
-                return
             
+            # update first 50% of the progress bar
             if line.startswith("Pre-Processing:"):
-                image = Path(line.split(":")[-1])
+                progress = int((self.num_preprocessed / self.preprocess_total) * 50)
+                self.update_progress(progress)
+                self.num_preprocessed += 1
+                return
 
-                if self.first_processing == 0:
-                    self.first_processing = time.time()
+            # update later 50% of the progress bar
+            if line.startswith("Post-Processing:"):
+                progress = int(line.split(":")[-1].strip())
+                self.update_progress(progress)
+                return
 
-                # update initial 50% of the progress bar.
-
-    
-            if line.startswith("Pre-Processing:"):
-                image = Path(line.split(":")[-1])
-                # update later 50% of the progress bar.
-
-                
         self.log_message(stdout)
 
     def handle_state(self, state):

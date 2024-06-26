@@ -39,78 +39,76 @@ class YuNet:
         faces = self._model.detect(image)
         return np.array([]) if faces[1] is None else faces[1]
     
+    def run_face_detection(self, image_path: str) -> dict:
+        """Run face detection on the image using Yunet.
+        
+        Faces is a list where each faces are represented as [x,y,w,h,landmarks].
+        """
 
-# TODO: CHECK WITH MULTIPLE FACES. WE NEED TO DEAL WITH THIS PART.
-backend_target_pairs = [cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_CPU]
-backend_id = backend_target_pairs[0]
-target_id = backend_target_pairs[1]
-conf_threshold = float(os.getenv("YUNET_CONF", 0.75))
-nms_threshold = float(os.getenv("YUNET_NMS", 0.4))
-top_k = 5000 ## bb to keep before nms
+        face_table = {}
+        face_table['resize_ratio'] = 1.0
 
-if os.getenv("YUNET_PATH") is None:
-    raise ValueError("Please set the YUNET_PATH in the environment variable.")
+        try:
+            image = cv2.imread(image_path)
 
-project_root = get_application_path()
-model_path = project_root / Path(os.getenv("YUNET_PATH"))
-
-if not model_path.exists():
-    raise ValueError(f"Model path {model_path} does not exist.")
-
-# singleton entry point.
-input_size = int(os.getenv("YUNET_INPUT_SIZE", 640))
-model = YuNet(modelPath=model_path,
-                    inputSize=[input_size, input_size],
-                    confThreshold=conf_threshold,
-                    nmsThreshold=nms_threshold,
-                    topK=top_k,
-                    backendId=backend_id,
-                    targetId=target_id)
+            if image.shape[0] > 1000:
+                image = cv2.resize(image, (0, 0),
+                                fx=500 / image.shape[0], fy=500 / image.shape[0])
+                resize_ratio = 500 / image.shape[0]
+                face_table['resize_ratio'] = resize_ratio
+        except Exception as e:
+            print(f"Error reading image {image_path}. Error: {e}")
+            face_table['error'] = f"Error reading image {image_path}. Error: {e}"
+            return face_table
 
 
-def get_yunet():
-    """Return the model."""
-    return model
+        h, w, _ = image.shape
+        face_table['image'] = image # if you need the resized image. Use resize ratio to get the original size if you need it.
 
+        # Inference results saved to dict.
+        try: 
+            self.setInputSize([w, h])
+            results = self.infer(image)
 
-def run_face_detection(image_path: str) -> dict:
-    """Run face detection on the image using Yunet.
-    
-    Faces is a list where each faces are represented as [x,y,w,h,landmarks].
-    """
+            # no face detected. Just return with out face key.
+            if results.size == 0:
+                return face_table
 
-    face_table = {}
-    face_table['resize_ratio'] = 1.0
+            face_table['faces'] = results
+        except Exception as e:
+            print(f"Error running inference on image {image_path}. Error: {e}")
+            face_table['error'] = f"Error running inference on image {image_path}. Error: {e}"
 
-    try:
-        image = cv2.imread(image_path)
-
-        if image.shape[0] > 1000:
-            image = cv2.resize(image, (0, 0),
-                            fx=500 / image.shape[0], fy=500 / image.shape[0])
-            resize_ratio = 500 / image.shape[0]
-            face_table['resize_ratio'] = resize_ratio
-    except Exception as e:
-        print(f"Error reading image {image_path}. Error: {e}")
-        face_table['error'] = f"Error reading image {image_path}. Error: {e}"
         return face_table
 
 
-    h, w, _ = image.shape
-    face_table['image'] = image # if you need the resized image. Use resize ratio to get the original size if you need it.
+def load_model():
+    """Load the model."""
+    backend_target_pairs = [cv2.dnn.DNN_BACKEND_OPENCV, cv2.dnn.DNN_TARGET_CPU]
+    backend_id = backend_target_pairs[0]
+    target_id = backend_target_pairs[1]
+    conf_threshold = float(os.getenv("YUNET_CONF", 0.75))
+    nms_threshold = float(os.getenv("YUNET_NMS", 0.4))
+    top_k = 5000 ## bb to keep before nms
 
-    # Inference results saved to dict.
-    try: 
-        model.setInputSize([w, h])
-        results = model.infer(image)
+    if os.getenv("YUNET_PATH") is None:
+        raise ValueError("Please set the YUNET_PATH in the environment variable.")
 
-        # no face detected. Just return with out face key.
-        if results.size == 0:
-            return face_table
+    project_root = get_application_path()
+    model_path = project_root / Path(os.getenv("YUNET_PATH"))
 
-        face_table['faces'] = results
-    except Exception as e:
-        print(f"Error running inference on image {image_path}. Error: {e}")
-        face_table['error'] = f"Error running inference on image {image_path}. Error: {e}"
+    if not model_path.exists():
+        raise ValueError(f"Model path {model_path} does not exist.")
 
-    return face_table
+    # singleton entry point.
+    input_size = int(os.getenv("YUNET_INPUT_SIZE", 640))
+    model = YuNet(modelPath=model_path,
+                        inputSize=[input_size, input_size],
+                        confThreshold=conf_threshold,
+                        nmsThreshold=nms_threshold,
+                        topK=top_k,
+                        backendId=backend_id,
+                        targetId=target_id)
+    
+    return model
+

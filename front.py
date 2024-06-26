@@ -43,6 +43,10 @@ class CircularProgress(QWidget):
         self.value = value
         self.update()
 
+        # kill UI update.
+        if self.value == 100:
+            self.timer.stop()
+
     def update_angle(self):
         self.angle = (self.angle + 5) % 360  # Smaller increment for slower spinning
         self.update()

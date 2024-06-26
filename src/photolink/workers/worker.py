@@ -13,18 +13,32 @@ import faiss
 import sklearn.cluster as c_algorithm
 import hdbscan
 import cv2
-import math
 from pathlib import Path
+import math
 
+
+# Global variables for pre-loaded models
+YUNET_MODEL = None
+SFACE_MODEL = None
+
+def load_models():
+    """Warmup the models to speed up multiprocessing processing."""
+    global YUNET_MODEL, SFACE_MODEL
+    if YUNET_MODEL is None:
+        YUNET_MODEL = yunet.load_model()  # Ensure load_model() initializes the model
+    if SFACE_MODEL is None:
+        SFACE_MODEL = sface.load_model()  # Ensure load_model() initializes the model
 
 def _run_ml_model(image_path: str, save_path: Path, fail_path: Path, keep_top_n: int = 3):
     """Process face detection and recognition for images, save embeddings to save_path as pkl file.
 
     Instead of converting all faces to embeddings, only largest top n faces are converted. Result should have both aligned face and converted embeddings as keys.
     """
-    detection_result = yunet.run_face_detection(image_path)
-    print(f"Pre-Processing:{image_path}")
 
+    # Use the pre-loaded global models
+    global YUNET_MODEL, SFACE_MODEL
+    detection_result = YUNET_MODEL.run_face_detection(image_path)
+    print(f"Pre-Processing:{image_path}", flush=True)
     failed_image = fail_path / Path(os.path.basename(image_path))
 
     if "error" in detection_result:
@@ -48,7 +62,7 @@ def _run_ml_model(image_path: str, save_path: Path, fail_path: Path, keep_top_n:
 
     # bb = [x, y, w, h, landmarks]
     faces = sorted(faces, key=lambda face: face[2] * face[3], reverse=True)[:keep_top_n]
-    embedding_dict = sface.run_embedding_conversion(image, faces)
+    embedding_dict = SFACE_MODEL.run_embedding_conversion(image, faces)
 
     if "error" in embedding_dict:
         shutil.copy(image_path, failed_image)
@@ -75,7 +89,9 @@ def run_model_mp(
 ):
     """Use multiprocessing to run the models and each results to pickle file to cache path."""
     ctx = mp.get_context("spawn")
-    pool = ctx.Pool(processes=num_workers)
+
+    # warm up using load_models
+    pool = ctx.Pool(processes=num_workers, initializer=load_models)
 
     with pool as p:
         result = list(
@@ -157,9 +173,7 @@ def match_embeddings(
     for i, embedding_file in enumerate(source_embeddings):
 
         progress = math.ceil(50 + ((i + 1) / len(source_embeddings) * 25))
-
-        if int(progress) % 2 == 0:
-            print(f"Post-Processing: {int(progress)}")
+        print(f"Post-Processing:{int(progress)}", flush=True)
 
         try:
             source_embedding_dict = read_embeddingpkl(source_cache / Path(embedding_file))
@@ -181,9 +195,7 @@ def match_embeddings(
     for i, file in enumerate(reference_embeddings):
 
         progress = math.ceil(75 + ((i + 1) / len(reference_embeddings) * 25))
-
-        if int(progress) % 2 == 0:
-            print(f"POSTPROCESS_PROGRESS: {int(progress)}")
+        print(f"Post-Processing:{int(progress)}", flush=True)
 
         try:
             reference_embedding_dict = read_embeddingpkl(reference_cache / Path(file))
@@ -320,9 +332,7 @@ def cluster_embeddings(
 
         # print POSTPROCESS_PROGRESS
         progress = math.ceil(50 + ((i + 1) / len(labels) * 50))
-
-        if int(progress) % 2 == 0:
-            print(f"POSTPROCESS_PROGRESS: {int(progress)}")
+        print(f"Post-Processing:{int(progress)}", flush=True)
 
         # find the original image from look up table.
         backtracked_file_name = Path(face_to_embedding_file_table[i])
