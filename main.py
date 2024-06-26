@@ -20,7 +20,7 @@ def get_application_path():
     
 def get_config_file(application_path: Path):
     """Get the config file path."""
-    return application_path / "config.ini"
+    return application_path / Path("config.ini")
 
 
 def main():

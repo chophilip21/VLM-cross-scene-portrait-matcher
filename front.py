@@ -1,4 +1,5 @@
 """Divide functional and UI related logic."""
+
 import photolink.utils.enums as enums
 from photolink.utils.function import read_config
 from PySide6.QtCore import Qt
@@ -19,7 +20,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QFont
 from PySide6.QtSvgWidgets import QSvgWidget
-import os
 from qss import *
 import shutil
 from main import get_application_path, get_config_file
@@ -34,7 +34,7 @@ class MainWindowFront(QMainWindow):
         config = get_config_file(self.application_path)
         self.config = read_config(config)
         self.current_task = enums.Task.SAMPLE_MATCHING.name
-        self.cache_dir = self.application_path / ".cache"
+        self.cache_dir = self.application_path / Path(".cache")
         print(f"Cache dir: {self.cache_dir}")
         self.setup_cache_dir(self.cache_dir)
         self.drawUI()
@@ -64,8 +64,8 @@ class MainWindowFront(QMainWindow):
         # Task layout goes here.
         self.matching_color = self.config.get("UI", "MATCHING_TASK_COLOR").split(",")
         self.clustering_color = self.config.get("UI", "CLUSTERING_TASK_COLOR").split(",")
-        match_icon = self.config.get("IMAGES", "MATCH_ICON")
-        cluster_icon = self.config.get("IMAGES", "CLUSTER_ICON")
+        match_icon = str(self.application_path / Path(self.config.get("IMAGES", "MATCH_ICON")))
+        cluster_icon = str(self.application_path / Path(self.config.get("IMAGES", "CLUSTER_ICON")))
         self.sample_match_box = self.create_task_button(
             match_icon, "Sample Match", self.matching_color[0], self.matching_color[1]
         )
@@ -118,6 +118,7 @@ class MainWindowFront(QMainWindow):
 
         # Add progress bar
         self.progress_bar = QProgressBar(self)
+        # self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.main_layout.addWidget(self.progress_bar)
 
         # Add console text display
@@ -242,11 +243,11 @@ class MainWindowFront(QMainWindow):
         self.progress_bar.setValue(value)
         self.console.append(f"Progress: {value}%")
 
-    def log_message(self, message:str):
-        """"Log messages to the console."""
+    def log_message(self, message: str):
+        """ "Log messages to the console."""
 
         # ignore some messages.
-        if 'sos' in message.lower():
+        if "sos" in message.lower():
             return
 
         self.console.append(message)
@@ -278,7 +279,9 @@ class MainWindowFront(QMainWindow):
             self.start_button.setStyleSheet(
                 "background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 grey, stop:1 darkgrey);"
             )
-            self.refresh_button.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 grey, stop:1 darkgrey);")
+            self.refresh_button.setStyleSheet(
+                "background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 grey, stop:1 darkgrey);"
+            )
 
         else:
             self.start_button.setText("Start Processing")

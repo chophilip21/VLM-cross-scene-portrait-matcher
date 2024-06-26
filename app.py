@@ -177,7 +177,7 @@ class MainWindow(MainWindowFront):
 
     def process_finished(self):
         """Called when the Processing is finished."""
-        self.timer.stop()
+        # self.timer.stop()
         self.progress_bar.setValue(100)
         self.change_button_status(True)
 
@@ -254,8 +254,6 @@ class MainWindow(MainWindowFront):
             processed_files += len(
                 [name for name in os.listdir(reference_cache_dir) if name.endswith(".pkl")]
             )
-
-            print('attempting to update progress')
 
             if source_images > 0 and not self.preprocess_ended:
                 progress = (processed_files / (source_images + reference_images)) * 50
