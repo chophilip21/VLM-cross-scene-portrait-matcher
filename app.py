@@ -6,16 +6,15 @@ from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QLabel, QMessageBox
 from qss import *
 import json
-from PySide6.QtCore import QProcess, Signal, QDir
+from PySide6.QtCore import QProcess, QDir
 from front import MainWindowFront, ProgressWidget
 from main import get_application_path, get_config_file
 from pathlib import Path
 import sys
+import time
 
 class MainWindow(MainWindowFront):
     """All functional codes related to Pyside go here."""
-
-    progress_update = Signal(int)
 
     def __init__(self):
        
@@ -26,8 +25,9 @@ class MainWindow(MainWindowFront):
         self.config = read_config(config)
         self.venv_path = Path(self.config["WINDOWS"]["VIRTUAL_ENV"])
         self.job = {}
-        # self.progress_update.connect(self.progress_bar.setValue)
         self.all_stop = False
+        self.current_progress = 0
+        self.init_time = 0
         self.preprocess_ended = False
         self.operating_system = sys.platform
         print(f"Operating system: {self.operating_system}")
@@ -72,6 +72,8 @@ class MainWindow(MainWindowFront):
     def process_jobs(self):
         """Call the multiprocessing method when the start button is clicked."""
         self.change_button_status(False)
+        self.init_time = time.time()
+        self.first_processing = 0
 
         # first check there is output path.
         if not self.output_path_selector.line_edit.text():
@@ -123,10 +125,10 @@ class MainWindow(MainWindowFront):
         # Now passed all validation, so display the progress bar.
         self.progress_widget = ProgressWidget(self.stop_processing)
         self.progress_message_box = QMessageBox(self)
-        self.progress_message_box.setWindowTitle("Processing")
+        self.progress_message_box.setWindowTitle("Processing has started. Please wait.")
         self.progress_message_box.setStandardButtons(QMessageBox.NoButton)
         self.progress_message_box.layout().addWidget(self.progress_widget)
-        self.progress_message_box.setGeometry(500, 300, 350, 350)
+        self.progress_message_box.setGeometry(500, 300, 450, 450)
         self.progress_message_box.show()
         self.progress_widget.setValue(0)
 
@@ -134,6 +136,8 @@ class MainWindow(MainWindowFront):
         job_json = self.cache_dir / "job.json"
         with open(job_json, "w") as f:
             json.dump(self.job, f)
+
+        self.progress_widget.setValue(10)
 
         # Handle all jobs in a seperate process to prevent conflict with UI.
         if self.process is None:
@@ -149,6 +153,7 @@ class MainWindow(MainWindowFront):
             job_script_directory = job_script_path.parent
             self.process.setWorkingDirectory(str(job_script_directory))
 
+            self.progress_widget.setValue(20)
             # Windows need special handling for venv and path
             if self.operating_system == enums.OperatingSystem.WINDOWS.value:
                 python_executable = Path(self.venv_path) / "Scripts" / "python.exe"
@@ -176,12 +181,30 @@ class MainWindow(MainWindowFront):
         if not self.all_stop:
             self.display_notification("Complete", "All operations completed successfully.")
             self.log_message("Processing finished.")
+            self.stop_processing()
+
+            # how long did first processing take?
+            if self.first_processing != 0:
+                duration  = self.init_time - self.first_processing
+                print(f"First processing took: {duration}")  
 
     def stop_processing(self):
         """Force stop the processing."""
         self.process.kill()
         self.progress_message_box.reject()
         self.progress_widget.setValue(0)
+        self.process = None
+
+    @Slot()
+    def on_postprocessing_finished(self):
+        print("Postprocessing finished")
+        self.progress_message_box.accept()
+
+    def update_progress(self, value):
+        """Update the progress bar."""
+        if value > int(self.current_progress):
+            self.current_progress = value
+            self.progress_widget.setValue(value)
 
     def handle_stderr(self):
         """Gracefully handle errors coming from process."""
@@ -201,6 +224,7 @@ class MainWindow(MainWindowFront):
         self.stop_processing()
 
     def handle_stdout(self):
+        """Use this to update progress bar and log messages."""
         data = self.process.readAllStandardOutput()
         stdout = bytes(data).decode("utf8")
         print(stdout, end="")
@@ -212,13 +236,21 @@ class MainWindow(MainWindowFront):
             if line.startswith("Preprocessing ended"):
                 self.preprocess_ended = True
                 return
+            
+            if line.startswith("Pre-Processing:"):
+                image = Path(line.split(":")[-1])
 
-            # # Use this to update progress bar after 50% mark.
-            # if line.startswith("POSTPROCESS_PROGRESS:"):
-            #     progress = int(line.split(":")[-1])
-            #     self.progress_bar.setValue(progress)
-            #     return
+                if self.first_processing == 0:
+                    self.first_processing = time.time()
 
+                # update initial 50% of the progress bar.
+
+    
+            if line.startswith("Pre-Processing:"):
+                image = Path(line.split(":")[-1])
+                # update later 50% of the progress bar.
+
+                
         self.log_message(stdout)
 
     def handle_state(self, state):
@@ -229,3 +261,4 @@ class MainWindow(MainWindowFront):
         }
         state_name = states[state]
         print(f"Worker state: {state_name}")
+

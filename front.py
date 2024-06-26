@@ -2,7 +2,7 @@
 
 import photolink.utils.enums as enums
 from photolink.utils.function import read_config
-from PySide6.QtCore import Qt, QRectF
+from PySide6.QtCore import Qt, QRectF, QTimer
 from PySide6.QtWidgets import (
     QMainWindow,
     QLabel,
@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QMessageBox,
 )
-from PySide6.QtGui import QFont, QBrush, QColor
+from PySide6.QtGui import QFont, QBrush, QColor, QConicalGradient
 from PySide6.QtSvgWidgets import QSvgWidget
 from qss import *
 import shutil
@@ -25,19 +25,26 @@ from main import get_application_path, get_config_file
 from pathlib import Path
 from PySide6.QtGui import QPainter, QPen, QFont
 
-
 class CircularProgress(QWidget):
-    """Circular UI for progress update."""
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self.value = 0
         self.width = 200
         self.height = 200
         self.setMinimumSize(self.width, self.height)
+        self.angle = 0
+        
+        # Timer for the spinning light effect
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_angle)
+        self.timer.start(20)  # Adjusted timer for slower movement
 
     def setValue(self, value):
         self.value = value
+        self.update()
+
+    def update_angle(self):
+        self.angle = (self.angle + 5) % 360  # Smaller increment for slower spinning
         self.update()
 
     def paintEvent(self, event):
@@ -57,23 +64,34 @@ class CircularProgress(QWidget):
         painter.setBrush(background_brush)
         painter.drawEllipse(rect)
 
-        # Progress arc
-        pen = QPen(QColor(45, 140, 240), 15, Qt.SolidLine, Qt.RoundCap)
-        painter.setPen(pen)
-        painter.drawArc(rect, 90 * 16, -int((value / 100) * 360) * 16)
+        # Progress pie slice
+        if value > 0:
+            painter.setBrush(QColor(45, 140, 240))
+            painter.drawPie(rect, 90 * 16, -int((value / 100) * 360) * 16)
+
+        # Spinning light with gradient
+        gradient = QConicalGradient(rect.center(), self.angle)
+        gradient.setColorAt(0.0, QColor(0, 255, 127))  # Start color: Greenish
+        gradient.setColorAt(1.0, QColor(0, 100, 0))    # End color: Darker green
+        painter.setBrush(QBrush(gradient))
+        pen_light = QPen(QBrush(gradient), 5, Qt.SolidLine, Qt.RoundCap)  # Thinner pen for the spinning light
+        painter.setPen(pen_light)
+        painter.drawArc(rect, (90 + self.angle) * 16, 60 * 16)  # Longer arc length for the light effect
 
         # Percentage text
         painter.setPen(QPen(QColor(30, 30, 30)))
         painter.setFont(QFont("Arial", 40, QFont.Bold))
         painter.drawText(rect, Qt.AlignCenter, f"{int(value)}%")
 
+
 class ProgressWidget(QWidget):
-    """Integrate circular progress bar """
+    """Integrate circular progress bar with QmessageBox."""
     def __init__(self, stop_callback, parent=None):
         super().__init__(parent)
         self.circular_progress = CircularProgress()
         self.stop_button = QPushButton("Stop")
         self.stop_button.clicked.connect(stop_callback)
+        self.stop_button.setStyleSheet(STOP_BUTTON_STYLE)
         
         layout = QVBoxLayout()
         layout.addWidget(self.circular_progress)

@@ -1,4 +1,5 @@
 """Put any long CSS styles here to keep the main code clean"""
+
 START_BUTTON_STYLE = """
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #28a745, stop:1 #218838);
@@ -33,6 +34,37 @@ BROSWE_BUTTON_STYLE = """
                 color: white;
             }
         """
+
+STOP_BUTTON_STYLE = """
+QPushButton {
+                background-color: qlineargradient(
+                    spread:pad, 
+                    x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(255, 0, 0, 255), 
+                    stop:1 rgba(139, 0, 0, 255)
+                );
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: qlineargradient(
+                    spread:pad, 
+                    x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(255, 50, 50, 255), 
+                    stop:1 rgba(139, 0, 0, 255)
+                );
+            }
+            QPushButton:pressed {
+                background-color: qlineargradient(
+                    spread:pad, 
+                    x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(255, 0, 0, 200), 
+                    stop:1 rgba(139, 0, 0, 200)
+                );
+            }
+"""
 
 NOTIFICATION_STYLE = """
             QMessageBox#customMessageBox {

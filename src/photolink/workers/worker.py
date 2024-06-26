@@ -23,7 +23,7 @@ def _run_ml_model(image_path: str, save_path: Path, fail_path: Path, keep_top_n:
     Instead of converting all faces to embeddings, only largest top n faces are converted. Result should have both aligned face and converted embeddings as keys.
     """
     detection_result = yunet.run_face_detection(image_path)
-    print(f"Pre-Processing image {image_path}")
+    print(f"Pre-Processing:{image_path}")
 
     failed_image = fail_path / Path(os.path.basename(image_path))
 
@@ -159,7 +159,7 @@ def match_embeddings(
         progress = math.ceil(50 + ((i + 1) / len(source_embeddings) * 25))
 
         if int(progress) % 2 == 0:
-            print(f"POSTPROCESS_PROGRESS: {int(progress)}")
+            print(f"Post-Processing: {int(progress)}")
 
         try:
             source_embedding_dict = read_embeddingpkl(source_cache / Path(embedding_file))
