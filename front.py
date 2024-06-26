@@ -2,7 +2,7 @@
 
 import photolink.utils.enums as enums
 from photolink.utils.function import read_config
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QRectF
 from PySide6.QtWidgets import (
     QMainWindow,
     QLabel,
@@ -14,17 +14,74 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QSizePolicy,
-    QProgressBar,
     QTextEdit,
     QMessageBox,
 )
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QBrush, QColor
 from PySide6.QtSvgWidgets import QSvgWidget
 from qss import *
 import shutil
 from main import get_application_path, get_config_file
 from pathlib import Path
+from PySide6.QtGui import QPainter, QPen, QFont
 
+
+class CircularProgress(QWidget):
+    """Circular UI for progress update."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.value = 0
+        self.width = 200
+        self.height = 200
+        self.setMinimumSize(self.width, self.height)
+
+    def setValue(self, value):
+        self.value = value
+        self.update()
+
+    def paintEvent(self, event):
+        width = self.width
+        height = self.height
+        value = self.value
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setRenderHint(QPainter.TextAntialiasing)
+
+        rect = QRectF(10, 10, width - 20, height - 20)
+
+        # Background circle
+        painter.setPen(Qt.NoPen)
+        background_brush = QBrush(QColor(230, 230, 230))
+        painter.setBrush(background_brush)
+        painter.drawEllipse(rect)
+
+        # Progress arc
+        pen = QPen(QColor(45, 140, 240), 15, Qt.SolidLine, Qt.RoundCap)
+        painter.setPen(pen)
+        painter.drawArc(rect, 90 * 16, -int((value / 100) * 360) * 16)
+
+        # Percentage text
+        painter.setPen(QPen(QColor(30, 30, 30)))
+        painter.setFont(QFont("Arial", 40, QFont.Bold))
+        painter.drawText(rect, Qt.AlignCenter, f"{int(value)}%")
+
+class ProgressWidget(QWidget):
+    """Integrate circular progress bar """
+    def __init__(self, stop_callback, parent=None):
+        super().__init__(parent)
+        self.circular_progress = CircularProgress()
+        self.stop_button = QPushButton("Stop")
+        self.stop_button.clicked.connect(stop_callback)
+        
+        layout = QVBoxLayout()
+        layout.addWidget(self.circular_progress)
+        layout.addWidget(self.stop_button)
+        self.setLayout(layout)
+
+    def setValue(self, value):
+        self.circular_progress.setValue(value)
 
 class MainWindowFront(QMainWindow):
     def __init__(self):
@@ -43,7 +100,7 @@ class MainWindowFront(QMainWindow):
         """Startup by drawing UI elements"""
         # Set default window size
         self.setWindowTitle("PhotoMatcher v.0.01")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(500, 300, 800, 600)
 
         # Create central widget
         central_widget = QWidget(self)
@@ -115,11 +172,6 @@ class MainWindowFront(QMainWindow):
         self.refresh_button.setFixedWidth(150)
         self.refresh_button.clicked.connect(self.refresh)
         self.processing_layout.addWidget(self.refresh_button)
-
-        # Add progress bar
-        self.progress_bar = QProgressBar(self)
-        # self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.main_layout.addWidget(self.progress_bar)
 
         # Add console text display
         self.console = QTextEdit(self)
@@ -234,14 +286,9 @@ class MainWindowFront(QMainWindow):
         self.source_path_selector.line_edit.setText("")
         self.reference_path_selector.line_edit.setText("")
         self.output_path_selector.line_edit.setText("")
-        self.progress_bar.setValue(0)  # Reset progress bar
         self.console.setText(enums.StatusMessage.DEFAULT.value)
         self.current_task = enums.Task.SAMPLE_MATCHING.name
         self.setup_cache_dir(self.cache_dir)
-
-    def update_progress(self, value):
-        self.progress_bar.setValue(value)
-        self.console.append(f"Progress: {value}%")
 
     def log_message(self, message: str):
         """ "Log messages to the console."""
