@@ -18,6 +18,7 @@ Now we need to confirm that our code works first. You can run the application in
 
 ```bash
 # look into config.ini 
+source env/Scripts/activate
 python main.py
 ```
 

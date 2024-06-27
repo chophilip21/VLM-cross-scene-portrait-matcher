@@ -21,6 +21,7 @@ devel = [
     "hdbscan",
     "opencv-python",
     "python-dotenv",
+    "pyinstaller",
 ]
 
 [tool.hatch.build.targets.wheel]

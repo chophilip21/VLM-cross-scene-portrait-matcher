@@ -12,11 +12,12 @@ from pathlib import Path
 def get_application_path():
     """Get the application path."""
     if getattr(sys, 'frozen', False):
-        # Get the path to the temporary directory
-        return sys._MEIPASS
+        # Get the path to the temporary directory for frozen/executable builds
+        return Path(sys._MEIPASS)
     else:
         # Use the script directory for non-bundled execution
-        return Path(__file__).parent
+        current_path = Path(__file__).resolve().parent.parents[2]
+        return current_path
     
 def get_config_file(application_path: Path):
     """Get the config file path."""

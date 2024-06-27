@@ -21,6 +21,7 @@ class MainWindow(MainWindowFront):
         super().__init__()
         self.process = None
         self.application_path = get_application_path()
+        self.pipeline_path = self.application_path / "src" /"photolink" /"pipeline"
         config = get_config_file(self.application_path)
         self.config = read_config(config)
         self.venv_path = self.application_path / Path(self.config["WINDOWS"]["VIRTUAL_ENV"])
@@ -51,6 +52,8 @@ class MainWindow(MainWindowFront):
         elif task == "Cluster":
             self.instruction_label.setText(enums.Task.CLUSTERING.value)
             self.reference_path_selector.line_edit.setPlaceholderText("Not required for clustering")
+            # clean up reference path text
+            self.reference_path_selector.line_edit.setText("")
             self.reference_path_selector.button.setEnabled(False)
             self.current_task = enums.Task.CLUSTERING.name
 
@@ -152,7 +155,7 @@ class MainWindow(MainWindowFront):
             self.process.finished.connect(self.process_finished)  # Connect to new method
 
             # run jobs.py as subprocess.
-            job_script_path = self.application_path / Path("jobs.py")
+            job_script_path = self.pipeline_path / Path("jobs.py")
             job_script_directory = job_script_path.parent
             self.process.setWorkingDirectory(str(job_script_directory))
 
