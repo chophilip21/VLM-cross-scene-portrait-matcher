@@ -3,7 +3,7 @@
 import numpy as np
 import cv2
 import os
-from main import get_application_path
+from photolink.pipeline.main import get_application_path
 from pathlib import Path
 
 class YuNet:

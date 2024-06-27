@@ -4,7 +4,7 @@ import photolink.utils.enums as enums
 import json
 import sys
 import traceback
-from main import get_application_path, get_config_file
+from photolink.pipeline.main import get_application_path, get_config_file
 from photolink.utils.function import read_config
 import os
 from pathlib import Path

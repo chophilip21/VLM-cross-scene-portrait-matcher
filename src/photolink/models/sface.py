@@ -4,7 +4,7 @@ import os
 
 import cv2 as cv
 import numpy as np
-from main import get_application_path
+from photolink.pipeline.main import get_application_path
 from pathlib import Path
 
 

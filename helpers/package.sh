@@ -4,7 +4,7 @@
 
 # Check if the virtual environment exists
 if [ ! -d "env" ]; then
-    echo "Virtual environment 'env' does not exist. Please create it first."
+    echo "Virtual environment 'env' does not exist. Please create it first. by running make setup command."
     exit 1
 fi
 

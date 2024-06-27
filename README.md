@@ -7,14 +7,14 @@ The way you set things up on Linux and Windows is slightly different.
 chmod +x helpers/setup.sh
 make setup
 
-# if make is not installed on Windows:
+# if "make" is not installed on Windows:
 choco install make
 
 # on linux, you may need to run this.
 sudo apt-get install libxcb-cursor0
 ```
 
-Now we need to confirm that our code works first. You can run the application directly via:
+Now we need to confirm that our code works first. You can run the application in debug mode directly via:
 
 ```bash
 # look into config.ini 
@@ -22,6 +22,8 @@ python main.py
 ```
 
 # package
+
+Pyinstaller is used for packaging.
 
 ```bash
 chmod +x helpers/package.sh

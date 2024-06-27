@@ -4,11 +4,11 @@ import photolink.utils.enums as enums
 from photolink.utils.function import search_all_images, read_config
 from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QLabel, QMessageBox
-from qss import *
+from photolink.pipeline.qss import *
 import json
 from PySide6.QtCore import QProcess, QDir
-from front import MainWindowFront, ProgressWidget
-from main import get_application_path, get_config_file
+from photolink.pipeline.front import MainWindowFront, ProgressWidget
+from photolink.pipeline.main import get_application_path, get_config_file
 from pathlib import Path
 import sys
 import time
@@ -23,7 +23,7 @@ class MainWindow(MainWindowFront):
         self.application_path = get_application_path()
         config = get_config_file(self.application_path)
         self.config = read_config(config)
-        self.venv_path = Path(self.config["WINDOWS"]["VIRTUAL_ENV"])
+        self.venv_path = self.application_path / Path(self.config["WINDOWS"]["VIRTUAL_ENV"])
         self.job = {}
         self.all_stop = False
         self.operating_system = sys.platform
@@ -158,7 +158,7 @@ class MainWindow(MainWindowFront):
 
             # Windows need special handling for venv and path
             if self.operating_system == enums.OperatingSystem.WINDOWS.value:
-                python_executable = Path(self.venv_path) / "Scripts" / "python.exe"
+                python_executable = self.venv_path / "Scripts" / "python.exe"
 
                 if not python_executable.exists():
                     raise FileNotFoundError(f"Python executable not found at {python_executable}")

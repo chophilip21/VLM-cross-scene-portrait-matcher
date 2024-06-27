@@ -2,7 +2,7 @@
 
 import photolink.utils.enums as enums
 from photolink.utils.function import read_config
-from PySide6.QtCore import Qt, QRectF, QTimer
+from PySide6.QtCore import Qt, QRectF, QTimer, Signal
 from PySide6.QtWidgets import (
     QMainWindow,
     QLabel,
@@ -19,9 +19,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QFont, QBrush, QColor, QConicalGradient
 from PySide6.QtSvgWidgets import QSvgWidget
-from qss import *
+from photolink.pipeline.qss import *
 import shutil
-from main import get_application_path, get_config_file
+from photolink.pipeline.main import get_application_path, get_config_file
 from pathlib import Path
 from PySide6.QtGui import QPainter, QPen, QFont
 
@@ -90,6 +90,7 @@ class CircularProgress(QWidget):
 
 class ProgressWidget(QWidget):
     """Integrate circular progress bar with QmessageBox."""
+
     def __init__(self, stop_callback, parent=None):
         super().__init__(parent)
         self.circular_progress = CircularProgress()
@@ -106,6 +107,9 @@ class ProgressWidget(QWidget):
         self.circular_progress.setValue(value)
 
 class MainWindowFront(QMainWindow):
+
+    refresh_requested = Signal()
+
     def __init__(self):
         """All UI related codes go here."""
         super().__init__()
@@ -304,13 +308,14 @@ class MainWindowFront(QMainWindow):
         self.console.append(f"{state_enum}: {message}")
 
     def refresh(self):
-        """Reset all the tasks."""
+        """Send signal to do a hard reset."""
         self.source_path_selector.line_edit.setText("")
         self.reference_path_selector.line_edit.setText("")
         self.output_path_selector.line_edit.setText("")
         self.console.setText(enums.StatusMessage.DEFAULT.value)
         self.current_task = enums.Task.SAMPLE_MATCHING.name
         self.setup_cache_dir(self.cache_dir)
+        self.refresh_requested.emit()
 
     def log_message(self, message: str):
         """ "Log messages to the console."""
