@@ -37,7 +37,7 @@ class CircularProgress(QWidget):
         # Timer for the spinning light effect
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_angle)
-        self.timer.start(50)  # Adjusted timer for slower movement
+        self.timer.start(35)  # Adjusted timer for slower movement
 
     def setValue(self, value):
         self.value = value
@@ -46,6 +46,9 @@ class CircularProgress(QWidget):
     def update_angle(self):
         self.angle = (self.angle + 5) % 360  # Smaller increment for slower spinning
         self.update()
+
+        if self.value == 100:
+            self.timer.stop()
 
     def paintEvent(self, event):
         width = self.width
