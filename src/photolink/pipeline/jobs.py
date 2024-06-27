@@ -36,7 +36,7 @@ class JobProcessor:
         self.source_list_images = None
         self.reference_list_images = None
         self.num_processes = os.cpu_count()
-        print(f"Number of processes: {self.num_processes}", flush=True)
+        print(f"Number of CPU cores: {self.num_processes}", flush=True)
         self.chunksize = int(os.getenv("CHUNKSIZE", 10))
         self.top_n_face = int(os.getenv("TOP_N_FACE", 3))
         self.min_clustering_samples = int(os.getenv("MIN_CLUSTERING_SAMPLES", 2))
@@ -51,6 +51,7 @@ class JobProcessor:
 
     def run(self):
         """Run the job processor."""
+        print('Jobs executing. This may take a few minutes.', flush=True)
         self.source_list_images = self.jobs["source"]
         if self.task == enums.Task.SAMPLE_MATCHING.name:
             self.reference_list_images = self.jobs["reference"]

@@ -36,31 +36,32 @@ BROSWE_BUTTON_STYLE = """
         """
 
 STOP_BUTTON_STYLE = """
-QPushButton {
+    QPushButton {
                 background-color: qlineargradient(
-                    spread:pad, 
-                    x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(255, 0, 0, 255), 
+                    spread:pad,
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba(255, 0, 0, 255),
                     stop:1 rgba(139, 0, 0, 255)
                 );
                 color: white;
                 border: none;
-                padding: 10px 20px;
+                padding: 5px 10px;
                 border-radius: 10px;
+                font-size: 14px;
             }
             QPushButton:hover {
                 background-color: qlineargradient(
-                    spread:pad, 
-                    x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(255, 50, 50, 255), 
+                    spread:pad,
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba(255, 50, 50, 255),
                     stop:1 rgba(139, 0, 0, 255)
                 );
             }
             QPushButton:pressed {
                 background-color: qlineargradient(
-                    spread:pad, 
-                    x1:0, y1:0, x2:1, y2:1, 
-                    stop:0 rgba(255, 0, 0, 200), 
+                    spread:pad,
+                    x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba(255, 0, 0, 200),
                     stop:1 rgba(139, 0, 0, 200)
                 );
             }

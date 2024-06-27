@@ -33,19 +33,15 @@ class CircularProgress(QWidget):
         self.height = 200
         self.setMinimumSize(self.width, self.height)
         self.angle = 0
-        
+
         # Timer for the spinning light effect
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_angle)
-        self.timer.start(20)  # Adjusted timer for slower movement
+        self.timer.start(50)  # Adjusted timer for slower movement
 
     def setValue(self, value):
         self.value = value
         self.update()
-
-        # kill UI update.
-        if self.value == 100:
-            self.timer.stop()
 
     def update_angle(self):
         self.angle = (self.angle + 5) % 360  # Smaller increment for slower spinning
@@ -60,34 +56,34 @@ class CircularProgress(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         painter.setRenderHint(QPainter.TextAntialiasing)
 
-        rect = QRectF(10, 10, width - 20, height - 20)
+        rect = QRectF(10, 10, width - 20, height - 20)  # Rectangle for the blue progress arc
+        outer_rect = QRectF(2.5, 2.5, width - 5, height - 5)  # Larger outer rectangle for the green spinning light
 
         # Background circle
         painter.setPen(Qt.NoPen)
-        background_brush = QBrush(QColor(230, 230, 230))
+        background_brush = QBrush(QColor(240, 240, 240))
         painter.setBrush(background_brush)
         painter.drawEllipse(rect)
 
-        # Progress pie slice
-        if value > 0:
-            painter.setBrush(QColor(45, 140, 240))
-            painter.drawPie(rect, 90 * 16, -int((value / 100) * 360) * 16)
+        # Progress arc (blue part as a rigid line within the circle, contacting the edge)
+        pen = QPen(QColor(45, 140, 240), 10, Qt.SolidLine, Qt.RoundCap)  # Thinner rigid line
+        painter.setPen(pen)
+        painter.drawArc(rect, 90 * 16, -int((value / 100) * 360) * 16)
 
-        # Spinning light with gradient
-        gradient = QConicalGradient(rect.center(), self.angle)
+        # Spinning light with gradient outside the circle
+        gradient = QConicalGradient(outer_rect.center(), self.angle)
         gradient.setColorAt(0.0, QColor(0, 255, 127))  # Start color: Greenish
         gradient.setColorAt(1.0, QColor(0, 100, 0))    # End color: Darker green
         painter.setBrush(QBrush(gradient))
         pen_light = QPen(QBrush(gradient), 5, Qt.SolidLine, Qt.RoundCap)  # Thinner pen for the spinning light
         painter.setPen(pen_light)
-        painter.drawArc(rect, (90 + self.angle) * 16, 60 * 16)  # Longer arc length for the light effect
+        painter.drawArc(outer_rect, (90 + self.angle) * 16, 60 * 16)  # Longer arc length for the light effect
 
         # Percentage text
-        painter.setPen(QPen(QColor(30, 30, 30)))
-        painter.setFont(QFont("Arial", 40, QFont.Bold))
+        painter.setPen(QPen(QColor(45, 140, 240)))
+        painter.setFont(QFont("Arial", 20, QFont.Bold))
         painter.drawText(rect, Qt.AlignCenter, f"{int(value)}%")
-
-
+        
 class ProgressWidget(QWidget):
     """Integrate circular progress bar with QmessageBox."""
 
