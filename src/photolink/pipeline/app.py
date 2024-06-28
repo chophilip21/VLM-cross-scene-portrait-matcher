@@ -2,11 +2,10 @@
 
 import photolink.utils.enums as enums
 from photolink.utils.function import search_all_images, read_config
-from PySide6.QtCore import Slot
+from PySide6.QtCore import Slot, QProcessEnvironment, QProcess, QDir
 from PySide6.QtWidgets import QLabel, QMessageBox
 from photolink.pipeline.qss import *
 import json
-from PySide6.QtCore import QProcess, QDir
 from photolink.pipeline.front import MainWindowFront, ProgressWidget
 from photolink.pipeline.main import get_application_path, get_config_file
 from pathlib import Path
@@ -159,20 +158,45 @@ class MainWindow(MainWindowFront):
             job_script_directory = job_script_path.parent
             self.process.setWorkingDirectory(str(job_script_directory))
 
+            # env to make sure it uses right Python.
+            env = QProcessEnvironment.systemEnvironment()
+
             # Windows need special handling for venv and path
             if self.operating_system == enums.OperatingSystem.WINDOWS.value:
                 python_executable = self.venv_path / "Scripts" / "python.exe"
 
                 if not python_executable.exists():
                     raise FileNotFoundError(f"Python executable not found at {python_executable}")
+                
+                # We need to insert the venv path into the environment variables
+                env.insert("PYTHONHOME", str(self.venv_path))   
+                env.insert("PYTHONPATH", str(self.venv_path / "Lib" / "site-packages"))
+                env.insert("PATH", str(self.venv_path / "Scripts") + ";" + env.value("PATH"))
+                self.process.setProcessEnvironment(env)
 
+                # execute
                 native_job_script_path = QDir.toNativeSeparators(str(job_script_path))
                 self.process.start(str(python_executable), [native_job_script_path])
 
             # Linux is more straightforward
             elif self.operating_system == enums.OperatingSystem.LINUX.value:
                 native_job_script_path = job_script_path
-                self.process.start("python3", [native_job_script_path])
+
+                python_executable = self.venv_path / "bin" / "python3"
+
+                if not python_executable.exists():
+                    raise FileNotFoundError(f"Python executable not found at {python_executable}")
+
+                # TODO: Do not hard code Python version like this.
+                python_version = self.config["VERSION"]["PYTHON_VERSION"] 
+                # We need to insert the venv path into the environment variables
+                env.insert("PYTHONHOME", str(self.venv_path))
+                env.insert("PYTHONPATH", str(self.venv_path / "lib" / f"{python_version}" / "site-packages"))
+                env.insert("PATH", str(self.venv_path / "bin") + ":" + env.value("PATH"))
+                self.process.setProcessEnvironment(env)
+
+                # execute the process
+                self.process.start(python_executable, [native_job_script_path])
 
             else:
                 raise NotImplementedError(

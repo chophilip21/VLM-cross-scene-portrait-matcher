@@ -175,7 +175,7 @@ class MainWindowFront(QMainWindow):
 
         # Create and add source and reference path selectors
         self.source_path_selector = self.create_path_selector("Source Path")
-        self.reference_path_selector = self.create_path_selector("Reference Path")
+        self.reference_path_selector = self.create_path_selector("Unlabeled Path")
         self.output_path_selector = self.create_path_selector("Output Path")
 
         self.path_layout.addWidget(self.source_path_selector)
