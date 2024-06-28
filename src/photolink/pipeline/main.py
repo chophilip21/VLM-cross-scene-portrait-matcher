@@ -19,7 +19,7 @@ def get_application_path():
         current_path = Path(__file__).resolve().parent.parents[2]
         return current_path
     
-def get_config_file(application_path: Path):
+def get_config_file(application_path: Path) -> Path:
     """Get the config file path."""
     return application_path / Path("config.ini")
 

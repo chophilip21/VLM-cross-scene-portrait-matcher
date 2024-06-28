@@ -2,7 +2,7 @@
 
 import photolink.utils.enums as enums
 from photolink.utils.function import search_all_images, read_config
-from PySide6.QtCore import Slot, QProcessEnvironment, QProcess, QDir
+from PySide6.QtCore import Slot, QProcess, QDir, QProcessEnvironment
 from PySide6.QtWidgets import QLabel, QMessageBox
 from photolink.pipeline.qss import *
 import json
@@ -78,6 +78,7 @@ class MainWindow(MainWindowFront):
         """Call the multiprocessing method when the start button is clicked."""
         self.change_button_status(False)
         self.init_time = time.time()
+        self.log_message("Processing started.")
 
         # first check there is output path.
         if not self.output_path_selector.line_edit.text():
@@ -146,36 +147,44 @@ class MainWindow(MainWindowFront):
 
         # Handle all jobs in a seperate process to prevent conflict with UI.
         if self.process is None:
+            self.log_message("Running Interpreter checks.")
             self.console.setText(f'Executing process for {self.job["task"]}')
             self.process = QProcess()
             self.process.readyReadStandardOutput.connect(self.handle_stdout)
             self.process.readyReadStandardError.connect(self.handle_stderr)
             self.process.stateChanged.connect(self.handle_state)
-            self.process.finished.connect(self.process_finished)  # Connect to new method
+            self.process.finished.connect(self.process_finished)  
 
             # run jobs.py as subprocess.
             job_script_path = self.pipeline_path / Path("jobs.py")
             job_script_directory = job_script_path.parent
             self.process.setWorkingDirectory(str(job_script_directory))
 
-            # env to make sure it uses right Python.
+            # Inject correct env variable to subprocess
             env = QProcessEnvironment.systemEnvironment()
 
             # Windows need special handling for venv and path
             if self.operating_system == enums.OperatingSystem.WINDOWS.value:
                 python_executable = self.venv_path / "Scripts" / "python.exe"
 
+                self.log_message(f"Python executable: {python_executable}")
+
                 if not python_executable.exists():
                     raise FileNotFoundError(f"Python executable not found at {python_executable}")
-                
-                # We need to insert the venv path into the environment variables
-                env.insert("PYTHONHOME", str(self.venv_path))   
+         
+                native_job_script_path = QDir.toNativeSeparators(str(job_script_path))
+
+                # inject correct env variables to subprocess
+                env.insert("PYTHONHOME", str(self.venv_path))
                 env.insert("PYTHONPATH", str(self.venv_path / "Lib" / "site-packages"))
                 env.insert("PATH", str(self.venv_path / "Scripts") + ";" + env.value("PATH"))
                 self.process.setProcessEnvironment(env)
 
-                # execute
-                native_job_script_path = QDir.toNativeSeparators(str(job_script_path))
+                # Debug output to verify environment variables
+                print("PYTHONHOME:", env.value("PYTHONHOME"), flush=True)
+                print("PYTHONPATH:", env.value("PYTHONPATH"), flush=True)
+                print("PATH:", env.value("PATH"), flush=True)
+                
                 self.process.start(str(python_executable), [native_job_script_path])
 
             # Linux is more straightforward
@@ -187,13 +196,8 @@ class MainWindow(MainWindowFront):
                 if not python_executable.exists():
                     raise FileNotFoundError(f"Python executable not found at {python_executable}")
 
-                # TODO: Do not hard code Python version like this.
-                python_version = self.config["VERSION"]["PYTHON_VERSION"] 
-                # We need to insert the venv path into the environment variables
-                env.insert("PYTHONHOME", str(self.venv_path))
-                env.insert("PYTHONPATH", str(self.venv_path / "lib" / f"{python_version}" / "site-packages"))
-                env.insert("PATH", str(self.venv_path / "bin") + ":" + env.value("PATH"))
-                self.process.setProcessEnvironment(env)
+        
+                self.log_message(f"Python executable: {python_executable}")
 
                 # execute the process
                 self.process.start(python_executable, [native_job_script_path])

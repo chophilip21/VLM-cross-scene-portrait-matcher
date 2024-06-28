@@ -15,7 +15,7 @@ def search_all_images(path):
 
     return images
 
-def read_config(file):
+def read_config(file)-> dict:
     """Read config file"""
     config = configparser.ConfigParser()
     config.read(file)
