@@ -3,3 +3,6 @@ setup:
 
 package:
 	./helpers/package.sh
+
+run:
+	cd main.dist && ./main.exe

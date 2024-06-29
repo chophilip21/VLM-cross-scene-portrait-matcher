@@ -4,18 +4,12 @@
 
 # Check if the virtual environment exists
 if [ ! -d "env" ]; then
-    echo "Virtual environment 'env' does not exist. Please create it first. by running make setup command."
+    echo "Virtual environment 'env' does not exist. Please create it first by running the make setup command."
     exit 1
 fi
 
-# Check if photolink.spec exists in the project root folder
-if [ ! -f "photolink.spec" ]; then
-    echo "photolink.spec does not exist in the project root folder. Please ensure it is present."
-    exit 1
-fi
-
-# Remove previous build directory
-rm -rf dist/
+# Remove previous build directories
+rm -rf main.build main.dist __nuitka_build__
 echo "Previous build artifacts removed."
 
 # Activate virtual environment
@@ -36,8 +30,17 @@ else
     echo "Virtual environment activated successfully."
 fi
 
-# Run PyInstaller with photolink.spec
-pyinstaller photolink.spec
+# Find the Qt plugins path
+QT_PLUGIN_PATH=$(find env/ -name "qwindows.dll" | xargs dirname | xargs dirname)
+
+# Check if the QT_PLUGIN_PATH is found
+if [[ -z "$QT_PLUGIN_PATH" ]]; then
+    echo "Could not find Qt plugins. Please ensure PySide6 is installed in the virtual environment."
+    exit 1
+fi
+
+# Run Nuitka with automatic "Yes" to all prompts and include the Qt plugins directory, enabling the pyside6 plugin
+yes | python -m nuitka --standalone --follow-imports --include-plugin-directory="$QT_PLUGIN_PATH" --enable-plugin=pyside6 --include-data-file=config.ini=config.ini --include-data-dir=assets=assets main.py
 
 # End of script
 echo "Packaging process has ended."

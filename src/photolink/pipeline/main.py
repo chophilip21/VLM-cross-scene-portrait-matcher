@@ -12,17 +12,15 @@ from pathlib import Path
 def get_application_path():
     """Get the application path."""
     if getattr(sys, 'frozen', False):
-        # Get the path to the temporary directory for frozen/executable builds
-        return Path(sys._MEIPASS)
+        # Running in a bundle (PyInstaller, Nuitka)
+        return Path(sys.executable).resolve().parent
     else:
-        # Use the script directory for non-bundled execution
-        current_path = Path(__file__).resolve().parent.parents[2]
-        return current_path
+        # Running in a normal Python environment
+        return Path(__file__).resolve().parent
     
 def get_config_file(application_path: Path) -> Path:
     """Get the config file path."""
     return application_path / Path("config.ini")
-
 
 def restart_application():
     print("Hard restarting application...")
@@ -35,12 +33,16 @@ def main():
 
     application_path = get_application_path()
     config_file = get_config_file(application_path)
-    config = read_config(config_file)
+    config_data = read_config(config_file)
     print(f"Application path: {application_path}")
     print(f"Config file path: {config_file}")
 
+    if not config_file.exists():
+        print(f"Config file {config_file} not found. Exiting...")
+        sys.exit(1)
+
     try:
-        config_to_env(config, "MODEL")
+        config_to_env(config_data, "MODEL")
     except Exception as e:
         print(f"Error: {e} in reading config file {config_file}. Check again.")
         sys.exit(1)
@@ -62,7 +64,7 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Set application icon
-    icon_path = config['IMAGES']['LOGO_PATH']
+    icon_path = config_data['IMAGES']['LOGO_PATH']
     app.setWindowIcon(QIcon(icon_path))
 
     # Set dark theme with task box selection styles

@@ -160,31 +160,18 @@ class MainWindow(MainWindowFront):
             job_script_directory = job_script_path.parent
             self.process.setWorkingDirectory(str(job_script_directory))
 
-            # Inject correct env variable to subprocess
-            env = QProcessEnvironment.systemEnvironment()
-
             # Windows need special handling for venv and path
             if self.operating_system == enums.OperatingSystem.WINDOWS.value:
-                python_executable = self.venv_path / "Scripts" / "python.exe"
 
+                python_executable = self.venv_path / "Scripts" / "python.exe"
+    
                 self.log_message(f"Python executable: {python_executable}")
 
-                if not python_executable.exists():
+                if not Path(python_executable).exists():
                     raise FileNotFoundError(f"Python executable not found at {python_executable}")
          
                 native_job_script_path = QDir.toNativeSeparators(str(job_script_path))
 
-                # inject correct env variables to subprocess
-                env.insert("PYTHONHOME", str(self.venv_path))
-                env.insert("PYTHONPATH", str(self.venv_path / "Lib" / "site-packages"))
-                env.insert("PATH", str(self.venv_path / "Scripts") + ";" + env.value("PATH"))
-                self.process.setProcessEnvironment(env)
-
-                # Debug output to verify environment variables
-                print("PYTHONHOME:", env.value("PYTHONHOME"), flush=True)
-                print("PYTHONPATH:", env.value("PYTHONPATH"), flush=True)
-                print("PATH:", env.value("PATH"), flush=True)
-                
                 self.process.start(str(python_executable), [native_job_script_path])
 
             # Linux is more straightforward
