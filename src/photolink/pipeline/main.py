@@ -6,21 +6,7 @@ from PySide6.QtCore import QTimer, Qt, QCoreApplication, QProcess
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 from photolink.pipeline.qss import *
-from pathlib import Path
-
-
-def get_application_path():
-    """Get the application path."""
-    if getattr(sys, 'frozen', False):
-        # Running in a bundle (PyInstaller, Nuitka)
-        return Path(sys.executable).resolve().parent
-    else:
-        # Running in a normal Python environment
-        return Path(__file__).resolve().parent
-    
-def get_config_file(application_path: Path) -> Path:
-    """Get the config file path."""
-    return application_path / Path("config.ini")
+from launch import get_application_path, get_config_file
 
 def restart_application():
     print("Hard restarting application...")
@@ -28,7 +14,7 @@ def restart_application():
     status = QProcess.startDetached(sys.executable, sys.argv)
     sys.exit(status)
 
-def main():
+def run():
     """Main entry point for the application."""
 
     application_path = get_application_path()
@@ -91,4 +77,4 @@ def main():
         app.quit()
 
 if __name__ == "__main__":
-    main()
+    run()

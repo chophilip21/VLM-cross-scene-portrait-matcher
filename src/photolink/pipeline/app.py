@@ -2,12 +2,12 @@
 
 import photolink.utils.enums as enums
 from photolink.utils.function import search_all_images, read_config
-from PySide6.QtCore import Slot, QProcess, QDir, QProcessEnvironment
+from PySide6.QtCore import Slot, QProcess, QDir
 from PySide6.QtWidgets import QLabel, QMessageBox
 from photolink.pipeline.qss import *
 import json
 from photolink.pipeline.front import MainWindowFront, ProgressWidget
-from photolink.pipeline.main import get_application_path, get_config_file
+from launch import get_application_path, get_config_file
 from pathlib import Path
 import sys
 import time

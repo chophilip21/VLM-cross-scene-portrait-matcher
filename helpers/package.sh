@@ -40,7 +40,7 @@ if [[ -z "$QT_PLUGIN_PATH" ]]; then
 fi
 
 # Run Nuitka with automatic "Yes" to all prompts and include the Qt plugins directory, enabling the pyside6 plugin
-yes | python -m nuitka --standalone --follow-imports --include-plugin-directory="$QT_PLUGIN_PATH" --enable-plugin=pyside6 --include-data-file=config.ini=config.ini --include-data-dir=assets=assets main.py
+yes | python -m nuitka --standalone --follow-imports --include-plugin-directory="$QT_PLUGIN_PATH" --enable-plugin=pyside6 --include-data-file=config.ini=config.ini --include-data-dir=assets=assets launch.py
 
 # End of script
 echo "Packaging process has ended."

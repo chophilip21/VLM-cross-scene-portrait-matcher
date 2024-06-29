@@ -21,7 +21,7 @@ from PySide6.QtGui import QFont, QBrush, QColor, QConicalGradient
 from PySide6.QtSvgWidgets import QSvgWidget
 from photolink.pipeline.qss import *
 import shutil
-from photolink.pipeline.main import get_application_path, get_config_file
+from launch import get_application_path, get_config_file
 from pathlib import Path
 from PySide6.QtGui import QPainter, QPen, QFont
 
