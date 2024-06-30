@@ -178,16 +178,17 @@ class MainWindow(MainWindowFront):
             elif self.operating_system == enums.OperatingSystem.LINUX.value:
                 native_job_script_path = job_script_path
 
-                python_executable = self.venv_path / "bin" / "python3"
+                # python_executable = self.venv_path / "bin" / "python3"
 
-                if not python_executable.exists():
-                    raise FileNotFoundError(f"Python executable not found at {python_executable}")
-
+                # python_executable = sys.executable
+                
+                # if not Path(python_executable.exists()):
+                #     raise FileNotFoundError(f"Python executable not found at {python_executable}")
         
-                self.log_message(f"Python executable: {python_executable}")
+                # self.log_message(f"Python executable: {python_executable}")
 
                 # execute the process
-                self.process.start(python_executable, [native_job_script_path])
+                self.process.start(sys.executable, [native_job_script_path])
 
             else:
                 raise NotImplementedError(

@@ -163,4 +163,4 @@ beeware-venv
 *.dist-info
 *.exe
 !photolink.spec
-main.dist
+launch.dist

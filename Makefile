@@ -5,4 +5,4 @@ package:
 	./helpers/package.sh
 
 run:
-	cd main.dist && ./main.exe
+	cd launch.dist && ./launch.exe
