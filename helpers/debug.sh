@@ -32,7 +32,7 @@ else
     echo "Virtual environment activated successfully."
 fi
 
-cxfreeze --script launch.py
+cxfreeze launch.py --target-dir dist  --include-path=.
 
 # End of script
 echo "Packaging process has ended."

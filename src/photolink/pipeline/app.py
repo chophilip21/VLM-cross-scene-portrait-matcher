@@ -163,20 +163,22 @@ class MainWindow(MainWindowFront):
             # Windows need special handling for venv and path
             if self.operating_system == enums.OperatingSystem.WINDOWS.value:
 
-                python_executable = self.venv_path / "Scripts" / "python.exe"
-    
-                self.log_message(f"Python executable: {python_executable}")
+                # # python_executable = self.venv_path / "Scripts" / "python.exe"
+                # python_executable = sys.executable
+                # base_path = sys._MEIPASS if hasattr(sys, '_MEIPASS') else None
+                # self.log_message(f"Python executable: {python_executable}, base path: {base_path}")
 
-                if not Path(python_executable).exists():
-                    raise FileNotFoundError(f"Python executable not found at {python_executable}")
+                # if not Path(python_executable).exists():
+                #     raise FileNotFoundError(f"Python executable not found at {python_executable}")
          
                 native_job_script_path = QDir.toNativeSeparators(str(job_script_path))
 
-                self.process.start(str(python_executable), [native_job_script_path])
+                self.process.start('python3', [native_job_script_path])
 
             # Linux is more straightforward
             elif self.operating_system == enums.OperatingSystem.LINUX.value:
                 native_job_script_path = job_script_path
+
 
                 # python_executable = self.venv_path / "bin" / "python3"
 
@@ -272,4 +274,3 @@ class MainWindow(MainWindowFront):
         }
         state_name = states[state]
         print(f"Worker state: {state_name}")
-
