@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "cmake"]
+requires = ["hatchling", "cmake", "cx_Freeze"]
 build-backend = "hatchling.build"
 
 [project]
@@ -20,8 +20,7 @@ devel = [
     "faiss-cpu",
     "hdbscan",
     "opencv-python",
-    "python-dotenv",
-    "nuitka",
+    "cx_Freeze",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -34,25 +33,12 @@ include = [
     "README.md",
 ]
 
-#######
-# Tool configurations
+# Exporting application
+[tool.cxfreeze]
+executables = [{ script = "launch.py"}]
 
-[tool.isort]
-py_version = 311
-line_length = 100
-profile = "black"
-include_trailing_comma = true
-indent = 4
-color_output = true
-src_paths = ["src", "tests"]
-
-[tool.black]
-line_length = 100
-
-[tool.flake8]
-max-line-length = 100
-max-complexity = 25
-ignore = ['E133', 'W503', 'E203', 'C901']
-
-[tool.pydocstyle]
-ignore = ["D212", "D401", "D203"]
+[tool.cxfreeze.build_exe]
+excludes = ["helpers"]
+zip_include_packages = ["os", "sys", "multiprocessing", "encodings", "PySide6", "shiboken6"]
+include_files = ["./assets"]
+build_exe = "dist"

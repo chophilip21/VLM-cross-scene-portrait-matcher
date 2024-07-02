@@ -32,8 +32,7 @@ else
     echo "Virtual environment activated successfully."
 fi
 
-# build using cx_Freeze
-cxfreeze build
+cxfreeze --script launch.py
 
 # End of script
 echo "Packaging process has ended."

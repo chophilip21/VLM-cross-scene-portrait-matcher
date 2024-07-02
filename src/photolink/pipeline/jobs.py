@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 class JobProcessor:
-    """Preprocessing codes are the heaviest. Based on the jobs generated from app.py, run multiprocessing to expediate. Save results to predefined cache path. Postprocessing does not need multiprocessing."""
+    """Preprocessing codes are the heaviest. Based on the jobs generated from main app, run multiprocessing to expediate. Save results to predefined cache path. Postprocessing does not need multiprocessing."""
 
     def __init__(self):
         self.application_path = get_application_path()

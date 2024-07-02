@@ -22,9 +22,9 @@ source env/Scripts/activate
 python launch.py
 ```
 
-# Packaging
+# Packaging to executables
 
-Pyinstaller is used for packaging to generate `.exe` first. Assert it runs the same as debug mode.
+The code, dependencies, and assets all need to be converted into executables first. Assert it runs the same as debug mode.
 
 
 ```bash
@@ -33,6 +33,8 @@ make package
 ```
 
 ## Distributing to Windows Users (EXE file)
+
+Now collected execution files need to be wrapped up for Windows users, so that they can download with an installer.
 
 To distribute the `.exe` file to Windows Users in a standard way, you need [INNO setup tools](https://jrsoftware.org/isdl.php). Just download the installer and feed in your files based on Wizard prompt to generate `.iss` Pascal script that can be auto-compiled into a Windows installer by Inno setup tools. You do not have to code anything, just ensure that you are passing the `_internals` folder correctly, which contains all the dependencies. Everything will be saved to Output folder in the project root.  
 
