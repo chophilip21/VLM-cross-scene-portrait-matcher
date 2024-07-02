@@ -6,7 +6,7 @@ from PySide6.QtCore import QTimer, Qt, QCoreApplication, QProcess
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 from photolink.pipeline.qss import *
-from launch import get_application_path, get_config_file
+from photolink import get_application_path, get_config_file
 
 def restart_application():
     print("Hard restarting application...")

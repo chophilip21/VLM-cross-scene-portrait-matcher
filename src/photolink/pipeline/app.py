@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QLabel, QMessageBox
 from photolink.pipeline.qss import *
 import json
 from photolink.pipeline.front import MainWindowFront, ProgressWidget
-from launch import get_application_path, get_config_file
+from photolink import get_application_path, get_config_file
 from pathlib import Path
 import sys
 import time
