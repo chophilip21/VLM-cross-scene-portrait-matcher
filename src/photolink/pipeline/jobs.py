@@ -80,28 +80,28 @@ class JobProcessor:
             print(f"preprocessing error during matching: {e}", file=sys.stderr)
             sys.exit(1)
 
-        try:
-            worker.run_model_mp(
-                self.source_list_images,
-                self.num_processes,
-                self.chunksize,
-                self.source_cache,
-                self.fail_path,
-                self.top_n_face,
-            )
+        # try:
+        #     worker.run_model_mp(
+        #         self.source_list_images,
+        #         self.num_processes,
+        #         self.chunksize,
+        #         self.source_cache,
+        #         self.fail_path,
+        #         self.top_n_face,
+        #     )
 
-            worker.run_model_mp(
-                self.reference_list_images,
-                self.num_processes,
-                self.chunksize,
-                self.reference_cache,
-                self.fail_path,
-                self.top_n_face,
-            )
-        except Exception as e:
-            print(f"Unexpected preprocessing error during matching: {e}", file=sys.stderr)
-            print(traceback.format_exc())
-            sys.exit(1)
+        #     worker.run_model_mp(
+        #         self.reference_list_images,
+        #         self.num_processes,
+        #         self.chunksize,
+        #         self.reference_cache,
+        #         self.fail_path,
+        #         self.top_n_face,
+        #     )
+        # except Exception as e:
+        #     print(f"Unexpected preprocessing error during matching: {e}", file=sys.stderr)
+        #     print(traceback.format_exc())
+        #     sys.exit(1)
 
     def postprocess_sample_matching(self):
         """Postprocess the matching algorithm."""

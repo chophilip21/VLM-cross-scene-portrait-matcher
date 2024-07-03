@@ -11,7 +11,7 @@ from photolink import get_application_path, get_config_file
 from pathlib import Path
 import sys
 import time
-from photolink.pipeline.loading import ServerThread
+from photolink.server.service import ServerThread
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QMovie, QFont

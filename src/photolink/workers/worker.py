@@ -1,12 +1,7 @@
-"""ML algorithms for face detection and recognition, and clustering."""
-
-import photolink.models.yunet as yunet
-import photolink.models.sface as sface
+"""ML algorithms for face detection and recognition, and clustering, (multiprocessing) worker functions."""
 import photolink.utils.enums as enums
 import os
 import shutil
-from functools import partial
-import multiprocessing as mp
 import pickle
 import numpy as np
 import faiss
@@ -16,99 +11,6 @@ import cv2
 from pathlib import Path
 import math
 
-
-# Global variables for pre-loaded models
-YUNET_MODEL = None
-SFACE_MODEL = None
-
-def load_models():
-    """Warmup the models to speed up multiprocessing processing."""
-    global YUNET_MODEL, SFACE_MODEL
-    if YUNET_MODEL is None:
-        YUNET_MODEL = yunet.load_model()  # Ensure load_model() initializes the model
-    if SFACE_MODEL is None:
-        SFACE_MODEL = sface.load_model()  # Ensure load_model() initializes the model
-
-def _run_ml_model(image_path: str, save_path: Path, fail_path: Path, keep_top_n: int = 3):
-    """Process face detection and recognition for images, save embeddings to save_path as pkl file.
-
-    Instead of converting all faces to embeddings, only largest top n faces are converted. Result should have both aligned face and converted embeddings as keys.
-    """
-
-    # Use the pre-loaded global models
-    global YUNET_MODEL, SFACE_MODEL
-    detection_result = YUNET_MODEL.run_face_detection(image_path)
-    print(f"Pre-Processing:{image_path}", flush=True)
-    failed_image = fail_path / Path(os.path.basename(image_path))
-
-    if "error" in detection_result:
-        shutil.copy(image_path, failed_image)
-        warning = f"Face detection error on source image {image_path}: {detection_result['error']}"
-
-        return warning
-
-    if "faces" not in detection_result:
-        shutil.copy(image_path, failed_image)
-        warning = f"Face not detected on source image {image_path}. Faces probably not there, or too small."
-
-        return warning
-
-    image = detection_result["image"]
-    faces = detection_result["faces"]
-
-    # Only go over the top n faces instead of going for all faces.
-    if faces.shape[0] < keep_top_n:
-        keep_top_n = faces.shape[0]
-
-    # bb = [x, y, w, h, landmarks]
-    faces = sorted(faces, key=lambda face: face[2] * face[3], reverse=True)[:keep_top_n]
-    embedding_dict = SFACE_MODEL.run_embedding_conversion(image, faces)
-
-    if "error" in embedding_dict:
-        shutil.copy(image_path, failed_image)
-        warning = f"Face recognition error on source image {image_path}: {embedding_dict['error']}"
-
-        return warning
-
-    save_embedding_name = save_path / Path(os.path.basename(image_path).split(".")[0] + ".pkl")
-
-    # pickle dump all face embeddings found in the image.
-    with open(save_embedding_name, "wb") as f:
-        pickle.dump(embedding_dict, f)
-
-    return True
-
-
-def run_model_mp(
-    entries,
-    num_workers: int,
-    chunksize: int,
-    save_path: str,
-    fail_path: str,
-    keep_top_n: int = 3,
-):
-    """Use multiprocessing to run the models and each results to pickle file to cache path."""
-    ctx = mp.get_context("spawn")
-
-    # warm up using load_models
-    pool = ctx.Pool(processes=num_workers, initializer=load_models)
-
-    with pool as p:
-        result = list(
-            p.imap_unordered(
-                partial(
-                    _run_ml_model,
-                    save_path=save_path,
-                    fail_path=fail_path,
-                    keep_top_n=keep_top_n,
-                ),
-                entries,
-                chunksize=chunksize,
-            )
-        )
-
-        if not result:
-            print(f"Warning: {result}")
 
 
 def read_embeddingpkl(embedding_path) -> dict:
