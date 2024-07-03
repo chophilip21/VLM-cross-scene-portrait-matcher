@@ -119,14 +119,17 @@ class MainWindowFront(QMainWindow):
         self.cache_dir = self.application_path / Path(".cache")
         print(f"Cache dir: {self.cache_dir}")
         self.setup_cache_dir(self.cache_dir)
-        self.drawUI()
 
     def drawUI(self):
-        """Startup by drawing UI elements"""
-        # Set default window size
-        self.setWindowTitle("PhotoMatcher v.0.01")
-        self.setGeometry(500, 300, 800, 600)
-
+        """Startup by drawing UI elements, only when server is ready."""
+       
+        # renmove loading related code.
+        for i in reversed(range(self.layout.count())): 
+            widget_to_remove = self.layout.itemAt(i).widget()
+            if widget_to_remove is not None:
+                self.layout.removeWidget(widget_to_remove)
+                widget_to_remove.setParent(None)
+  
         # Create central widget
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)

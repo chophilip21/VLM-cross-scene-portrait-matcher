@@ -11,6 +11,10 @@ from photolink import get_application_path, get_config_file
 from pathlib import Path
 import sys
 import time
+from photolink.pipeline.loading import ServerThread
+from PySide6.QtWidgets import QWidget, QVBoxLayout
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QMovie, QFont
 
 class MainWindow(MainWindowFront):
     """All functional codes related to Pyside go here."""
@@ -34,6 +38,46 @@ class MainWindow(MainWindowFront):
         self.preprocess_total = 0
         self.num_preprocessed = 0
         self.num_postprocessed = 0
+
+        # Set default window size
+        self.setWindowTitle("PhotoMatcher v.0.01")
+        self.setGeometry(500, 300, 800, 600)
+
+        # need to start server here before drawing anything.
+        self.central_widget = QWidget(self)
+        self.setCentralWidget(self.central_widget)
+        self.layout = QVBoxLayout(self.central_widget)
+        self.loading_label = QLabel('Disclaimer: This software is only meant for internal usage.', self)
+        self.loading_label.setAlignment(Qt.AlignCenter)
+        font = QFont()
+        font.setPointSize(15)
+        self.loading_label.setFont(font)
+
+        # add spinner to the loading label
+        self.spinner = QLabel(self)
+        self.spinner.setAlignment(Qt.AlignCenter)
+        self.loading_gif = str(self.application_path / Path(self.config.get("IMAGES", "LOAD_GIF")))
+        self.movie = QMovie(self.loading_gif)
+        self.spinner.setMovie(self.movie)
+        self.movie.start()
+
+        self.layout.addStretch(1)
+        self.layout.addWidget(self.spinner)
+        self.layout.addWidget(self.loading_label)
+        self.layout.addStretch(1)
+
+        # start server
+        self.server_thread = ServerThread()
+        self.server_thread.server_ready.connect(self.on_server_ready)
+        self.server_thread.start()
+
+    def on_server_ready(self, ready):
+        """When server responds, draw the main UI or show error message."""
+        if ready:
+            self.movie.stop()
+            self.drawUI()
+        else:
+            self.loading_label.setText("Failed to start server. Please try again.")
 
     @Slot()
     def handle_box_click(self):
