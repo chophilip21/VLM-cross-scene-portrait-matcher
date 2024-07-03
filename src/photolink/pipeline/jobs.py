@@ -1,5 +1,5 @@
-"""Process jobs generated from app.py"""
-import photolink.workers.worker as worker
+"""App.py requests are packaged as jobs and get delivered to server."""
+import photolink.server.worker as worker
 import photolink.utils.enums as enums
 import json
 import sys
@@ -8,7 +8,6 @@ from photolink import get_application_path, get_config_file
 from photolink.utils.function import read_config
 import os
 from pathlib import Path
-
 
 class JobProcessor:
     """Preprocessing codes are the heaviest. Based on the jobs generated from main app, run multiprocessing to expediate. Save results to predefined cache path. Postprocessing does not need multiprocessing."""
@@ -35,9 +34,6 @@ class JobProcessor:
         self.output_path = Path(self.jobs["output"])
         self.source_list_images = None
         self.reference_list_images = None
-        self.num_processes = os.cpu_count()
-        print(f"Number of CPU cores: {self.num_processes}", flush=True)
-        self.chunksize = int(os.getenv("CHUNKSIZE", 10))
         self.top_n_face = int(os.getenv("TOP_N_FACE", 3))
         self.min_clustering_samples = int(os.getenv("MIN_CLUSTERING_SAMPLES", 2))
         self.source_cache = self.cache_dir / "source"
@@ -80,28 +76,24 @@ class JobProcessor:
             print(f"preprocessing error during matching: {e}", file=sys.stderr)
             sys.exit(1)
 
-        # try:
-        #     worker.run_model_mp(
-        #         self.source_list_images,
-        #         self.num_processes,
-        #         self.chunksize,
-        #         self.source_cache,
-        #         self.fail_path,
-        #         self.top_n_face,
-        #     )
+        try:
+            worker.run_model_bento(
+                self.source_list_images,
+                self.source_cache,
+                self.fail_path,
+                self.top_n_face,
+            )
 
-        #     worker.run_model_mp(
-        #         self.reference_list_images,
-        #         self.num_processes,
-        #         self.chunksize,
-        #         self.reference_cache,
-        #         self.fail_path,
-        #         self.top_n_face,
-        #     )
-        # except Exception as e:
-        #     print(f"Unexpected preprocessing error during matching: {e}", file=sys.stderr)
-        #     print(traceback.format_exc())
-        #     sys.exit(1)
+            worker.run_model_bento(
+                self.reference_list_images,
+                self.reference_cache,
+                self.fail_path,
+                self.top_n_face,
+            )
+        except Exception as e:
+            print(f"Unexpected preprocessing error during matching: {e}", file=sys.stderr)
+            print(traceback.format_exc())
+            sys.exit(1)
 
     def postprocess_sample_matching(self):
         """Postprocess the matching algorithm."""
@@ -133,10 +125,8 @@ class JobProcessor:
             sys.exit(1)
 
         try:
-            worker.run_model_mp(
+            worker.run_model_bento(
                 self.source_list_images,
-                self.num_processes,
-                self.chunksize,
                 self.source_cache,
                 self.fail_path,
                 self.top_n_face,

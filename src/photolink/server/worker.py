@@ -10,8 +10,22 @@ import hdbscan
 import cv2
 from pathlib import Path
 import math
-from PySide6.QtCore import QRunnable
+from photolink.server.client import ThreadedPreprocess
+from PySide6.QtCore import QThreadPool
 
+
+def run_model_bento(image_paths, save_path, fail_path, keep_top_n):
+    """Run the BentoML model for face detection and recognition."""
+
+    thread_pool = QThreadPool()
+
+    def process_image(image_path, save_path, fail_path, keep_top_n):
+        """Should be only callable inside run_model_bento."""
+        task = ThreadedPreprocess(image_path, save_path, fail_path, keep_top_n)
+        thread_pool.start(task)
+
+    for image_path in image_paths:
+        process_image(image_path, save_path, fail_path, keep_top_n)
 
 
 def read_embeddingpkl(embedding_path) -> dict:

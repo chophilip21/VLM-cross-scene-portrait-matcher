@@ -21,6 +21,8 @@ devel = [
     "hdbscan",
     "opencv-python",
     "cx_Freeze",
+    "requests",
+    "bentoml",
 ]
 
 [tool.hatch.build.targets.wheel]

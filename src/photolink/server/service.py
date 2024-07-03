@@ -1,3 +1,4 @@
+"""Server related code goes here."""
 import bentoml
 from PySide6.QtCore import QThread, Signal
 import subprocess
@@ -11,6 +12,7 @@ import os
 import shutil
 import pickle
 import signal
+import time
 
 # Global variables for pre-loaded models
 YUNET_MODEL = None
@@ -82,6 +84,7 @@ class ServerThread(QThread):
     """Thread to start the BentoML service."""
 
     server_ready = Signal(bool)
+    progress = Signal(int)
 
     def __init__(self):
         super().__init__()
@@ -89,6 +92,7 @@ class ServerThread(QThread):
         self.config_path = get_config_file(self.application_path)
         self.config_data = read_config(self.config_path)
         self.port = self.config_data["MODEL"]["PORT"]
+        self.process = None
 
     def run(self):
         try:
@@ -101,8 +105,8 @@ class ServerThread(QThread):
 
     def start_bentoml_service(self):
         # Start the BentoML service in a subprocess
-        subprocess.Popen(["bentoml", "serve", "photolink.server.service:FaceMatchingService", "--port", f"{self.port}"])
-        # time.sleep(5)  # Give some time for the server to start
+        self.process = subprocess.Popen(["bentoml", "serve", "photolink.server.service:FaceMatchingService", "--port", f"{self.port}"])
+        time.sleep(3)  # Give some time for the server to start
         print("BentoML service started")
 
     def check_server_health(self):
@@ -114,10 +118,33 @@ class ServerThread(QThread):
             return False
         
     def stop(self):
+        """Stop the server."""
         if self.process:
-            self.process.terminate()  # Send SIGTERM to the process
-            self.process.wait()       # Wait for the process to terminate
-            print("BentoML service stopped")
+            self.process.terminate()
+            self.process.wait()
+        
+    def monitor_output(self):
+        """Use the server thread to monitor progress."""
+        while True:
+            output = self.process.stdout.readline()
+            if output == b"" and self.process.poll() is not None:
+                break
+            if output:
+                self.handle_output(output.decode().strip())
+
+    def handle_output(self, output):
+        print(output)  # Log the output
+        if "progress" in output:
+            progress_value = self.extract_progress_value(output)
+            self.progress.emit(progress_value)
+
+    def extract_progress_value(self, output):
+        # Assuming progress is reported in the format "progress: XX%"
+        try:
+            progress_str = output.split("progress:")[1].strip().replace("%", "")
+            return int(progress_str)
+        except (IndexError, ValueError):
+            return 0
 
 def signal_handler(signal_received, frame, server_thread):
     print(f'Signal {signal_received} received, shutting down gracefully...')
