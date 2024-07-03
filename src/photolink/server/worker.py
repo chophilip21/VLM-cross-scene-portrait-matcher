@@ -10,6 +10,7 @@ import hdbscan
 import cv2
 from pathlib import Path
 import math
+from PySide6.QtCore import QRunnable
 
 
 

@@ -24,6 +24,7 @@ import shutil
 from photolink import get_application_path, get_config_file
 from pathlib import Path
 from PySide6.QtGui import QPainter, QPen, QFont
+import sys
 
 class CircularProgress(QWidget):
     def __init__(self, parent=None):
@@ -318,6 +319,9 @@ class MainWindowFront(QMainWindow):
         self.current_task = enums.Task.SAMPLE_MATCHING.name
         self.setup_cache_dir(self.cache_dir)
         self.refresh_requested.emit()
+
+        # send kill signal
+        sys.exit(0)
 
     def log_message(self, message: str):
         """ "Log messages to the console."""

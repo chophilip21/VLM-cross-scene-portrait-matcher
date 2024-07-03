@@ -1,7 +1,6 @@
 import bentoml
 from PySide6.QtCore import QThread, Signal
 import subprocess
-import time
 import requests
 from photolink import get_application_path, get_config_file
 from photolink.utils.function import read_config
@@ -11,6 +10,7 @@ from pathlib import Path
 import os
 import shutil
 import pickle
+import signal
 
 # Global variables for pre-loaded models
 YUNET_MODEL = None
@@ -112,3 +112,19 @@ class ServerThread(QThread):
             return response.status_code == 200
         except requests.RequestException:
             return False
+        
+    def stop(self):
+        if self.process:
+            self.process.terminate()  # Send SIGTERM to the process
+            self.process.wait()       # Wait for the process to terminate
+            print("BentoML service stopped")
+
+def signal_handler(signal_received, frame, server_thread):
+    print(f'Signal {signal_received} received, shutting down gracefully...')
+    server_thread.stop()
+    os._exit(0)  #
+
+# Set up signal handling
+server_thread = ServerThread()
+signal.signal(signal.SIGINT, lambda s, f: signal_handler(s, f, server_thread))
+signal.signal(signal.SIGTERM, lambda s, f: signal_handler(s, f, server_thread))
