@@ -1,5 +1,6 @@
 """ML algorithms for face detection and recognition, and clustering, (multiprocessing) worker functions."""
 import photolink.utils.enums as enums
+from photolink.server.client import get_client
 import os
 import shutil
 import pickle
@@ -10,19 +11,60 @@ import hdbscan
 import cv2
 from pathlib import Path
 import math
-from photolink.server.client import ThreadedPreprocess
-from PySide6.QtCore import QThreadPool
+from PySide6.QtCore import QThreadPool, Slot, QRunnable
+import asyncio
+import platform
+
+# prevent event loop bugs on Windows.
+
+
+class ThreadedPreprocess(QRunnable):
+    """Create an async BentoMLClient thread to pass jobs to the BentoML service. Think of this as a bridge. Qrunnable can only run on QThreadPool."""
+    def __init__(self, image_path, save_path, fail_path, keep_top_n,):
+        super().__init__()
+        self.image_path = image_path
+        self.save_path = save_path
+        self.fail_path = fail_path
+        self.keep_top_n = keep_top_n
+
+        if platform.system()=='Windows':
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    @Slot()  # This is a slot that can be connected to a signal.
+    def run(self):
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(self.run_model())
+        except Exception as e:
+            print(f"Error running model on {self.image_path}: {e}")
+        finally:
+            loop.close()  # Ensure the event loop is closed to free resources
+
+    async def run_model(self):
+        client = get_client()
+
+        async with client:
+            data = {
+                "image_path": str(self.image_path),
+                "save_path": str(self.save_path),
+                "fail_path": str(self.fail_path),
+                "keep_top_n": int(self.keep_top_n)
+            }
+
+            result = await client.run_ml_model(**data)
+        return result
 
 
 def run_model_bento(image_paths, save_path, fail_path, keep_top_n):
-    """Run the BentoML model for face detection and recognition."""
+    """Run inference on jobs based on bentoml face detection and recognition."""
 
     thread_pool = QThreadPool()
 
     def process_image(image_path, save_path, fail_path, keep_top_n):
         """Should be only callable inside run_model_bento."""
-        task = ThreadedPreprocess(image_path, save_path, fail_path, keep_top_n)
-        thread_pool.start(task)
+        threaded_task = ThreadedPreprocess(image_path, save_path, fail_path, keep_top_n)
+        thread_pool.start(threaded_task)
 
     for image_path in image_paths:
         process_image(image_path, save_path, fail_path, keep_top_n)

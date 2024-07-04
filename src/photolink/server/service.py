@@ -26,16 +26,16 @@ def load_models():
     if SFACE_MODEL is None:
         SFACE_MODEL = sface.load_model() 
 
-
-@bentoml.service(traffic={"timeout": 10})
+@bentoml.service(traffic={"timeout": 60})
 class FaceMatchingService:
+    """Main service for face matching. This is the main service that will be used to run the face matching model."""
 
-    def __init__(self):
+    def __init__(self)->None:
         """Initialize the service. Load the models to speed up processing."""
         load_models()
 
     @bentoml.api
-    def run_ml_model(image_path: str, save_path: str, fail_path: str, keep_top_n: int = 3):
+    def run_ml_model(self, image_path: str, save_path: str, fail_path: str, keep_top_n: int = 3):
         """Run the face matching model."""
         global YUNET_MODEL, SFACE_MODEL
         detection_result = YUNET_MODEL.run_face_detection(image_path)
@@ -80,8 +80,9 @@ class FaceMatchingService:
 
         return True
 
+
 class ServerThread(QThread):
-    """Thread to start the BentoML service."""
+    """Thread to start the BentoML service on localhost."""
 
     server_ready = Signal(bool)
     progress = Signal(int)
@@ -106,7 +107,7 @@ class ServerThread(QThread):
     def start_bentoml_service(self):
         # Start the BentoML service in a subprocess
         self.process = subprocess.Popen(["bentoml", "serve", "photolink.server.service:FaceMatchingService", "--port", f"{self.port}"])
-        time.sleep(3)  # Give some time for the server to start
+        # time.sleep(3)  # Give some time for the server to start
         print("BentoML service started")
 
     def check_server_health(self):

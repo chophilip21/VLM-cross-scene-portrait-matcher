@@ -122,7 +122,6 @@ class MainWindow(MainWindowFront):
     def process_jobs(self):
         """Call the multiprocessing method when the start button is clicked."""
         self.change_button_status(False)
-        self.init_time = time.time()
         self.log_message("Processing started.")
 
         # first check there is output path.
@@ -195,6 +194,8 @@ class MainWindow(MainWindowFront):
             self.processor = JobProcessor()
             self.processor.run()
         except Exception as e:
+            # TODO: Decide if we want to stop the server thread here.
+            self.server_thread.stop()
             self.display_notification("Error", f"Error during processing: {e}")
             self.change_button_status(True)
 
