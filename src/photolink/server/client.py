@@ -23,5 +23,5 @@ class BentoMLClient:
 
     @property
     def client(self):
-        self._instance = bentoml.AsyncHTTPClient(f"http://localhost:{self.port}")
+        self._instance = bentoml.SyncHTTPClient(f"http://localhost:{self.port}")
         return self._instance

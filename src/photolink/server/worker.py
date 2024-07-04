@@ -14,60 +14,84 @@ import math
 from PySide6.QtCore import QThreadPool, Slot, QRunnable
 import asyncio
 import platform
+import multiprocessing
 
 # prevent event loop bugs on Windows.
 
-
-class ThreadedPreprocess(QRunnable):
-    """Create an async BentoMLClient thread to pass jobs to the BentoML service. Think of this as a bridge. Qrunnable can only run on QThreadPool."""
-    def __init__(self, image_path, save_path, fail_path, keep_top_n,):
-        super().__init__()
-        self.image_path = image_path
-        self.save_path = save_path
-        self.fail_path = fail_path
-        self.keep_top_n = keep_top_n
-
-        if platform.system()=='Windows':
-            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-    @Slot()  # This is a slot that can be connected to a signal.
-    def run(self):
-        try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(self.run_model())
-        except Exception as e:
-            print(f"Error running model on {self.image_path}: {e}")
-        finally:
-            loop.close()  # Ensure the event loop is closed to free resources
-
-    async def run_model(self):
-        client = get_client()
-
-        async with client:
-            data = {
-                "image_path": str(self.image_path),
-                "save_path": str(self.save_path),
-                "fail_path": str(self.fail_path),
-                "keep_top_n": int(self.keep_top_n)
-            }
-
-            result = await client.run_ml_model(**data)
-        return result
-
+def run_model(image_path, save_path, fail_path, keep_top_n):
+    """Function to run the model in a separate process."""
+    client = get_client()
+    try:
+        data = {
+            "image_path": str(image_path),
+            "save_path": str(save_path),
+            "fail_path": str(fail_path),
+            "keep_top_n": int(keep_top_n)
+        }
+        response = client.run_ml_model(**data)
+        
+        print(f"Processed {image_path} with result: {response}")
+        return response
+    except Exception as e:
+        print(f"Error processing {image_path}: {e}")
 
 def run_model_bento(image_paths, save_path, fail_path, keep_top_n):
     """Run inference on jobs based on bentoml face detection and recognition."""
+    pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
 
-    thread_pool = QThreadPool()
+    tasks = [(image_path, save_path, fail_path, keep_top_n) for image_path in image_paths]
 
-    def process_image(image_path, save_path, fail_path, keep_top_n):
-        """Should be only callable inside run_model_bento."""
-        threaded_task = ThreadedPreprocess(image_path, save_path, fail_path, keep_top_n)
-        thread_pool.start(threaded_task)
+    pool.starmap(run_model, tasks)
+    pool.close()
+    pool.join()
 
-    for image_path in image_paths:
-        process_image(image_path, save_path, fail_path, keep_top_n)
+
+
+
+# class ThreadedPreprocess(QRunnable):
+#     """Create an async BentoMLClient thread to pass jobs to the BentoML service. Think of this as a bridge. Qrunnable can only run on QThreadPool."""
+#     def __init__(self, image_path, save_path, fail_path, keep_top_n,):
+#         super().__init__()
+#         self.image_path = image_path
+#         self.save_path = save_path
+#         self.fail_path = fail_path
+#         self.keep_top_n = keep_top_n
+
+#         if platform.system()=='Windows':
+#             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+#     @Slot()  # This is a slot that can be connected to a signal.
+#     def run(self):
+#         """Run the BentoML client to process the image."""
+#         client = get_client()
+
+#         with client:
+#             data = {
+#                 "image_path": str(self.image_path),
+#                 "save_path": str(self.save_path),
+#                 "fail_path": str(self.fail_path),
+#                 "keep_top_n": int(self.keep_top_n)
+#             }
+
+#             try:
+#                 result =  client.run_ml_model(**data)
+#             except Exception as e:
+#                 print(f"Error running model: {e}")
+#         return result
+
+
+# def run_model_bento(image_paths, save_path, fail_path, keep_top_n):
+#     """Run inference on jobs based on bentoml face detection and recognition."""
+
+#     thread_pool = QThreadPool()
+
+#     def process_image(image_path, save_path, fail_path, keep_top_n):
+#         """Should be only callable inside run_model_bento."""
+#         threaded_task = ThreadedPreprocess(image_path, save_path, fail_path, keep_top_n)
+#         thread_pool.start(threaded_task)
+
+#     for image_path in image_paths:
+#         process_image(image_path, save_path, fail_path, keep_top_n)
 
 
 def read_embeddingpkl(embedding_path) -> dict:
