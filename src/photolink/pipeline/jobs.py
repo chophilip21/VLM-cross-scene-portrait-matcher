@@ -58,7 +58,6 @@ class JobProcessor:
             self.preprocess_sample_matching()
             print("Preprocessing ended")
             self.postprocess_sample_matching()
-
         elif self.task == enums.Task.CLUSTERING.name:
             self.preprocess_clustering()
             print("Preprocessing ended")

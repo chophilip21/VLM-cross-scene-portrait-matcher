@@ -2,12 +2,14 @@
 
 import photolink.utils.enums as enums
 from photolink.utils.function import search_all_images, read_config
-from PySide6.QtCore import Slot, QProcess, QDir
+from PySide6.QtCore import Slot, QThreadPool
 from PySide6.QtWidgets import QLabel, QMessageBox
 from photolink.pipeline.qss import *
 import json
 from photolink.pipeline.front import MainWindowFront, ProgressWidget
 from photolink import get_application_path, get_config_file
+from photolink.workers import Worker
+from photolink.pipeline.jobs import JobProcessor
 from pathlib import Path
 import sys
 import time
@@ -18,7 +20,8 @@ class MainWindow(MainWindowFront):
     def __init__(self):
        
         super().__init__()
-        self.process = None
+        self.threadpool = None
+        self.worker = None
         self.application_path = get_application_path()
         self.pipeline_path = self.application_path / "src" /"photolink" /"pipeline"
         config = get_config_file(self.application_path)
@@ -28,12 +31,6 @@ class MainWindow(MainWindowFront):
         self.all_stop = False
         self.operating_system = sys.platform
         print(f"Operating system: {self.operating_system}")
-
-        # progress bar monitoring purposes
-        self.current_progress = 0
-        self.preprocess_total = 0
-        self.num_preprocessed = 0
-        self.num_postprocessed = 0
 
     @Slot()
     def handle_box_click(self):
@@ -145,57 +142,19 @@ class MainWindow(MainWindowFront):
         with open(job_json, "w") as f:
             json.dump(self.job, f)
 
-        # Handle all jobs in a seperate process to prevent conflict with UI.
-        if self.process is None:
-            self.log_message("Running Interpreter checks.")
-            self.console.setText(f'Executing process for {self.job["task"]}')
-            self.process = QProcess()
-            self.process.readyReadStandardOutput.connect(self.handle_stdout)
-            self.process.readyReadStandardError.connect(self.handle_stderr)
-            self.process.stateChanged.connect(self.handle_state)
-            self.process.finished.connect(self.process_finished)  
+        # call jobs from thread to prevent blocking UI
+        if self.threadpool is None:
+            self.threadpool = QThreadPool()
+            jobs = JobProcessor()
+            self.worker = Worker(jobs.run())
+            self.worker.signals.result.connect(self.print_output)
+            self.worker.signals.finished.connect(self.process_finished)
+            self.worker.signals.progress.connect(self.update_progress)
+            self.threadpool.start(self.worker)
 
-            # run jobs.py as subprocess.
-            job_script_path = self.pipeline_path / Path("jobs.py")
-            job_script_directory = job_script_path.parent
-            self.process.setWorkingDirectory(str(job_script_directory))
+    def print_output(self, s):
+        print(s)
 
-            # Windows need special handling for venv and path
-            if self.operating_system == enums.OperatingSystem.WINDOWS.value:
-
-                # # python_executable = self.venv_path / "Scripts" / "python.exe"
-                # python_executable = sys.executable
-                # base_path = sys._MEIPASS if hasattr(sys, '_MEIPASS') else None
-                # self.log_message(f"Python executable: {python_executable}, base path: {base_path}")
-
-                # if not Path(python_executable).exists():
-                #     raise FileNotFoundError(f"Python executable not found at {python_executable}")
-         
-                native_job_script_path = QDir.toNativeSeparators(str(job_script_path))
-
-                self.process.start('python3', [native_job_script_path])
-
-            # Linux is more straightforward
-            elif self.operating_system == enums.OperatingSystem.LINUX.value:
-                native_job_script_path = job_script_path
-
-
-                # python_executable = self.venv_path / "bin" / "python3"
-
-                # python_executable = sys.executable
-                
-                # if not Path(python_executable.exists()):
-                #     raise FileNotFoundError(f"Python executable not found at {python_executable}")
-        
-                # self.log_message(f"Python executable: {python_executable}")
-
-                # execute the process
-                self.process.start(sys.executable, [native_job_script_path])
-
-            else:
-                raise NotImplementedError(
-                    f"Operating system not supported: {self.operating_system}"
-                )
 
     def process_finished(self):
         """Called when the Processing is finished."""
@@ -209,8 +168,8 @@ class MainWindow(MainWindowFront):
 
     def stop_processing(self):
         """Force stop the processing."""
-        if self.process is not None:
-            self.process.kill()
+        if self.worker is not None:
+            self.worker.stop()
 
         self.progress_message_box.accept()
         self.process = None
@@ -225,52 +184,4 @@ class MainWindow(MainWindowFront):
             self.current_progress = value
             self.progress_widget.setValue(self.current_progress)
 
-    def handle_stderr(self):
-        """Gracefully handle errors coming from process."""
-        data = self.process.readAllStandardError()
-        stderr = bytes(data).decode("utf8")
-        print(stderr, end="")
-
-        # ignore these ones. Only I should be able to see it.
-        for l in stderr.split("\n"):
-
-            if l.startswith("Invalid SOS parameters for sequential JPEG"):
-                return
-
-        self.all_stop = True
-        self.log_message(stderr)
-        self.display_notification("Error has occured", stderr)
-        self.stop_processing()
-
-    def handle_stdout(self):
-        """Use this to update progress bar and log messages."""
-        data = self.process.readAllStandardOutput()
-        stdout = bytes(data).decode("utf8")
-        print(stdout, end="")
-
-        # Check for postprocessing progress updates coming from worker.py
-        for line in stdout.split("\n"):
-            
-            # update first 50% of the progress bar
-            if line.startswith("Pre-Processing:"):
-                progress = int((self.num_preprocessed / self.preprocess_total) * 50)
-                self.update_progress(progress)
-                self.num_preprocessed += 1
-                return
-
-            # update later 50% of the progress bar
-            if line.startswith("Post-Processing:"):
-                progress = int(line.split(":")[-1].strip())
-                self.update_progress(progress)
-                return
-
-        self.log_message(stdout)
-
-    def handle_state(self, state):
-        states = {
-            QProcess.NotRunning: "Finished",
-            QProcess.Starting: "Starting",
-            QProcess.Running: "Running",
-        }
-        state_name = states[state]
-        print(f"Worker state: {state_name}")
+ 
