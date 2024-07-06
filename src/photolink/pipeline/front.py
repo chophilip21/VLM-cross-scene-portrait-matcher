@@ -119,7 +119,7 @@ class MainWindowFront(QMainWindow):
         self.cache_dir = self.application_path / Path(".cache")
         print(f"Cache dir: {self.cache_dir}")
         self.setup_cache_dir(self.cache_dir)
-        self.drawUI()
+        # self.drawUI()
 
     def drawUI(self):
         """Startup by drawing UI elements"""

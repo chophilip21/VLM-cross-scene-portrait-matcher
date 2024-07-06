@@ -1,4 +1,4 @@
-"""Process jobs generated from app.py"""
+"""Package worker functions into jobs"""
 import photolink.workers.worker as worker
 import photolink.utils.enums as enums
 import json
@@ -8,7 +8,6 @@ from photolink import get_application_path, get_config_file
 from photolink.utils.function import read_config
 import os
 from pathlib import Path
-
 
 class JobProcessor:
     """Preprocessing codes are the heaviest. Based on the jobs generated from main app, run multiprocessing to expediate. Save results to predefined cache path. Postprocessing does not need multiprocessing."""
@@ -172,8 +171,3 @@ class JobProcessor:
             print(traceback.format_exc())
             sys.exit(1)  # Exit with a non-zero status to indicate an error
 
-
-if __name__ == "__main__":
-
-    processor = JobProcessor()
-    processor.run()

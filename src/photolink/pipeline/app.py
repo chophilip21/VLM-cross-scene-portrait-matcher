@@ -2,17 +2,18 @@
 
 import photolink.utils.enums as enums
 from photolink.utils.function import search_all_images, read_config
-from PySide6.QtCore import Slot, QThreadPool
+from PySide6.QtCore import Slot
 from PySide6.QtWidgets import QLabel, QMessageBox
 from photolink.pipeline.qss import *
 import json
 from photolink.pipeline.front import MainWindowFront, ProgressWidget
 from photolink import get_application_path, get_config_file
 from photolink.workers import Worker
-from photolink.pipeline.jobs import JobProcessor
+from photolink.workers.jobs import JobProcessor
 from pathlib import Path
 import sys
 import time
+import threading
 
 class MainWindow(MainWindowFront):
     """All functional codes related to Pyside go here."""
@@ -20,8 +21,6 @@ class MainWindow(MainWindowFront):
     def __init__(self):
        
         super().__init__()
-        self.threadpool = None
-        self.worker = None
         self.application_path = get_application_path()
         self.pipeline_path = self.application_path / "src" /"photolink" /"pipeline"
         config = get_config_file(self.application_path)
@@ -31,6 +30,9 @@ class MainWindow(MainWindowFront):
         self.all_stop = False
         self.operating_system = sys.platform
         print(f"Operating system: {self.operating_system}")
+        self.drawUI()
+
+        self.threads = []
 
     @Slot()
     def handle_box_click(self):
@@ -142,15 +144,15 @@ class MainWindow(MainWindowFront):
         with open(job_json, "w") as f:
             json.dump(self.job, f)
 
-        # call jobs from thread to prevent blocking UI
-        if self.threadpool is None:
-            self.threadpool = QThreadPool()
-            jobs = JobProcessor()
-            self.worker = Worker(jobs.run())
-            self.worker.signals.result.connect(self.print_output)
-            self.worker.signals.finished.connect(self.process_finished)
-            self.worker.signals.progress.connect(self.update_progress)
-            self.threadpool.start(self.worker)
+        job = JobProcessor()
+        worker = Worker(identifier=time.time())
+        worker.signals.result.connect(self.task_result)
+        worker.signals.progress.connect(self.task_progress)
+        worker.signals.finished.connect(self.task_finished)
+        worker.signals.error.connect(self.task_error)
+        worker.start()
+        self.threads.append(worker)
+        print(f"Task started on thread: {threading.get_ident()}")
 
     def print_output(self, s):
         print(s)
@@ -168,9 +170,8 @@ class MainWindow(MainWindowFront):
 
     def stop_processing(self):
         """Force stop the processing."""
-        if self.worker is not None:
-            self.worker.stop()
-
+        # self.threadpool.clear()
+        # self.threadpool.waitForDone()
         self.progress_message_box.accept()
         self.process = None
         self.num_preprocessed = 0
@@ -180,8 +181,21 @@ class MainWindow(MainWindowFront):
 
     def update_progress(self, value):
         """Update the progress bar."""
-        if value > int(self.current_progress):
-            self.current_progress = value
-            self.progress_widget.setValue(self.current_progress)
+        print(f"Progress: {value}")
+        # if value > int(self.current_progress):
+        #     self.current_progress = value
+        #     self.progress_widget.setValue(self.current_progress)
 
  
+    def task_result(self, result):
+        print(f"Result: {result}")
+
+    def task_progress(self, progress):
+        print(f"Progress: {progress}%")
+
+    def task_finished(self):
+        print("Status: Task finished")
+
+    def task_error(self, error):
+        exctype, value, tb_str = error
+        print('fuck')
