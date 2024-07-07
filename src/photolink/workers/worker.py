@@ -35,8 +35,6 @@ class Worker(threading.Thread):
         except Exception as e:
             exctype, value, tb = sys.exc_info()
             self.signals.error.emit((exctype, value, traceback.format_exc()))
-        finally:
-            self.signals.finished.emit()
 
     def stop(self):
         """Stop the worker my sending signals downwards."""

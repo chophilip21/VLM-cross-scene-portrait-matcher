@@ -204,12 +204,6 @@ class JobProcessor:
                 stop_event=self.stop_event,
             )
 
-            if "error" in result:
-                print(
-                    f"Postprocessing Error during clustering: {result['error']}",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
 
         except Exception as e:
             # let handle_stderr handle the error

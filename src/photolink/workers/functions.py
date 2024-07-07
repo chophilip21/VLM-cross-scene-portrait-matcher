@@ -319,9 +319,9 @@ def cluster_embeddings(
     index_count = 0
     for file in source_embeddings:
 
+
         if stop_event.is_set():
-            result["error"] = "Stop event detected. Exiting clustering."
-            return result
+            return
 
         try:
             embedding_dict = read_embeddingpkl(source_cache / Path(file))
@@ -351,6 +351,9 @@ def cluster_embeddings(
 
     # now save the output.
     for i, label in enumerate(labels):
+
+        if stop_event.is_set():
+            return
 
         # print POSTPROCESS_PROGRESS
         progress = math.ceil(50 + ((i + 1) / len(labels) * 50))
@@ -393,7 +396,3 @@ def cluster_embeddings(
     result["status"] = "success"
 
     return result
-
-
-if __name__ == "__main__":
-    pass
