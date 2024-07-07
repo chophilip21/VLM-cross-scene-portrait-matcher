@@ -1,31 +1,37 @@
 """Execute the jobs for the worker via threading."""
 from photolink.workers.jobs import JobProcessor
-from PySide6.QtCore import Signal, QObject
 import threading
+import multiprocessing as mp
 from photolink.workers import WorkerSignals
 import sys
+import traceback
 
 class Worker(threading.Thread):
+    """Execute the jobs for the worker via threading to prevent GUI freeze. Calls the JobProcessor to run the jobs."""
     def __init__(self, identifier):
         super().__init__()
         self.identifier = identifier
         self.signals = WorkerSignals()
 
+        # Use this to send signals to the worker.
+        self._stop_event = mp.Event()
+
     def run(self):
         print(f"Worker started on thread: {threading.get_ident()}")
         try:
-            job = JobProcessor()
-            job.run()
-            # for i in range(1, 10):
-            #     time.sleep(1)  # Simulate a long-running task
-            #     progress = int((i / 5) * 100)
-            #     print(f"Progress: {progress}%")
-            #     self.signals.progress.emit(progress)
-            # result = f"Task {self.identifier} completed"
-            # self.signals.result.emit(result)
+            job = JobProcessor(stop_event=self._stop_event)
+            result = job.run()
+            self.signals.result.emit(result)
+            # TODO: Need to update progress from here.
         except Exception as e:
             exctype, value, tb = sys.exc_info()
             self.signals.error.emit((exctype, value, traceback.format_exc()))
         finally:
             self.signals.finished.emit()
 
+    def stop(self):
+        """Stop the worker my sending signals downwards."""
+        print("Worker: Stopping...", flush=True)
+        self._stop_event.set()       
+        self.signals.finished.emit()
+        self.join()

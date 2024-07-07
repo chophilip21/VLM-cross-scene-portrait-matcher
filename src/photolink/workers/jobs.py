@@ -1,5 +1,5 @@
 """Package worker functions into jobs"""
-import photolink.workers.worker as worker
+import photolink.workers.functions as functions
 import photolink.utils.enums as enums
 import json
 import sys
@@ -8,17 +8,18 @@ from photolink import get_application_path, get_config_file
 from photolink.utils.function import read_config
 import os
 from pathlib import Path
+import multiprocessing as mp
 
 class JobProcessor:
     """Preprocessing codes are the heaviest. Based on the jobs generated from main app, run multiprocessing to expediate. Save results to predefined cache path. Postprocessing does not need multiprocessing."""
 
-    def __init__(self):
+    def __init__(self, stop_event: mp.Event):
         self.application_path = get_application_path()
         config = get_config_file(self.application_path)
         self.config = read_config(config)
         self.cache_dir = self.application_path / ".cache"
+        self.stop_event = stop_event
 
-        # These should never fail validation. If they do, let it die.
         if not self.cache_dir.exists():
             raise FileNotFoundError(f"Cache directory not found: {self.cache_dir}")
 
@@ -64,6 +65,8 @@ class JobProcessor:
 
         else:
             raise NotImplementedError(f"Task not implemented: {self.task}")
+        
+        return True
 
     def preprocess_sample_matching(self) -> None:
         """Preprocessing for the matching algorithm. Use MP."""
@@ -79,22 +82,24 @@ class JobProcessor:
             sys.exit(1)
 
         try:
-            worker.run_model_mp(
+            functions.run_model_mp(
                 self.source_list_images,
                 self.num_processes,
                 self.chunksize,
                 self.source_cache,
                 self.fail_path,
                 self.top_n_face,
+                self.stop_event
             )
 
-            worker.run_model_mp(
+            functions.run_model_mp(
                 self.reference_list_images,
                 self.num_processes,
                 self.chunksize,
                 self.reference_cache,
                 self.fail_path,
                 self.top_n_face,
+                self.stop_event
             )
         except Exception as e:
             print(f"Unexpected preprocessing error during matching: {e}", file=sys.stderr)
@@ -104,7 +109,7 @@ class JobProcessor:
     def postprocess_sample_matching(self):
         """Postprocess the matching algorithm."""
         try:
-            result = worker.match_embeddings(
+            result = functions.match_embeddings(
                 source_cache=self.source_cache,
                 reference_cache=self.reference_cache,
                 source_list_images=self.source_list_images,
@@ -131,13 +136,14 @@ class JobProcessor:
             sys.exit(1)
 
         try:
-            worker.run_model_mp(
+            functions.run_model_mp(
                 self.source_list_images,
                 self.num_processes,
                 self.chunksize,
                 self.source_cache,
                 self.fail_path,
                 self.top_n_face,
+                self.stop_event,
             )
         except Exception as e:
             print(f"Unexpected preprocessing error during clustering: {e}", file=sys.stderr)
@@ -151,7 +157,7 @@ class JobProcessor:
         min_samples = 2
 
         try:
-            result = worker.cluster_embeddings(
+            result = functions.cluster_embeddings(
                 source_cache=self.source_cache,
                 source_list_images=self.source_list_images,
                 clustering_algorithm=clustering_algorithm,

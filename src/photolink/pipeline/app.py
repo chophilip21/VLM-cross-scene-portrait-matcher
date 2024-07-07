@@ -8,8 +8,7 @@ from photolink.pipeline.qss import *
 import json
 from photolink.pipeline.front import MainWindowFront, ProgressWidget
 from photolink import get_application_path, get_config_file
-from photolink.workers import Worker
-from photolink.workers.jobs import JobProcessor
+from photolink.workers.worker import Worker
 from pathlib import Path
 import sys
 import time
@@ -144,7 +143,6 @@ class MainWindow(MainWindowFront):
         with open(job_json, "w") as f:
             json.dump(self.job, f)
 
-        job = JobProcessor()
         worker = Worker(identifier=time.time())
         worker.signals.result.connect(self.task_result)
         worker.signals.progress.connect(self.task_progress)
@@ -152,6 +150,7 @@ class MainWindow(MainWindowFront):
         worker.signals.error.connect(self.task_error)
         worker.start()
         self.threads.append(worker)
+        
         print(f"Task started on thread: {threading.get_ident()}")
 
     def print_output(self, s):
@@ -170,8 +169,9 @@ class MainWindow(MainWindowFront):
 
     def stop_processing(self):
         """Force stop the processing."""
-        # self.threadpool.clear()
-        # self.threadpool.waitForDone()
+        for thread in self.threads:
+            thread.stop()
+
         self.progress_message_box.accept()
         self.process = None
         self.num_preprocessed = 0
@@ -197,5 +197,6 @@ class MainWindow(MainWindowFront):
         print("Status: Task finished")
 
     def task_error(self, error):
-        exctype, value, tb_str = error
-        print('fuck')
+        """Print error, and shutdown all threads."""
+        print(f"Error has occured on the thread: {error}")
+        self.stop_processing()

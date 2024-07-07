@@ -21,6 +21,7 @@ import math
 YUNET_MODEL = None
 SFACE_MODEL = None
 
+
 def load_models():
     """Warmup the models to speed up multiprocessing processing."""
     global YUNET_MODEL, SFACE_MODEL
@@ -29,7 +30,10 @@ def load_models():
     if SFACE_MODEL is None:
         SFACE_MODEL = sface.load_model()  # Ensure load_model() initializes the model
 
-def _run_ml_model(image_path: str, save_path: Path, fail_path: Path, keep_top_n: int = 3):
+
+def _run_ml_model(
+    image_path: str, save_path: Path, fail_path: Path, keep_top_n: int = 3
+):
     """Process face detection and recognition for images, save embeddings to save_path as pkl file.
 
     Instead of converting all faces to embeddings, only largest top n faces are converted. Result should have both aligned face and converted embeddings as keys.
@@ -70,7 +74,9 @@ def _run_ml_model(image_path: str, save_path: Path, fail_path: Path, keep_top_n:
 
         return warning
 
-    save_embedding_name = save_path / Path(os.path.basename(image_path).split(".")[0] + ".pkl")
+    save_embedding_name = save_path / Path(
+        os.path.basename(image_path).split(".")[0] + ".pkl"
+    )
 
     # pickle dump all face embeddings found in the image.
     with open(save_embedding_name, "wb") as f:
@@ -85,30 +91,39 @@ def run_model_mp(
     chunksize: int,
     save_path: str,
     fail_path: str,
-    keep_top_n: int = 3,
+    keep_top_n: int,
+    stop_event: mp.Event,
 ):
-    """Use multiprocessing to run the models and each results to pickle file to cache path."""
+    """Use multiprocessing to run the models and each results to pickle file to cache path. Catch signals to stop the process."""
     ctx = mp.get_context("spawn")
 
     # warm up using load_models
     pool = ctx.Pool(processes=num_workers, initializer=load_models)
 
-    with pool as p:
-        result = list(
-            p.imap_unordered(
-                partial(
-                    _run_ml_model,
-                    save_path=save_path,
-                    fail_path=fail_path,
-                    keep_top_n=keep_top_n,
-                ),
-                entries,
-                chunksize=chunksize,
-            )
-        )
+    try: 
+        for _ in pool.imap_unordered(
+            partial(
+                _run_ml_model,
+                save_path=save_path,
+                fail_path=fail_path,
+                keep_top_n=keep_top_n,
+            ),
+            entries,
+            chunksize=chunksize,
+        ):
 
-        if not result:
-            print(f"Warning: {result}")
+            if stop_event.is_set():
+                print("JobProcessor: Stop event detected, terminating pool.")
+                pool.terminate()
+                break
+
+        pool.close()
+        pool.join()
+    except Exception as e:
+        print(f"Error during multiprocessing: {e}")
+        pool.terminate()
+        pool.join()
+        raise e
 
 
 def read_embeddingpkl(embedding_path) -> dict:
@@ -176,7 +191,9 @@ def match_embeddings(
         print(f"Post-Processing:{int(progress)}", flush=True)
 
         try:
-            source_embedding_dict = read_embeddingpkl(source_cache / Path(embedding_file))
+            source_embedding_dict = read_embeddingpkl(
+                source_cache / Path(embedding_file)
+            )
 
             source_embedding = source_embedding_dict["embeddings"]
 
@@ -216,7 +233,9 @@ def match_embeddings(
                 predicted_label = Path(source_embeddings[I[0][0]]).stem
 
                 if predicted_label not in source_dict:
-                    raise ValueError(f"Predicted label {predicted_label} not found in source_dict.")
+                    raise ValueError(
+                        f"Predicted label {predicted_label} not found in source_dict."
+                    )
 
                 predicted_source_input_path = source_dict[predicted_label]
 
@@ -294,7 +313,9 @@ def cluster_embeddings(
     elif clustering_algorithm == enums.ClusteringAlgorithm.HDBSCAN.value:
         cluster_obj = hdbscan.HDBSCAN(min_cluster_size=min_samples, leaf_size=50)
     else:
-        raise NotImplementedError(f"Clustering algorithm {clustering_algorithm} not supported.")
+        raise NotImplementedError(
+            f"Clustering algorithm {clustering_algorithm} not supported."
+        )
 
     # because there are multiple faces, we need to keep track of the embeddings.
     face_to_embedding_file_table = {}
@@ -337,22 +358,26 @@ def cluster_embeddings(
         # find the original image from look up table.
         backtracked_file_name = Path(face_to_embedding_file_table[i])
 
-        source_img_path = embedding_file_to_image_table[
-            backtracked_file_name.stem
-        ]
+        source_img_path = embedding_file_to_image_table[backtracked_file_name.stem]
 
         # label -1 indicates failed clustering.
         if label == -1:
-            failed_img_output_path = str(fail_path / Path(os.path.basename(source_img_path)))
+            failed_img_output_path = str(
+                fail_path / Path(os.path.basename(source_img_path))
+            )
             shutil.copy(source_img_path, failed_img_output_path)
-            print(f"Failed clustering on {source_img_path}. Saved to {failed_img_output_path}")
+            print(
+                f"Failed clustering on {source_img_path}. Saved to {failed_img_output_path}"
+            )
             result["missed_count"] += 1
             continue
 
         label_folder = output_path / Path("subject-no-" + str(label))
         label_folder.mkdir(parents=True, exist_ok=True)
 
-        source_img_output_path = str(label_folder / Path(os.path.basename(source_img_path)))
+        source_img_output_path = str(
+            label_folder / Path(os.path.basename(source_img_path))
+        )
 
         shutil.copy(source_img_path, source_img_output_path)
 
