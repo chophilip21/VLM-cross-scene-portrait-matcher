@@ -1,4 +1,5 @@
 """Package worker functions into jobs"""
+
 import photolink.workers.functions as functions
 import photolink.utils.enums as enums
 import json
@@ -9,6 +10,7 @@ from photolink.utils.function import read_config
 import os
 from pathlib import Path
 import multiprocessing as mp
+
 
 class JobProcessor:
     """Preprocessing codes are the heaviest. Based on the jobs generated from main app, run multiprocessing to expediate. Save results to predefined cache path. Postprocessing does not need multiprocessing."""
@@ -37,7 +39,7 @@ class JobProcessor:
         self.reference_list_images = None
         self.num_processes = os.cpu_count()
         print(f"Number of CPU cores: {self.num_processes}", flush=True)
-        self.chunksize = int(os.getenv("CHUNKSIZE", 10))
+        # self.chunksize = int(os.getenv("CHUNKSIZE", 10))
         self.top_n_face = int(os.getenv("TOP_N_FACE", 3))
         self.min_clustering_samples = int(os.getenv("MIN_CLUSTERING_SAMPLES", 2))
         self.source_cache = self.cache_dir / "source"
@@ -51,22 +53,48 @@ class JobProcessor:
 
     def run(self):
         """Run the job processor."""
-        print('Jobs executing. This may take a few minutes.', flush=True)
+        print("Jobs executing. This may take a few minutes.", flush=True)
         self.source_list_images = self.jobs["source"]
         if self.task == enums.Task.SAMPLE_MATCHING.name:
             self.reference_list_images = self.jobs["reference"]
+            
+            # Below function will listen for stop signals
             self.preprocess_sample_matching()
-            print("Preprocessing ended")
+
+            # check if the stop event is set
+            if self.stop_event.is_set():
+                print("Job stopped by user during preprocessing. Will not proceed to postprocessing.", flush=True)
+                return enums.StatusMessage.STOPPED.name
+
+            print("Preprocessing ended. Now postprocessing.", flush=True)
             self.postprocess_sample_matching()
+
+             # final stop check
+            if self.stop_event.is_set():
+                print("Job stopped by user during postprocessing", flush=True)
+                return enums.StatusMessage.STOPPED.name
+
         elif self.task == enums.Task.CLUSTERING.name:
+            
+            # Below function will listen for stop signals
             self.preprocess_clustering()
-            print("Preprocessing ended")
+
+            if self.stop_event.is_set():
+                print("Job stopped by user during preprocessing. Will not proceed to postprocessing.", flush=True)
+                return enums.StatusMessage.STOPPED.name
+
+            print("Preprocessing ended. Now postprocessing.", flush=True)
             self.postprocess_clustering()
 
+            # final stop check
+            if self.stop_event.is_set():
+                print("Job stopped by user during postprocessing", flush=True)
+                return enums.StatusMessage.STOPPED.name
+            
         else:
             raise NotImplementedError(f"Task not implemented: {self.task}")
-        
-        return True
+
+        return enums.StatusMessage.COMPLETE.name
 
     def preprocess_sample_matching(self) -> None:
         """Preprocessing for the matching algorithm. Use MP."""
@@ -83,26 +111,26 @@ class JobProcessor:
 
         try:
             functions.run_model_mp(
-                self.source_list_images,
-                self.num_processes,
-                self.chunksize,
-                self.source_cache,
-                self.fail_path,
-                self.top_n_face,
-                self.stop_event
+                entries=self.source_list_images,
+                num_workers=self.num_processes,
+                save_path=self.source_cache,
+                fail_path=self.fail_path,
+                keep_top_n=self.top_n_face,
+                stop_event=self.stop_event,
             )
 
             functions.run_model_mp(
-                self.reference_list_images,
-                self.num_processes,
-                self.chunksize,
-                self.reference_cache,
-                self.fail_path,
-                self.top_n_face,
-                self.stop_event
+                entries=self.reference_list_images,
+                num_workers=self.num_processes,
+                save_path=self.reference_cache,
+                fail_path=self.fail_path,
+                keep_top_n=self.top_n_face,
+                stop_event=self.stop_event,
             )
         except Exception as e:
-            print(f"Unexpected preprocessing error during matching: {e}", file=sys.stderr)
+            print(
+                f"Unexpected preprocessing error during matching: {e}", file=sys.stderr
+            )
             print(traceback.format_exc())
             sys.exit(1)
 
@@ -115,15 +143,21 @@ class JobProcessor:
                 source_list_images=self.source_list_images,
                 reference_list_images=self.reference_list_images,
                 output_path=self.output_path,
+                stop_event=self.stop_event,
             )
 
             if "error" in result:
-                print(f"Postprocessing Error during matching: {result['error']}", file=sys.stderr)
+                print(
+                    f"Postprocessing Error during matching: {result['error']}",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
 
         except Exception as e:
             # let handle_stderr handle the error
-            print(f"Unexpected postprocessing error during matching: {e}", file=sys.stderr)
+            print(
+                f"Unexpected postprocessing error during matching: {e}", file=sys.stderr
+            )
             print(traceback.format_exc())
             sys.exit(1)
 
@@ -137,16 +171,18 @@ class JobProcessor:
 
         try:
             functions.run_model_mp(
-                self.source_list_images,
-                self.num_processes,
-                self.chunksize,
-                self.source_cache,
-                self.fail_path,
-                self.top_n_face,
-                self.stop_event,
+                entries=self.source_list_images,
+                num_workers=self.num_processes,
+                save_path=self.source_cache,
+                fail_path=self.fail_path,
+                keep_top_n=self.top_n_face,
+                stop_event=self.stop_event,
             )
         except Exception as e:
-            print(f"Unexpected preprocessing error during clustering: {e}", file=sys.stderr)
+            print(
+                f"Unexpected preprocessing error during clustering: {e}",
+                file=sys.stderr,
+            )
             print(traceback.format_exc())
             sys.exit(1)
 
@@ -165,15 +201,21 @@ class JobProcessor:
                 min_samples=min_samples,
                 output_path=self.output_path,
                 fail_path=self.fail_path,
+                stop_event=self.stop_event,
             )
 
             if "error" in result:
-                print(f"Postprocessing Error during clustering: {result['error']}", file=sys.stderr)
+                print(
+                    f"Postprocessing Error during clustering: {result['error']}",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
 
         except Exception as e:
             # let handle_stderr handle the error
-            print(f"Unexpected postprocessing error during clustering: {e}", file=sys.stderr)
+            print(
+                f"Unexpected postprocessing error during clustering: {e}",
+                file=sys.stderr,
+            )
             print(traceback.format_exc())
             sys.exit(1)  # Exit with a non-zero status to indicate an error
-

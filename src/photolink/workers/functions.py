@@ -5,7 +5,6 @@ import photolink.models.sface as sface
 import photolink.utils.enums as enums
 import os
 import shutil
-from functools import partial
 import multiprocessing as mp
 import pickle
 import numpy as np
@@ -15,21 +14,11 @@ import hdbscan
 import cv2
 from pathlib import Path
 import math
-
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # Global variables for pre-loaded models
-YUNET_MODEL = None
-SFACE_MODEL = None
-
-
-def load_models():
-    """Warmup the models to speed up multiprocessing processing."""
-    global YUNET_MODEL, SFACE_MODEL
-    if YUNET_MODEL is None:
-        YUNET_MODEL = yunet.load_model()  # Ensure load_model() initializes the model
-    if SFACE_MODEL is None:
-        SFACE_MODEL = sface.load_model()  # Ensure load_model() initializes the model
-
+YUNET_MODEL = yunet.load_model()
+SFACE_MODEL = sface.load_model()
 
 def _run_ml_model(
     image_path: str, save_path: Path, fail_path: Path, keep_top_n: int = 3
@@ -85,45 +74,47 @@ def _run_ml_model(
     return True
 
 
+def run_task(entry, stop_flag, save_path, fail_path, keep_top_n):
+    """Wrapper function for running the ML model. Return None if stop flag is set."""
+    if stop_flag.value:
+        return None
+    return _run_ml_model(entry, save_path=save_path, fail_path=fail_path)
+
 def run_model_mp(
     entries,
     num_workers: int,
-    chunksize: int,
     save_path: str,
     fail_path: str,
     keep_top_n: int,
     stop_event: mp.Event,
 ):
-    """Use multiprocessing to run the models and each results to pickle file to cache path. Catch signals to stop the process."""
-    ctx = mp.get_context("spawn")
+    """Use concurrent.futures to run the models and save each result to a pickle file to cache path. Catch signals to stop the process."""
 
-    # warm up using load_models
-    pool = ctx.Pool(processes=num_workers, initializer=load_models)
+    # Using Manager for a shared flag
+    manager = mp.Manager()
+    stop_flag = manager.Value('i', 0)
 
-    try: 
-        for _ in pool.imap_unordered(
-            partial(
-                _run_ml_model,
-                save_path=save_path,
-                fail_path=fail_path,
-                keep_top_n=keep_top_n,
-            ),
-            entries,
-            chunksize=chunksize,
-        ):
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        future_to_entry = {executor.submit(run_task, entry, stop_flag, save_path, fail_path, keep_top_n): entry for entry in entries}
 
-            if stop_event.is_set():
-                print("JobProcessor: Stop event detected, terminating pool.")
-                pool.terminate()
-                break
+        try:
+            for future in as_completed(future_to_entry):
+                if stop_event.is_set():
+                    print("JobProcessor: Stop event detected, shutting down executor.")
+                    stop_flag.value = 1  # Set the stop flag
+                    executor.shutdown(wait=False)
+                    break
 
-        pool.close()
-        pool.join()
-    except Exception as e:
-        print(f"Error during multiprocessing: {e}")
-        pool.terminate()
-        pool.join()
-        raise e
+                try:
+                    result = future.result()
+                    # Process the result here if needed
+                except Exception as e:
+                    print(f"run_model_mp: Error processing entry {future_to_entry[future]}: {e}")
+
+        except Exception as e:
+            print(f"Error during concurrent processing: {e}")
+            raise e
+
 
 
 def read_embeddingpkl(embedding_path) -> dict:
@@ -162,6 +153,7 @@ def match_embeddings(
     source_list_images: list,
     reference_list_images: list,
     output_path: Path,
+    stop_event: mp.Event,
 ) -> dict:
     """Match the embeddings and save the match. Return result status."""
 
@@ -186,6 +178,10 @@ def match_embeddings(
 
     # start by reading each embedding file, and adding to faiss index.
     for i, embedding_file in enumerate(source_embeddings):
+
+        if stop_event.is_set():
+            result["error"] = "Stop event detected. Exiting matching."
+            return result
 
         progress = math.ceil(50 + ((i + 1) / len(source_embeddings) * 25))
         print(f"Post-Processing:{int(progress)}", flush=True)
@@ -282,6 +278,7 @@ def cluster_embeddings(
     min_samples: int,
     output_path: Path,
     fail_path: Path,
+    stop_event: mp.Event,
 ) -> dict:
     """Cluster embeddings, and save the output. Return result status."""
 
@@ -321,6 +318,10 @@ def cluster_embeddings(
     face_to_embedding_file_table = {}
     index_count = 0
     for file in source_embeddings:
+
+        if stop_event.is_set():
+            result["error"] = "Stop event detected. Exiting clustering."
+            return result
 
         try:
             embedding_dict = read_embeddingpkl(source_cache / Path(file))

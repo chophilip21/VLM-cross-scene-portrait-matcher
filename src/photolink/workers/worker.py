@@ -3,6 +3,7 @@ from photolink.workers.jobs import JobProcessor
 import threading
 import multiprocessing as mp
 from photolink.workers import WorkerSignals
+import photolink.utils.enums as enums
 import sys
 import traceback
 
@@ -17,12 +18,20 @@ class Worker(threading.Thread):
         self._stop_event = mp.Event()
 
     def run(self):
-        print(f"Worker started on thread: {threading.get_ident()}")
         try:
             job = JobProcessor(stop_event=self._stop_event)
             result = job.run()
-            self.signals.result.emit(result)
-            # TODO: Need to update progress from here.
+
+            # Emit the result back to application
+            if result == enums.StatusMessage.COMPLETE.name:
+                self.signals.finished.emit()
+            elif result == enums.StatusMessage.STOPPED.name:
+                self.signals.stopped.emit()
+            elif result == enums.StatusMessage.ERROR.name:
+                self.signals.error.emit((exctype, value, traceback.format_exc()))
+            else:
+                raise ValueError(f"Invalid result: {result}")
+
         except Exception as e:
             exctype, value, tb = sys.exc_info()
             self.signals.error.emit((exctype, value, traceback.format_exc()))

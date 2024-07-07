@@ -26,7 +26,6 @@ class MainWindow(MainWindowFront):
         self.config = read_config(config)
         self.venv_path = self.application_path / Path(self.config["WINDOWS"]["VIRTUAL_ENV"])
         self.job = {}
-        self.all_stop = False
         self.operating_system = sys.platform
         print(f"Operating system: {self.operating_system}")
         self.drawUI()
@@ -144,6 +143,7 @@ class MainWindow(MainWindowFront):
             json.dump(self.job, f)
 
         worker = Worker(identifier=time.time())
+        worker.signals.stopped.connect(self.task_interrupted)
         worker.signals.result.connect(self.task_result)
         worker.signals.progress.connect(self.task_progress)
         worker.signals.finished.connect(self.task_finished)
@@ -151,27 +151,28 @@ class MainWindow(MainWindowFront):
         worker.start()
         self.threads.append(worker)
         
-        print(f"Task started on thread: {threading.get_ident()}")
-
     def print_output(self, s):
         print(s)
 
+    def task_interrupted(self):
+        """The process has been stopped by user"""
+        self.display_notification("Stopped", "All operations stopped.")
+        self.log_message("Processing stopped.")
+        self.stop_processing()
+        self.change_button_status(True)
 
     def process_finished(self):
         """Called when the Processing is finished."""
         self.change_button_status(True)
-
-        if not self.all_stop:
-            self.display_notification("Complete", "All operations completed successfully.")
-            self.log_message("Processing finished.")
-            self.stop_processing()
-            self.progress_widget.setValue(100)
+        self.display_notification("Complete", "All operations completed successfully.")
+        self.log_message("Processing finished.")
+        self.stop_processing()
+        self.progress_widget.setValue(100)
 
     def stop_processing(self):
         """Force stop the processing."""
         for thread in self.threads:
             thread.stop()
-
         self.progress_message_box.accept()
         self.process = None
         self.num_preprocessed = 0
