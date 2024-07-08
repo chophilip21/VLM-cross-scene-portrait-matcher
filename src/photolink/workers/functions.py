@@ -33,18 +33,18 @@ def _run_ml_model(
     # Use the pre-loaded global models
     global YUNET_MODEL, SFACE_MODEL
     detection_result = YUNET_MODEL.run_face_detection(image_path)
-    logger.info(f"Pre-Processing:{image_path}")
+    # logger.info(f"Pre-Processing:{image_path}")
     failed_image = fail_path / Path(os.path.basename(image_path))
 
     if "error" in detection_result:
         shutil.copy(image_path, failed_image)
-        warning = f"Face detection error on source image {image_path}: {detection_result['error']}"
+        warning = f"Warning! Face detection error on source image {image_path}: {detection_result['error']}"
 
         return warning
 
     if "faces" not in detection_result:
         shutil.copy(image_path, failed_image)
-        warning = f"Face not detected on source image {image_path}. Faces probably not there, or too small."
+        warning = f"Warning! Face not detected on source image {image_path}. Faces probably not there, or too small."
 
         return warning
 
@@ -61,7 +61,7 @@ def _run_ml_model(
 
     if "error" in embedding_dict:
         shutil.copy(image_path, failed_image)
-        warning = f"Face recognition error on source image {image_path}: {embedding_dict['error']}"
+        warning = f"Warning! Face recognition error on source image {image_path}: {embedding_dict['error']}"
 
         return warning
 
@@ -73,7 +73,8 @@ def _run_ml_model(
     with open(save_embedding_name, "wb") as f:
         pickle.dump(embedding_dict, f)
 
-    return True
+    # let's return image path itself as a result. This is for logging purposes.
+    return image_path
 
 
 def run_task(entry, stop_flag, save_path, fail_path, keep_top_n):
@@ -96,6 +97,7 @@ def run_model_mp(
     # Using Manager for a shared flag
     manager = mp.Manager()
     stop_flag = manager.Value("i", 0)
+    entries = sorted(entries)
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         future_to_entry = {
@@ -114,8 +116,13 @@ def run_model_mp(
                     break
 
                 try:
-                    result = future.result()
-                    # Process the result here if needed
+                    result = future.result().strip()
+
+                    if not result.startswith("Warning"):
+                        logger.info(result)
+                    else:
+                        logger.warning(result)
+                        
                 except Exception as e:
                     logger.error(
                         f"run_model_mp: Error processing entry {future_to_entry[future]}: {e}"

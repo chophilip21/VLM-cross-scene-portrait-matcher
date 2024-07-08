@@ -80,12 +80,8 @@ class JobProcessor:
                 return enums.StatusMessage.STOPPED.name
 
         elif self.task == enums.Task.CLUSTERING.name:
-
-            # Below function will listen for stop signals
-            self.signals.progress.emit(25)
+            
             self.preprocess_clustering()
-            self.signals.progress.emit(50)
-
             if self.stop_event.is_set():
                 logger.warning(
                     "Job stopped by user during preprocessing. Will not proceed to postprocessing.")

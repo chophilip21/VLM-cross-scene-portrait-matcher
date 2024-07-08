@@ -1,8 +1,7 @@
-"""Thread just for monitoring the worker progress of worker thread. This is to prevent the GUI from freezing."""
+"""KEEP THIS CODE JUST FOR REFERENCE. THIS IS NOT USED IN THE CURRENT IMPLEMENTATION."""
 
 import threading
 import time
-import os
 import sys
 import traceback
 from photolink.workers import WorkerSignals
@@ -33,22 +32,14 @@ class ProgressMonitor(threading.Thread):
         self.reference_cache = self.cache_dir / "reference"
         self.job_path = self.cache_dir / Path("job.json")
         self.job = self.read_json_file(self.job_path)
-        self.outout_path = Path(self.job["output"])
-        self.log_file = self.cache_dir / "worker.log"
-
-        if self.task == enums.Task.SAMPLE_MATCHING.name:
-            self.preprocess_total = len(self.job["source"]) + len(self.job["reference"])
-
-            self.num_subjects = len(self.job["source"])
-
-        elif self.task == enums.Task.CLUSTERING.name:
-            self.preprocess_total = len(self.job["source"])
-        else:
-            raise ValueError(f'Progress monitor: {self.task} is not a valid choice')
+        self.output_path = Path(self.job["output"])
+        self.log_file = self.application_path / "worker.log"
 
 
     def run(self):
         """Run the progress monitor."""
+        preprocess_ended = False
+
         with open(self.log_file, "r") as f:
             while not self.stop_event.is_set():
                 try:
@@ -57,16 +48,29 @@ class ProgressMonitor(threading.Thread):
                     if not line:
                         f.seek(where)
                     else:
-                        print(f'Does this work? {line.strip()}')
-                        # self.signals.progress.emit(line.strip())
+                        # retrieve the name of the image that just got processed.
+                        progress_input = line.split(':')
+
+                        if not preprocess_ended:
+
+                            # TODO: Fix this dirty hack.
+                            if not progress_input[-2].strip() == "Preprocessing batch progress":
+                                continue
+                            
+                            progress_input = progress_input[-1].strip()
+                            
+                            # simple case. Update as it is.
+                            if self.task == enums.Task.CLUSTERING.name:
+                                self.send_update_signals(progress_input)
 
                 except Exception as e:
                     exctype, value, tb = sys.exc_info()
                     self.signals.error.emit((exctype, value, traceback.format_exc()))
-                time.sleep(self.monitor_interval)
+                # time.sleep(self.monitor_interval)
 
     def send_update_signals(self, value):
         """Send the update signals only when it makes sense."""
+        value = int(value)
         try:
             if value >= self.progress:
                 self.progress = value

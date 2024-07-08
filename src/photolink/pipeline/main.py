@@ -7,9 +7,10 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
 from photolink.pipeline.qss import *
 from photolink import get_application_path, get_config_file
+from loguru import logger
 
 def restart_application():
-    print("Hard restarting application...")
+    logger.warning("Hard restarting application...")
     QCoreApplication.quit()
     status = QProcess.startDetached(sys.executable, sys.argv)
     sys.exit(status)
@@ -21,14 +22,18 @@ def run():
     config_file = get_config_file(application_path)
     config_data = read_config(config_file)
 
+    # Init global logger
+    logger_path = application_path / "worker.log" 
+    logger.add(logger_path, format="{time}:{level}:{message}", level="INFO", rotation="1 MB", compression="zip", enqueue=True)
+
     if not config_file.exists():
-        print(f"Config file {config_file} not found. Exiting...")
+        logger.error(f"Config file {config_file} not found. Exiting...")
         sys.exit(1)
 
     try:
         config_to_env(config_data, "MODEL")
     except Exception as e:
-        print(f"Error: {e} in reading config file {config_file}. Check again.")
+        logger.error(f"Error: {e} in reading config file {config_file}. Check again.")
         sys.exit(1)
 
     app = QApplication(sys.argv)
@@ -40,7 +45,7 @@ def run():
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseStyleSheetPropagationInWidgetStyles, True)
 
     def signal_handler(sig, frame):
-        print("Received shutdown signal:", sig)
+        logger.warning("Received shutdown signal:", sig)
         app.quit()
 
     # Set up signal handlers
@@ -71,7 +76,7 @@ def run():
         # Run the application
         sys.exit(app.exec())
     except KeyboardInterrupt:
-        print("KeyboardInterrupt caught, exiting...")
+        logger.warning("KeyboardInterrupt caught, exiting...")
         app.quit()
 
 if __name__ == "__main__":

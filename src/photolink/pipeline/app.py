@@ -32,8 +32,7 @@ class MainWindow(MainWindowFront):
         self.threads = []
 
         #setup log path.
-        self.cache_log_file = self.cache_dir / "worker.log" 
-        logger.add(self.cache_log_file, format="{time}:{level}:{message}", level="INFO", rotation="1 MB", compression="zip", enqueue=True)
+     
         logger.info(f"Application path: {self.application_path}")
         logger.info(f"Cache dir: {self.cache_dir}")
         logger.info(f"Operating system: {self.operating_system}")
