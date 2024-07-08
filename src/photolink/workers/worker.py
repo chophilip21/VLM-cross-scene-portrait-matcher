@@ -27,18 +27,18 @@ class Worker(threading.Thread):
         # Use this to send signals to the worker.
         self._stop_event = mp.Event()
 
-        # # init progress monitor with some default values
-        # self.monitor = ProgressMonitor(
-        #     task=task,
-        #     stop_event=self._stop_event,
-        #     signals=self.signals,
-        #     monitor_interval=1,
-        # )
+        # init progress monitor with some default values
+        self.monitor = ProgressMonitor(
+            task=task,
+            stop_event=self._stop_event,
+            signals=self.signals,
+            monitor_interval=1,
+        )
 
 
     def run(self):
         """Run the worker thread to execute the jobs."""
-        # self.monitor.start()
+        self.monitor.start()
 
         try:
             job = JobProcessor(stop_event=self._stop_event, signals=self.signals)
@@ -65,5 +65,5 @@ class Worker(threading.Thread):
         """
         logger.warning("Worker: Stopping...")
         self._stop_event.set()
-        # self.monitor.join()
+        self.monitor.join()
         self.join()

@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QMessageBox,
 )
-from PySide6.QtGui import QFont, QBrush, QColor, QConicalGradient
+from PySide6.QtGui import QFont, QBrush, QColor, QConicalGradient, QMovie
 from PySide6.QtSvgWidgets import QSvgWidget
 from photolink.pipeline.qss import *
 import shutil
@@ -25,6 +25,7 @@ from photolink import get_application_path, get_config_file
 from pathlib import Path
 from PySide6.QtGui import QPainter, QPen, QFont
 
+# NOT USING. KEEP IT FOR REFERENCES
 class CircularProgress(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -92,18 +93,37 @@ class ProgressWidget(QWidget):
 
     def __init__(self, stop_callback, parent=None):
         super().__init__(parent)
-        self.circular_progress = CircularProgress()
+        # self.circular_progress = CircularProgress()
+        self.loading_label = QLabel('Disclaimer: This software is only meant for internal usage.', self)
+        self.loading_label.setAlignment(Qt.AlignCenter)
+        font = QFont()
+        font.setPointSize(12)
+        self.loading_label.setFont(font)
+
+        # add spinner to the loading label
+        self.spinner = QLabel(self)
+        self.spinner.setAlignment(Qt.AlignCenter)
+        self.application_path = get_application_path()
+        config = get_config_file(self.application_path)
+        self.config = read_config(config)
+        self.loading_gif = str(self.application_path / Path(self.config.get("IMAGES", "LOAD_GIF")))
+        self.movie = QMovie(self.loading_gif)
+        self.spinner.setMovie(self.movie)
+        self.movie.start()
+
         self.stop_button = QPushButton("Stop")
         self.stop_button.clicked.connect(stop_callback)
         self.stop_button.setStyleSheet(STOP_BUTTON_STYLE)
         
         layout = QVBoxLayout()
-        layout.addWidget(self.circular_progress)
+        layout.addWidget(self.spinner)
+        layout.addWidget(self.loading_label)
+        # layout.addWidget(self.circular_progress)
         layout.addWidget(self.stop_button)
         self.setLayout(layout)
 
-    def setValue(self, value):
-        self.circular_progress.setValue(value)
+    # def setValue(self, value):
+    #     self.circular_progress.setValue(value)
 
 class MainWindowFront(QMainWindow):
 

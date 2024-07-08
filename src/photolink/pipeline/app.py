@@ -14,6 +14,7 @@ import sys
 import time
 from loguru import logger
 
+
 class MainWindow(MainWindowFront):
     """All functional codes related to Pyside go here."""
 
@@ -138,9 +139,9 @@ class MainWindow(MainWindowFront):
         self.progress_message_box.setWindowTitle("Processing has started. Please wait.")
         self.progress_message_box.setStandardButtons(QMessageBox.NoButton)
         self.progress_message_box.layout().addWidget(self.progress_widget)
-        self.progress_message_box.setGeometry(500, 300, 450, 450)
+        self.progress_message_box.setGeometry(500, 300, 400, 400)
         self.progress_message_box.show()
-        self.progress_widget.setValue(0)
+        # self.progress_widget.setValue(0)
 
         # proceed to dump the job to a json file for worker nodes.
         job_json = self.cache_dir / "job.json"
@@ -151,6 +152,7 @@ class MainWindow(MainWindowFront):
         worker = Worker(self.job["task"])
         worker.signals.stopped.connect(self.task_interrupted)
         worker.signals.progress.connect(self.task_progress)
+        worker.signals.result.connect(self.task_result)
         worker.signals.finished.connect(self.task_finished)
         worker.signals.error.connect(self.task_error)
         worker.start()
@@ -169,10 +171,11 @@ class MainWindow(MainWindowFront):
         self.change_button_status(True)
         self.display_notification("Complete", "All operations completed successfully.")
         self.log_message("Processing finished.")
-        self.progress_widget.setValue(100)
+        # self.progress_widget.setValue(100)
 
     def stop_processing(self):
         """Universal stop mechanism for the processing."""
+        self.progress_widget.movie.stop()
         for thread in self.threads:
             thread.stop()
         self.progress_message_box.accept()
@@ -181,6 +184,7 @@ class MainWindow(MainWindowFront):
         self.current_progress = 0
         self.preprocess_total = 0
 
+    # TODO: This is not used at the moment.
     def task_progress(self, value):
         """Called to update progress bar based on signals from worker."""
         if value > int(self.current_progress):
@@ -192,3 +196,7 @@ class MainWindow(MainWindowFront):
         logger.error(f"Error has occured on the thread: {error}")
         self.display_notification("Error", "An error has occured during processing.")
         self.stop_processing()
+
+    def task_result(self, result):
+        """Called to log task results to console."""
+        self.log_message(result)

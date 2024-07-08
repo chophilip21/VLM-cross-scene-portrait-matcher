@@ -66,9 +66,6 @@ class JobProcessor:
 
             # check if the stop event is set
             if self.stop_event.is_set():
-                logger.warning(
-                    "Job stopped by user during preprocessing. Will not proceed to postprocessing.",
-                )
                 return enums.StatusMessage.STOPPED.name
 
             logger.info("Preprocessing ended. Now postprocessing.")
@@ -76,15 +73,12 @@ class JobProcessor:
 
             # final stop check
             if self.stop_event.is_set():
-                logger.warning("Job stopped by user during postprocessing")
                 return enums.StatusMessage.STOPPED.name
 
         elif self.task == enums.Task.CLUSTERING.name:
             
             self.preprocess_clustering()
             if self.stop_event.is_set():
-                logger.warning(
-                    "Job stopped by user during preprocessing. Will not proceed to postprocessing.")
                 return enums.StatusMessage.STOPPED.name
 
             logger.info("Preprocessing ended. Now postprocessing.")
@@ -92,7 +86,6 @@ class JobProcessor:
 
             # final stop check
             if self.stop_event.is_set():
-                logger.warning("Job stopped by user during postprocessing.")
                 return enums.StatusMessage.STOPPED.name
 
         else:

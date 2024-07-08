@@ -1,5 +1,3 @@
-"""KEEP THIS CODE JUST FOR REFERENCE. THIS IS NOT USED IN THE CURRENT IMPLEMENTATION."""
-
 import threading
 import time
 import sys
@@ -35,11 +33,8 @@ class ProgressMonitor(threading.Thread):
         self.output_path = Path(self.job["output"])
         self.log_file = self.application_path / "worker.log"
 
-
     def run(self):
         """Run the progress monitor."""
-        preprocess_ended = False
-
         with open(self.log_file, "r") as f:
             while not self.stop_event.is_set():
                 try:
@@ -49,24 +44,13 @@ class ProgressMonitor(threading.Thread):
                         f.seek(where)
                     else:
                         # retrieve the name of the image that just got processed.
-                        progress_input = line.split(':')
-
-                        if not preprocess_ended:
-
-                            # TODO: Fix this dirty hack.
-                            if not progress_input[-2].strip() == "Preprocessing batch progress":
-                                continue
-                            
-                            progress_input = progress_input[-1].strip()
-                            
-                            # simple case. Update as it is.
-                            if self.task == enums.Task.CLUSTERING.name:
-                                self.send_update_signals(progress_input)
+                        progress_input = ' '.join(line.split(':')[-2:])
+                        self.signals.result.emit(progress_input)
 
                 except Exception as e:
                     exctype, value, tb = sys.exc_info()
                     self.signals.error.emit((exctype, value, traceback.format_exc()))
-                # time.sleep(self.monitor_interval)
+                time.sleep(self.monitor_interval)
 
     def send_update_signals(self, value):
         """Send the update signals only when it makes sense."""
