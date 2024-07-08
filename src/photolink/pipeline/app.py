@@ -12,7 +12,6 @@ from photolink.workers.worker import Worker
 from pathlib import Path
 import sys
 import time
-import threading
 
 class MainWindow(MainWindowFront):
     """All functional codes related to Pyside go here."""
@@ -29,7 +28,7 @@ class MainWindow(MainWindowFront):
         self.operating_system = sys.platform
         print(f"Operating system: {self.operating_system}")
         self.drawUI()
-
+        self.current_progress = 0
         self.threads = []
 
     @Slot()
@@ -142,26 +141,23 @@ class MainWindow(MainWindowFront):
         with open(job_json, "w") as f:
             json.dump(self.job, f)
 
+        # start the worker on a thread. This will prevent the GUI from freezing.
         worker = Worker(identifier=time.time())
         worker.signals.stopped.connect(self.task_interrupted)
-        worker.signals.result.connect(self.task_result)
         worker.signals.progress.connect(self.task_progress)
         worker.signals.finished.connect(self.task_finished)
         worker.signals.error.connect(self.task_error)
         worker.start()
         self.threads.append(worker)
         
-    def print_output(self, s):
-        print(s)
-
     def task_interrupted(self):
-        """The process has been stopped by user"""
+        """Called when the process is stopped by user"""
         self.display_notification("Stopped", "All operations stopped.")
         self.log_message("Processing stopped.")
         self.stop_processing()
         self.change_button_status(True)
 
-    def process_finished(self):
+    def task_finished(self):
         """Called when the Processing is finished."""
         self.change_button_status(True)
         self.display_notification("Complete", "All operations completed successfully.")
@@ -170,7 +166,7 @@ class MainWindow(MainWindowFront):
         self.progress_widget.setValue(100)
 
     def stop_processing(self):
-        """Force stop the processing."""
+        """Universal stop mechanism for the processing."""
         for thread in self.threads:
             thread.stop()
         self.progress_message_box.accept()
@@ -180,24 +176,15 @@ class MainWindow(MainWindowFront):
         self.current_progress = 0
         self.preprocess_total = 0
 
-    def update_progress(self, value):
-        """Update the progress bar."""
+    def task_progress(self, value):
+        """Called to update progress bar based on signals from worker."""
         print(f"Progress: {value}")
-        # if value > int(self.current_progress):
-        #     self.current_progress = value
-        #     self.progress_widget.setValue(self.current_progress)
-
- 
-    def task_result(self, result):
-        print(f"Result: {result}")
-
-    def task_progress(self, progress):
-        print(f"Progress: {progress}%")
-
-    def task_finished(self):
-        print("Status: Task finished")
+        if value > int(self.current_progress):
+            self.current_progress = value
+            self.progress_widget.setValue(self.current_progress)
 
     def task_error(self, error):
-        """Print error, and shutdown all threads."""
+        """Called when an error has occured during processing."""
         print(f"Error has occured on the thread: {error}")
+        self.display_notification("Error", "An error has occured during processing.")
         self.stop_processing()

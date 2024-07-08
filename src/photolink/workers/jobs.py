@@ -1,4 +1,4 @@
-"""Package worker functions into jobs"""
+"""Middle logic layer b/w worker and functions."""
 
 import photolink.workers.functions as functions
 import photolink.utils.enums as enums
@@ -10,22 +10,23 @@ from photolink.utils.function import read_config
 import os
 from pathlib import Path
 import multiprocessing as mp
+from photolink.workers import WorkerSignals
 
 
 class JobProcessor:
-    """Preprocessing codes are the heaviest. Based on the jobs generated from main app, run multiprocessing to expediate. Save results to predefined cache path. Postprocessing does not need multiprocessing."""
+    """Process the jobs for the worker by calling function layer, and emit various signals back to the main application."""
 
-    def __init__(self, stop_event: mp.Event):
+    def __init__(self, stop_event: mp.Event, signals: WorkerSignals):
         self.application_path = get_application_path()
         config = get_config_file(self.application_path)
         self.config = read_config(config)
         self.cache_dir = self.application_path / ".cache"
         self.stop_event = stop_event
+        self.jobs_file = self.cache_dir / Path("job.json")
+        self.signals = signals
 
         if not self.cache_dir.exists():
             raise FileNotFoundError(f"Cache directory not found: {self.cache_dir}")
-
-        self.jobs_file = self.cache_dir / Path("job.json")
 
         if not self.jobs_file.exists():
             raise FileNotFoundError(f"Jobs file not found: {self.jobs_file}")
@@ -33,13 +34,13 @@ class JobProcessor:
         with open(self.jobs_file, "r") as f:
             self.jobs = json.load(f)
 
+        # other variables
         self.task = self.jobs["task"]
         self.output_path = Path(self.jobs["output"])
         self.source_list_images = None
         self.reference_list_images = None
         self.num_processes = os.cpu_count()
         print(f"Number of CPU cores: {self.num_processes}", flush=True)
-        # self.chunksize = int(os.getenv("CHUNKSIZE", 10))
         self.top_n_face = int(os.getenv("TOP_N_FACE", 3))
         self.min_clustering_samples = int(os.getenv("MIN_CLUSTERING_SAMPLES", 2))
         self.source_cache = self.cache_dir / "source"
@@ -55,32 +56,43 @@ class JobProcessor:
         """Run the job processor."""
         print("Jobs executing. This may take a few minutes.", flush=True)
         self.source_list_images = self.jobs["source"]
+
+        # TODO: We could launch thread for monitor here. 
+
         if self.task == enums.Task.SAMPLE_MATCHING.name:
             self.reference_list_images = self.jobs["reference"]
-            
+
             # Below function will listen for stop signals
             self.preprocess_sample_matching()
 
             # check if the stop event is set
             if self.stop_event.is_set():
-                print("Job stopped by user during preprocessing. Will not proceed to postprocessing.", flush=True)
+                print(
+                    "Job stopped by user during preprocessing. Will not proceed to postprocessing.",
+                    flush=True,
+                )
                 return enums.StatusMessage.STOPPED.name
 
             print("Preprocessing ended. Now postprocessing.", flush=True)
             self.postprocess_sample_matching()
 
-             # final stop check
+            # final stop check
             if self.stop_event.is_set():
                 print("Job stopped by user during postprocessing", flush=True)
                 return enums.StatusMessage.STOPPED.name
 
         elif self.task == enums.Task.CLUSTERING.name:
-            
+
             # Below function will listen for stop signals
+            self.signals.progress.emit(25)
             self.preprocess_clustering()
+            self.signals.progress.emit(50)
 
             if self.stop_event.is_set():
-                print("Job stopped by user during preprocessing. Will not proceed to postprocessing.", flush=True)
+                print(
+                    "Job stopped by user during preprocessing. Will not proceed to postprocessing.",
+                    flush=True,
+                )
                 return enums.StatusMessage.STOPPED.name
 
             print("Preprocessing ended. Now postprocessing.", flush=True)
@@ -90,7 +102,7 @@ class JobProcessor:
             if self.stop_event.is_set():
                 print("Job stopped by user during postprocessing", flush=True)
                 return enums.StatusMessage.STOPPED.name
-            
+
         else:
             raise NotImplementedError(f"Task not implemented: {self.task}")
 
@@ -203,7 +215,6 @@ class JobProcessor:
                 fail_path=self.fail_path,
                 stop_event=self.stop_event,
             )
-
 
         except Exception as e:
             # let handle_stderr handle the error

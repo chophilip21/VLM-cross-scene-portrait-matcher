@@ -1,4 +1,5 @@
-"""Execute the jobs for the worker via threading."""
+"""Top logic layer right below application. Execute the jobs for the worker via threading."""
+
 from photolink.workers.jobs import JobProcessor
 import threading
 import multiprocessing as mp
@@ -7,8 +8,10 @@ import photolink.utils.enums as enums
 import sys
 import traceback
 
+
 class Worker(threading.Thread):
-    """Execute the jobs for the worker via threading to prevent GUI freeze. Calls the JobProcessor to run the jobs."""
+    """Sits on top of jobs layer. Execute the jobs for the worker via threading to prevent GUI freeze. Calls the JobProcessor to run the jobs."""
+
     def __init__(self, identifier):
         super().__init__()
         self.identifier = identifier
@@ -18,8 +21,9 @@ class Worker(threading.Thread):
         self._stop_event = mp.Event()
 
     def run(self):
+        """Run the worker thread to execute the jobs."""
         try:
-            job = JobProcessor(stop_event=self._stop_event)
+            job = JobProcessor(stop_event=self._stop_event, signals=self.signals)
             result = job.run()
 
             # Emit the result back to application
@@ -37,8 +41,10 @@ class Worker(threading.Thread):
             self.signals.error.emit((exctype, value, traceback.format_exc()))
 
     def stop(self):
-        """Stop the worker my sending signals downwards."""
+        """Stop and clean the worker my sending signals downwards.
+
+        DO NOT emit signals here. This is only for stopping the worker.
+        """
         print("Worker: Stopping...", flush=True)
-        self._stop_event.set()       
-        self.signals.finished.emit()
+        self._stop_event.set()
         self.join()

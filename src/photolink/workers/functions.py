@@ -1,4 +1,4 @@
-"""Various ML algorithms/functions for face detection and recognition, and clustering."""
+"""Lowest functional layer for Various ML algorithms/functions (face detection and recognition, and clustering)."""
 
 import photolink.models.yunet as yunet
 import photolink.models.sface as sface
@@ -19,6 +19,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # Global variables for pre-loaded models
 YUNET_MODEL = yunet.load_model()
 SFACE_MODEL = sface.load_model()
+
 
 def _run_ml_model(
     image_path: str, save_path: Path, fail_path: Path, keep_top_n: int = 3
@@ -80,6 +81,7 @@ def run_task(entry, stop_flag, save_path, fail_path, keep_top_n):
         return None
     return _run_ml_model(entry, save_path=save_path, fail_path=fail_path)
 
+
 def run_model_mp(
     entries,
     num_workers: int,
@@ -92,10 +94,15 @@ def run_model_mp(
 
     # Using Manager for a shared flag
     manager = mp.Manager()
-    stop_flag = manager.Value('i', 0)
+    stop_flag = manager.Value("i", 0)
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
-        future_to_entry = {executor.submit(run_task, entry, stop_flag, save_path, fail_path, keep_top_n): entry for entry in entries}
+        future_to_entry = {
+            executor.submit(
+                run_task, entry, stop_flag, save_path, fail_path, keep_top_n
+            ): entry
+            for entry in entries
+        }
 
         try:
             for future in as_completed(future_to_entry):
@@ -109,12 +116,13 @@ def run_model_mp(
                     result = future.result()
                     # Process the result here if needed
                 except Exception as e:
-                    print(f"run_model_mp: Error processing entry {future_to_entry[future]}: {e}")
+                    print(
+                        f"run_model_mp: Error processing entry {future_to_entry[future]}: {e}"
+                    )
 
         except Exception as e:
             print(f"Error during concurrent processing: {e}")
             raise e
-
 
 
 def read_embeddingpkl(embedding_path) -> dict:
@@ -318,7 +326,6 @@ def cluster_embeddings(
     face_to_embedding_file_table = {}
     index_count = 0
     for file in source_embeddings:
-
 
         if stop_event.is_set():
             return
