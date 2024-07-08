@@ -103,7 +103,7 @@ class MainWindow(MainWindowFront):
                 return
 
             self.job["task"] = enums.Task.SAMPLE_MATCHING.name
-            self.job["source"] = search_all_images(self.source_path_selector.line_edit.text())
+            self.job["source"] = search_all_images(self.source_path_selector.line_edit.text(), choose_one=True)
             self.job["reference"] = search_all_images(self.reference_path_selector.line_edit.text())
 
             self.preprocess_total = len(self.job["source"]) + len(self.job["reference"])
@@ -142,7 +142,7 @@ class MainWindow(MainWindowFront):
             json.dump(self.job, f)
 
         # start the worker on a thread. This will prevent the GUI from freezing.
-        worker = Worker(identifier=time.time())
+        worker = Worker(self.job["task"])
         worker.signals.stopped.connect(self.task_interrupted)
         worker.signals.progress.connect(self.task_progress)
         worker.signals.finished.connect(self.task_finished)
@@ -152,17 +152,17 @@ class MainWindow(MainWindowFront):
         
     def task_interrupted(self):
         """Called when the process is stopped by user"""
+        self.stop_processing()
         self.display_notification("Stopped", "All operations stopped.")
         self.log_message("Processing stopped.")
-        self.stop_processing()
         self.change_button_status(True)
 
     def task_finished(self):
         """Called when the Processing is finished."""
+        self.stop_processing()
         self.change_button_status(True)
         self.display_notification("Complete", "All operations completed successfully.")
         self.log_message("Processing finished.")
-        self.stop_processing()
         self.progress_widget.setValue(100)
 
     def stop_processing(self):
@@ -170,7 +170,6 @@ class MainWindow(MainWindowFront):
         for thread in self.threads:
             thread.stop()
         self.progress_message_box.accept()
-        self.process = None
         self.num_preprocessed = 0
         self.num_postprocessed = 0
         self.current_progress = 0

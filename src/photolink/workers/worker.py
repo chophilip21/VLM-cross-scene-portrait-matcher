@@ -4,6 +4,7 @@ from photolink.workers.jobs import JobProcessor
 import threading
 import multiprocessing as mp
 from photolink.workers import WorkerSignals
+from photolink.workers.monitor import ProgressMonitor, OutputStream
 import photolink.utils.enums as enums
 import sys
 import traceback
@@ -12,16 +13,35 @@ import traceback
 class Worker(threading.Thread):
     """Sits on top of jobs layer. Execute the jobs for the worker via threading to prevent GUI freeze. Calls the JobProcessor to run the jobs."""
 
-    def __init__(self, identifier):
+    def __init__(self, task):
         super().__init__()
-        self.identifier = identifier
+
+        # check task is proper enum
+        if task not in enums.Task.__members__:
+            raise ValueError(f"Invalid task: {task}")
+
+        self.task = task
         self.signals = WorkerSignals()
+        self.output_stream = OutputStream()
 
         # Use this to send signals to the worker.
         self._stop_event = mp.Event()
 
+        # init progress monitor with some default values
+        self.monitor = ProgressMonitor(
+            task=task,
+            stop_event=self._stop_event,
+            signals=self.signals,
+            monitor_interval=1,
+            oputput_stream=self.output_stream,
+        )
+
+
     def run(self):
         """Run the worker thread to execute the jobs."""
+        sys.stdout = self.output_stream
+        self.monitor.start()
+
         try:
             job = JobProcessor(stop_event=self._stop_event, signals=self.signals)
             result = job.run()
@@ -47,4 +67,6 @@ class Worker(threading.Thread):
         """
         print("Worker: Stopping...", flush=True)
         self._stop_event.set()
+        self.monitor.join()
         self.join()
+        sys.stdout = sys.__stdout__

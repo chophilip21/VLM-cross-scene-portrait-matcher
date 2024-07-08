@@ -57,8 +57,6 @@ class JobProcessor:
         print("Jobs executing. This may take a few minutes.", flush=True)
         self.source_list_images = self.jobs["source"]
 
-        # TODO: We could launch thread for monitor here. 
-
         if self.task == enums.Task.SAMPLE_MATCHING.name:
             self.reference_list_images = self.jobs["reference"]
 

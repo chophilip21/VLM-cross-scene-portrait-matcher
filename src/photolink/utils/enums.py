@@ -12,6 +12,7 @@ class ErrorMessage(Enum):
     REFERENCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the reference folder."
     REFRESH_REQUIRED = "Please hit refresh first and try again."
 
+
 class StatusMessage(Enum):
     DEFAULT = "Welcome to PhotoMatcher! When there are more than one faces in a photo, top 3 largest faces will be used. If you want to run a new task after completion, or if you find something buggy, please hit refresh. For any other issues, you can contact the developer."
     COMPLETE = "Task completed successfully!"

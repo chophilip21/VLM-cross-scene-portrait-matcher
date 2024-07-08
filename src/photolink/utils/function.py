@@ -3,8 +3,9 @@ import glob
 import configparser
 import os
 
-def search_all_images(path):
-    """Recursively search all images in a directory."""
+
+def search_all_images(path, choose_one = False):
+    """Recursively search all images in a directory. Select one if choose_one is True."""
     images = []
     path_ = path + '/**/*.*'
     files = glob.glob(path_,recursive = True) 
@@ -12,6 +13,9 @@ def search_all_images(path):
         
         if file.split('.')[-1].lower() in enums.IMAGE_EXTENSION:
             images.append(file)
+
+    if choose_one:
+        return list(images[0])
 
     return images
 
@@ -33,3 +37,4 @@ def config_to_env(config: configparser.ConfigParser, section: str):
             os.environ[key] = value
 
     return True
+
