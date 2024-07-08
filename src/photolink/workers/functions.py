@@ -15,6 +15,7 @@ import cv2
 from pathlib import Path
 import math
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from loguru import logger
 
 # Global variables for pre-loaded models
 YUNET_MODEL = yunet.load_model()
@@ -32,7 +33,7 @@ def _run_ml_model(
     # Use the pre-loaded global models
     global YUNET_MODEL, SFACE_MODEL
     detection_result = YUNET_MODEL.run_face_detection(image_path)
-    print(f"Pre-Processing:{image_path}", flush=True)
+    logger.info(f"Pre-Processing:{image_path}")
     failed_image = fail_path / Path(os.path.basename(image_path))
 
     if "error" in detection_result:
@@ -107,7 +108,7 @@ def run_model_mp(
         try:
             for future in as_completed(future_to_entry):
                 if stop_event.is_set():
-                    print("JobProcessor: Stop event detected, shutting down executor.")
+                    logger.warning("JobProcessor: Stop event detected, shutting down executor.")
                     stop_flag.value = 1  # Set the stop flag
                     executor.shutdown(wait=False)
                     break
@@ -116,12 +117,12 @@ def run_model_mp(
                     result = future.result()
                     # Process the result here if needed
                 except Exception as e:
-                    print(
+                    logger.error(
                         f"run_model_mp: Error processing entry {future_to_entry[future]}: {e}"
                     )
 
         except Exception as e:
-            print(f"Error during concurrent processing: {e}")
+            logger.error(f"Error during concurrent processing: {e}")
             raise e
 
 
@@ -192,7 +193,7 @@ def match_embeddings(
             return result
 
         progress = math.ceil(50 + ((i + 1) / len(source_embeddings) * 25))
-        print(f"Post-Processing:{int(progress)}", flush=True)
+        logger.info(f"Post-Processing:{int(progress)}")
 
         try:
             source_embedding_dict = read_embeddingpkl(
@@ -216,7 +217,7 @@ def match_embeddings(
     for i, file in enumerate(reference_embeddings):
 
         progress = math.ceil(75 + ((i + 1) / len(reference_embeddings) * 25))
-        print(f"Post-Processing:{int(progress)}", flush=True)
+        logger.info(f"Post-Processing:{int(progress)}")
 
         try:
             reference_embedding_dict = read_embeddingpkl(reference_cache / Path(file))
@@ -362,9 +363,8 @@ def cluster_embeddings(
         if stop_event.is_set():
             return
 
-        # print POSTPROCESS_PROGRESS
         progress = math.ceil(50 + ((i + 1) / len(labels) * 50))
-        print(f"Post-Processing:{int(progress)}", flush=True)
+        logger.info(f"Post-Processing:{int(progress)}")
 
         # find the original image from look up table.
         backtracked_file_name = Path(face_to_embedding_file_table[i])
@@ -377,7 +377,7 @@ def cluster_embeddings(
                 fail_path / Path(os.path.basename(source_img_path))
             )
             shutil.copy(source_img_path, failed_img_output_path)
-            print(
+            logger.error(
                 f"Failed clustering on {source_img_path}. Saved to {failed_img_output_path}"
             )
             result["missed_count"] += 1

@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import multiprocessing as mp
 from photolink.workers import WorkerSignals
+from loguru import logger
 
 
 class JobProcessor:
@@ -40,7 +41,7 @@ class JobProcessor:
         self.source_list_images = None
         self.reference_list_images = None
         self.num_processes = os.cpu_count()
-        print(f"Number of CPU cores: {self.num_processes}", flush=True)
+        logger.info(f"Number of CPU cores: {self.num_processes}")
         self.top_n_face = int(os.getenv("TOP_N_FACE", 3))
         self.min_clustering_samples = int(os.getenv("MIN_CLUSTERING_SAMPLES", 2))
         self.source_cache = self.cache_dir / "source"
@@ -54,7 +55,7 @@ class JobProcessor:
 
     def run(self):
         """Run the job processor."""
-        print("Jobs executing. This may take a few minutes.", flush=True)
+        logger.info("Jobs executing. This may take a few minutes.")
         self.source_list_images = self.jobs["source"]
 
         if self.task == enums.Task.SAMPLE_MATCHING.name:
@@ -65,18 +66,17 @@ class JobProcessor:
 
             # check if the stop event is set
             if self.stop_event.is_set():
-                print(
+                logger.warning(
                     "Job stopped by user during preprocessing. Will not proceed to postprocessing.",
-                    flush=True,
                 )
                 return enums.StatusMessage.STOPPED.name
 
-            print("Preprocessing ended. Now postprocessing.", flush=True)
+            logger.info("Preprocessing ended. Now postprocessing.")
             self.postprocess_sample_matching()
 
             # final stop check
             if self.stop_event.is_set():
-                print("Job stopped by user during postprocessing", flush=True)
+                logger.warning("Job stopped by user during postprocessing")
                 return enums.StatusMessage.STOPPED.name
 
         elif self.task == enums.Task.CLUSTERING.name:
@@ -87,18 +87,16 @@ class JobProcessor:
             self.signals.progress.emit(50)
 
             if self.stop_event.is_set():
-                print(
-                    "Job stopped by user during preprocessing. Will not proceed to postprocessing.",
-                    flush=True,
-                )
+                logger.warning(
+                    "Job stopped by user during preprocessing. Will not proceed to postprocessing.")
                 return enums.StatusMessage.STOPPED.name
 
-            print("Preprocessing ended. Now postprocessing.", flush=True)
+            logger.info("Preprocessing ended. Now postprocessing.")
             self.postprocess_clustering()
 
             # final stop check
             if self.stop_event.is_set():
-                print("Job stopped by user during postprocessing", flush=True)
+                logger.warning("Job stopped by user during postprocessing.")
                 return enums.StatusMessage.STOPPED.name
 
         else:
@@ -111,12 +109,12 @@ class JobProcessor:
 
         if len(self.source_list_images) == 0:
             e = enums.ErrorMessage.SOURCE_FOLDER_EMPTY.value
-            print(f"preprocessing error during matching: {e}", file=sys.stderr)
+            logger.error(f"preprocessing error during matching: {e}", file=sys.stderr)
             sys.exit(1)
 
         if len(self.reference_list_images) == 0:
             e = enums.ErrorMessage.REFERENCE_FOLDER_EMPTY.value
-            print(f"preprocessing error during matching: {e}", file=sys.stderr)
+            logger.error(f"preprocessing error during matching: {e}", file=sys.stderr)
             sys.exit(1)
 
         try:
@@ -138,10 +136,10 @@ class JobProcessor:
                 stop_event=self.stop_event,
             )
         except Exception as e:
-            print(
+            logger.error(
                 f"Unexpected preprocessing error during matching: {e}", file=sys.stderr
             )
-            print(traceback.format_exc())
+            logger.error(traceback.format_exc())
             sys.exit(1)
 
     def postprocess_sample_matching(self):
@@ -157,7 +155,7 @@ class JobProcessor:
             )
 
             if "error" in result:
-                print(
+                logger.error(
                     f"Postprocessing Error during matching: {result['error']}",
                     file=sys.stderr,
                 )
@@ -165,10 +163,10 @@ class JobProcessor:
 
         except Exception as e:
             # let handle_stderr handle the error
-            print(
+            logger.error(
                 f"Unexpected postprocessing error during matching: {e}", file=sys.stderr
             )
-            print(traceback.format_exc())
+            logger.error(traceback.format_exc())
             sys.exit(1)
 
     def preprocess_clustering(self) -> None:
@@ -176,7 +174,7 @@ class JobProcessor:
 
         if len(self.source_list_images) == 0:
             e = enums.ErrorMessage.SOURCE_FOLDER_EMPTY.value
-            print(f"Preprocessing error during clustering: {e}", file=sys.stderr)
+            logger.error(f"Preprocessing error during clustering: {e}", file=sys.stderr)
             sys.exit(1)
 
         try:
@@ -189,11 +187,11 @@ class JobProcessor:
                 stop_event=self.stop_event,
             )
         except Exception as e:
-            print(
+            logger.error(
                 f"Unexpected preprocessing error during clustering: {e}",
                 file=sys.stderr,
             )
-            print(traceback.format_exc())
+            logger.error(traceback.format_exc())
             sys.exit(1)
 
     def postprocess_clustering(self) -> None:
@@ -216,9 +214,9 @@ class JobProcessor:
 
         except Exception as e:
             # let handle_stderr handle the error
-            print(
+            logger.error(
                 f"Unexpected postprocessing error during clustering: {e}",
                 file=sys.stderr,
             )
-            print(traceback.format_exc())
+            logger.error(traceback.format_exc())
             sys.exit(1)  # Exit with a non-zero status to indicate an error

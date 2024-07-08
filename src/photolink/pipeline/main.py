@@ -20,8 +20,6 @@ def run():
     application_path = get_application_path()
     config_file = get_config_file(application_path)
     config_data = read_config(config_file)
-    print(f"Application path: {application_path}")
-    print(f"Config file path: {config_file}")
 
     if not config_file.exists():
         print(f"Config file {config_file} not found. Exiting...")

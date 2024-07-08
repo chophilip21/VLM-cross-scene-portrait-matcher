@@ -4,10 +4,11 @@ from photolink.workers.jobs import JobProcessor
 import threading
 import multiprocessing as mp
 from photolink.workers import WorkerSignals
-from photolink.workers.monitor import ProgressMonitor, OutputStream
+from photolink.workers.monitor import ProgressMonitor
 import photolink.utils.enums as enums
 import sys
 import traceback
+from loguru import logger
 
 
 class Worker(threading.Thread):
@@ -22,7 +23,6 @@ class Worker(threading.Thread):
 
         self.task = task
         self.signals = WorkerSignals()
-        self.output_stream = OutputStream()
 
         # Use this to send signals to the worker.
         self._stop_event = mp.Event()
@@ -33,13 +33,11 @@ class Worker(threading.Thread):
             stop_event=self._stop_event,
             signals=self.signals,
             monitor_interval=1,
-            oputput_stream=self.output_stream,
         )
 
 
     def run(self):
         """Run the worker thread to execute the jobs."""
-        sys.stdout = self.output_stream
         self.monitor.start()
 
         try:
@@ -65,8 +63,7 @@ class Worker(threading.Thread):
 
         DO NOT emit signals here. This is only for stopping the worker.
         """
-        print("Worker: Stopping...", flush=True)
+        logger.warning("Worker: Stopping...")
         self._stop_event.set()
         self.monitor.join()
         self.join()
-        sys.stdout = sys.__stdout__

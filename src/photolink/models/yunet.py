@@ -5,6 +5,7 @@ import cv2
 import os
 from photolink import get_application_path
 from pathlib import Path
+from loguru import logger
 
 class YuNet:
     """Face detection model using Yunet."""
@@ -57,7 +58,7 @@ class YuNet:
                 resize_ratio = 500 / image.shape[0]
                 face_table['resize_ratio'] = resize_ratio
         except Exception as e:
-            print(f"Error reading image {image_path}. Error: {e}")
+            logger.error(f"Error reading image {image_path}. Error: {e}")
             face_table['error'] = f"Error reading image {image_path}. Error: {e}"
             return face_table
 
@@ -76,7 +77,7 @@ class YuNet:
 
             face_table['faces'] = results
         except Exception as e:
-            print(f"Error running inference on image {image_path}. Error: {e}")
+            logger.error(f"Error running inference on image {image_path}. Error: {e}")
             face_table['error'] = f"Error running inference on image {image_path}. Error: {e}"
 
         return face_table

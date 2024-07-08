@@ -12,6 +12,7 @@ from photolink.workers.worker import Worker
 from pathlib import Path
 import sys
 import time
+from loguru import logger
 
 class MainWindow(MainWindowFront):
     """All functional codes related to Pyside go here."""
@@ -26,10 +27,16 @@ class MainWindow(MainWindowFront):
         self.venv_path = self.application_path / Path(self.config["WINDOWS"]["VIRTUAL_ENV"])
         self.job = {}
         self.operating_system = sys.platform
-        print(f"Operating system: {self.operating_system}")
         self.drawUI()
         self.current_progress = 0
         self.threads = []
+
+        #setup log path.
+        self.cache_log_file = self.cache_dir / "worker.log" 
+        logger.add(self.cache_log_file, format="{time}:{level}:{message}", level="INFO", rotation="1 MB", compression="zip", enqueue=True)
+        logger.info(f"Application path: {self.application_path}")
+        logger.info(f"Cache dir: {self.cache_dir}")
+        logger.info(f"Operating system: {self.operating_system}")
 
     @Slot()
     def handle_box_click(self):
@@ -177,13 +184,12 @@ class MainWindow(MainWindowFront):
 
     def task_progress(self, value):
         """Called to update progress bar based on signals from worker."""
-        print(f"Progress: {value}")
         if value > int(self.current_progress):
             self.current_progress = value
             self.progress_widget.setValue(self.current_progress)
 
     def task_error(self, error):
         """Called when an error has occured during processing."""
-        print(f"Error has occured on the thread: {error}")
+        logger.error(f"Error has occured on the thread: {error}")
         self.display_notification("Error", "An error has occured during processing.")
         self.stop_processing()

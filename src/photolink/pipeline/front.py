@@ -117,7 +117,6 @@ class MainWindowFront(QMainWindow):
         self.config = read_config(config)
         self.current_task = enums.Task.SAMPLE_MATCHING.name
         self.cache_dir = self.application_path / Path(".cache")
-        print(f"Cache dir: {self.cache_dir}")
         self.setup_cache_dir(self.cache_dir)
         # self.drawUI()
 

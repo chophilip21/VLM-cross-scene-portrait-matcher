@@ -16,14 +16,13 @@ import json
 
 class ProgressMonitor(threading.Thread):
     """Periodically monitors the progress by checking the number of files generated."""
-    def __init__(self, task: enums.Task, stop_event: mp.Event, signals: WorkerSignals, monitor_interval: int, oputput_stream):
+    def __init__(self, task: enums.Task, stop_event: mp.Event, signals: WorkerSignals, monitor_interval: int):
         super().__init__()
         self.monitor_interval = monitor_interval
         self.stop_event = stop_event
         self.signals = signals
         self.task = task
         self.progress = 0
-        self.output_stream = oputput_stream
 
         # call some basic path info.
         self.application_path = get_application_path()
@@ -35,6 +34,7 @@ class ProgressMonitor(threading.Thread):
         self.job_path = self.cache_dir / Path("job.json")
         self.job = self.read_json_file(self.job_path)
         self.outout_path = Path(self.job["output"])
+        self.log_file = self.cache_dir / "worker.log"
 
         if self.task == enums.Task.SAMPLE_MATCHING.name:
             self.preprocess_total = len(self.job["source"]) + len(self.job["reference"])
@@ -46,72 +46,24 @@ class ProgressMonitor(threading.Thread):
         else:
             raise ValueError(f'Progress monitor: {self.task} is not a valid choice')
 
-        self.output_stream = OutputStream()
-        self.output_stream.write('BITCH!!!!!!!!!!!!!!!!.\n')
-        print('Progress monitor initialized.', flush=True)
 
     def run(self):
-        while not self.stop_event.is_set():
-            try:
-                # Capture stdout
-                with self.output_stream.lock:
-                    output = self.output_stream.getvalue()
-                    self.output_stream.truncate(0)
-                    self.output_stream.seek(0)
+        """Run the progress monitor."""
+        with open(self.log_file, "r") as f:
+            while not self.stop_event.is_set():
+                try:
+                    where = f.tell()
+                    line = f.readline()
+                    if not line:
+                        f.seek(where)
+                    else:
+                        print(f'Does this work? {line.strip()}')
+                        # self.signals.progress.emit(line.strip())
 
-                if output:
-                    self.signals.progress.emit(output.strip())  # Emit stripped output to remove extra newlines
-
-            except Exception as e:
-                exctype, value, tb = sys.exc_info()
-                self.signals.error.emit((exctype, value, traceback.format_exc()))
-            time.sleep(self.monitor_interval)
-
-            # if self.task == enums.Task.SAMPLE_MATCHING.name:
-                
-            #     if not preprecess_done:
-
-            #         num_preprocessed = len(os.listdir(str(self.source_cache))) + len(os.listdir(str(self.reference_cache)))
-
-            #         progress = int((num_preprocessed / self.preprocess_total) * 50)
-
-            #         self.send_update_signals(progress)
-
-            #         # stop preprocessing monitor
-            #         if num_preprocessed >= self.preprocess_total:
-            #             preprecess_done = True
-
-            #     else:
-            #         # postprocess updates. first check how many subject folder is generated.
-
-            #         for folder in os.listdir(str(self.outout_path)):
-            #             if folder.startswith(enums.OutputPrefix.MATCH.name):
-            #                 self.num_subjects += 1
-
-
-
-            # elif self.task == enums.Task.CLUSTERING.name:
-                
-            #     if not preprecess_done:
-            #         num_preprocessed = len(os.listdir(str(self.source_cache)))
-
-            #         progress = int((num_preprocessed / self.preprocess_total) * 50)
-
-            #         self.send_update_signals(progress)
-
-            #         # stop preprocessing monitor
-            #         if num_preprocessed >= self.preprocess_total:
-            #             preprecess_done = True
-                
-            #     else:
-            #         # post process update
-            #         pass
-
-
-            # else:
-            #     raise NotImplementedError(f'Progress monitor: {self.task} is not a valid choice')
-
-
+                except Exception as e:
+                    exctype, value, tb = sys.exc_info()
+                    self.signals.error.emit((exctype, value, traceback.format_exc()))
+                time.sleep(self.monitor_interval)
 
     def send_update_signals(self, value):
         """Send the update signals only when it makes sense."""

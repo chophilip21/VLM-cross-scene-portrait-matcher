@@ -21,6 +21,7 @@ devel = [
     "hdbscan",
     "opencv-python",
     "cx_Freeze",
+    "loguru",
 ]
 
 [tool.hatch.build.targets.wheel]
