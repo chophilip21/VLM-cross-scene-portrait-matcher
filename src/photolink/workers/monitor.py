@@ -23,7 +23,7 @@ class ProgressMonitor(threading.Thread):
 
         # call some basic path info.
         self.application_path = get_application_path()
-        config = get_config_file(self.application_path)
+        config = get_config_file()
         self.config = read_config(config)
         self.cache_dir = self.application_path / ".cache"
         self.source_cache = self.cache_dir / "source"

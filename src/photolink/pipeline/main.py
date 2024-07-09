@@ -19,7 +19,7 @@ def run():
     """Main entry point for the application."""
 
     application_path = get_application_path()
-    config_file = get_config_file(application_path)
+    config_file = get_config_file()
     config_data = read_config(config_file)
 
     # Init global logger

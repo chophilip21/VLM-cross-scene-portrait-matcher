@@ -19,7 +19,7 @@ class JobProcessor:
 
     def __init__(self, stop_event: mp.Event, signals: WorkerSignals):
         self.application_path = get_application_path()
-        config = get_config_file(self.application_path)
+        config = get_config_file()
         self.config = read_config(config)
         self.cache_dir = self.application_path / ".cache"
         self.stop_event = stop_event

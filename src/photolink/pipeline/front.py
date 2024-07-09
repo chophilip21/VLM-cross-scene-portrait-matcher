@@ -104,7 +104,7 @@ class ProgressWidget(QWidget):
         self.spinner = QLabel(self)
         self.spinner.setAlignment(Qt.AlignCenter)
         self.application_path = get_application_path()
-        config = get_config_file(self.application_path)
+        config = get_config_file()
         self.config = read_config(config)
         self.loading_gif = str(self.application_path / Path(self.config.get("IMAGES", "LOAD_GIF")))
         self.movie = QMovie(self.loading_gif)
@@ -133,7 +133,7 @@ class MainWindowFront(QMainWindow):
         """All UI related codes go here."""
         super().__init__()
         self.application_path = get_application_path()
-        config = get_config_file(self.application_path)
+        config = get_config_file()
         self.config = read_config(config)
         self.current_task = enums.Task.SAMPLE_MATCHING.name
         self.cache_dir = self.application_path / Path(".cache")

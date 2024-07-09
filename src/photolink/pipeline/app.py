@@ -23,7 +23,7 @@ class MainWindow(MainWindowFront):
         super().__init__()
         self.application_path = get_application_path()
         self.pipeline_path = self.application_path / "src" /"photolink" /"pipeline"
-        config = get_config_file(self.application_path)
+        config = get_config_file()
         self.config = read_config(config)
         self.venv_path = self.application_path / Path(self.config["WINDOWS"]["VIRTUAL_ENV"])
         self.job = {}
