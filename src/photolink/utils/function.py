@@ -4,7 +4,7 @@ import configparser
 import os
 
 
-def search_all_images(path, choose_one = False):
+def search_all_images(path):
     """Recursively search all images in a directory. Select one if choose_one is True."""
     images = []
     path_ = path + '/**/*.*'
@@ -13,9 +13,6 @@ def search_all_images(path, choose_one = False):
         
         if file.split('.')[-1].lower() in enums.IMAGE_EXTENSION:
             images.append(file)
-
-    if choose_one:
-        return list(images[0])
 
     return images
 

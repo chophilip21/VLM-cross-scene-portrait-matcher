@@ -24,7 +24,7 @@ def run():
 
     # Init global logger
     logger_path = application_path / "worker.log" 
-    logger.add(logger_path, format="{time}:{level}:{message}", level="INFO", rotation="1 MB", compression="zip", enqueue=True)
+    logger.add(logger_path, format="{time}:{level}:{message}", level="INFO", enqueue=True)
 
     if not config_file.exists():
         logger.error(f"Config file {config_file} not found. Exiting...")

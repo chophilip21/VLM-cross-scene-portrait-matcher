@@ -17,7 +17,7 @@ class StatusMessage(Enum):
     DEFAULT = "Welcome to PhotoMatcher! When there are more than one faces in a photo, top 3 largest faces will be used. If you want to run a new task after completion, or if you find something buggy, please hit refresh. For any other issues, you can contact the developer."
     COMPLETE = "Task completed successfully!"
     ERROR = "An error occurred. Please check the logs for more information."
-    STOPPED = "Task stopped by user."
+    STOPPED = "Task manager shutting down."
 
 class OperatingSystem(Enum):
     """Enum for operating system."""

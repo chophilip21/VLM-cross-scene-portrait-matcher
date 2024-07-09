@@ -110,10 +110,9 @@ class MainWindow(MainWindowFront):
                 return
 
             self.job["task"] = enums.Task.SAMPLE_MATCHING.name
-            self.job["source"] = search_all_images(self.source_path_selector.line_edit.text(), choose_one=True)
+            self.job["source"] = search_all_images(self.source_path_selector.line_edit.text())
             self.job["reference"] = search_all_images(self.reference_path_selector.line_edit.text())
 
-            self.preprocess_total = len(self.job["source"]) + len(self.job["reference"])
 
         elif self.current_task == enums.Task.CLUSTERING.name:
 
@@ -127,7 +126,6 @@ class MainWindow(MainWindowFront):
 
             self.job["task"] = enums.Task.CLUSTERING.name
             self.job["source"] = search_all_images(self.source_path_selector.line_edit.text())
-            self.preprocess_total = len(self.job["source"])
 
         else:
             self.change_button_status(True)
@@ -182,7 +180,6 @@ class MainWindow(MainWindowFront):
         self.num_preprocessed = 0
         self.num_postprocessed = 0
         self.current_progress = 0
-        self.preprocess_total = 0
 
     # TODO: This is not used at the moment.
     def task_progress(self, value):

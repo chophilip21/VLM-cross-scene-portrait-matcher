@@ -32,7 +32,7 @@ class Worker(threading.Thread):
             task=task,
             stop_event=self._stop_event,
             signals=self.signals,
-            monitor_interval=1,
+            monitor_interval=3,
         )
 
 
