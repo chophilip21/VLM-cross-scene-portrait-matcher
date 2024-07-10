@@ -14,24 +14,12 @@ class SingletonPath:
 
         if self._application_path is None:
             
-                # Depending on how we launch application, the root changes somehow. Dirty fix to prevent that. 
-                # self._application_path = Path(__file__).resolve().parent.parents[2]
-
-             
-                # if (self._application_path / "photolink.exe").exists():
-                #     return self._application_path
-
-                # print(f"Application path: {self._application_path / 'photolink.exe'} could not be found. You are running locally")
-
-                # # If photolink.exe does not exist, we must be running locally.
-            self._application_path = Path(__file__).resolve().parents[2]
-            
-                # # check pyproject.toml. If not exists again, something is worng
-                # if not (self._application_path / "pyproject.toml").exists():
-                #     raise FileNotFoundError(f"Application path '{self._application_path}' is not set properly. Exiting...")
-            
-                # print(f"Application path: {self._application_path} found. Running locally")
-
+            if getattr(sys, 'frozen', False):
+                # Get the path to the temporary directory for frozen/executable builds
+                self._application_path = Path(sys._MEIPASS)
+            else:
+                self._application_path = Path(__file__).resolve().parents[2]
+          
         return self._application_path
 
     @property

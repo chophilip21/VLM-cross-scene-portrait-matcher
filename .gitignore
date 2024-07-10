@@ -162,6 +162,6 @@ cython_debug/
 beeware-venv
 *.dist-info
 *.exe
-!photolink.spec
+!launch.spec
 launch.dist
 faiss

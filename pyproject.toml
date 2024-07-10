@@ -17,11 +17,11 @@ devel = [
     "pyside6",
     "scikit-learn",
     "pycairo",
-    # "faiss-cpu==1.8.0",
+    "faiss-cpu==1.8.0",
     "packaging",
     "hdbscan",
     "opencv-python",
-    "cx_Freeze",
+    "pyinstaller",
     "loguru",
 ]
 
@@ -34,13 +34,3 @@ include = [
     "helpers/requirements/test.txt",
     "README.md",
 ]
-
-# Exporting application
-[tool.cxfreeze]
-executables = [{ script = "launch.py"}]
-
-[tool.cxfreeze.build_exe]
-excludes = ["helpers"]
-zip_include_packages = ["os", "sys", "multiprocessing", "encodings", "PySide6", "shiboken6"]
-include_files = ["./assets"]
-build_exe = "dist"

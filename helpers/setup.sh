@@ -22,6 +22,7 @@ fi
 # Create virtual environment
 python3 -m venv env
 echo "Virtual environment created."
+python3.exe -m pip install --upgrade pip
 
 # Activate virtual environment
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
