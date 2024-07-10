@@ -15,8 +15,12 @@ class SingletonPath:
         if self._application_path is None:
             
             if getattr(sys, 'frozen', False):
-                # Get the path to the temporary directory for frozen/executable builds
-                self._application_path = Path(sys._MEIPASS)
+               
+                try:
+                    self._application_path = Path(sys._MEIPASS)
+                except Exception as e:
+                    print(f"You may not be on Pyinstaller, so you get this error: {e}")
+                    self._application_path = Path(__file__).resolve().parents[2]
             else:
                 self._application_path = Path(__file__).resolve().parents[2]
           

@@ -9,7 +9,6 @@ import multiprocessing as mp
 import pickle
 import numpy as np
 import faiss
-import sklearn.cluster as c_algorithm
 import hdbscan
 import cv2
 from pathlib import Path
@@ -318,12 +317,13 @@ def cluster_embeddings(
 
     # init clustering algorithm.
     if clustering_algorithm == enums.ClusteringAlgorithm.DBSCAN.value:
-        cluster_obj = c_algorithm.DBSCAN(
-            eps=eps, min_samples=min_samples, metric="euclidean", leaf_size=50
+       raise NotImplementedError(
+            f"Clustering algorithm {clustering_algorithm} not supported."
         )
     elif clustering_algorithm == enums.ClusteringAlgorithm.OPTICS.value:
-        cluster_obj = c_algorithm.OPTICS(min_samples=min_samples, metric="euclidean")
-
+        raise NotImplementedError(
+            f"Clustering algorithm {clustering_algorithm} not supported."
+        )
     elif clustering_algorithm == enums.ClusteringAlgorithm.HDBSCAN.value:
         cluster_obj = hdbscan.HDBSCAN(min_cluster_size=min_samples, leaf_size=50)
     else:

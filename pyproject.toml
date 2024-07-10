@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "cmake", "cx_Freeze"]
+requires = ["hatchling", "cmake"]
 build-backend = "hatchling.build"
 
 [project]
@@ -15,14 +15,13 @@ authors = [
 [project.optional-dependencies]
 devel = [
     "pyside6",
-    "scikit-learn",
     "pycairo",
-    "faiss-cpu==1.8.0",
     "packaging",
     "hdbscan",
     "opencv-python",
-    "pyinstaller",
+    "nuitka",
     "loguru",
+    "swig",
 ]
 
 [tool.hatch.build.targets.wheel]
