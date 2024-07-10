@@ -17,6 +17,7 @@ import math
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from loguru import logger
 
+
 # Global variables for pre-loaded models
 YUNET_MODEL = yunet.load_model()
 SFACE_MODEL = sface.load_model()

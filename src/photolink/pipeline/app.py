@@ -45,11 +45,11 @@ class MainWindow(MainWindowFront):
         self.select_task(task)
 
     def select_task(self, task):
-        if task == "Sample Match":
-            self.instruction_label.setText(enums.Task.SAMPLE_MATCHING.value)
+        if task == "Face Search":
+            self.instruction_label.setText(enums.Task.FACE_SEARCH.value)
             self.reference_path_selector.line_edit.setPlaceholderText("")
             self.reference_path_selector.button.setEnabled(True)
-            self.current_task = enums.Task.SAMPLE_MATCHING.name
+            self.current_task = enums.Task.FACE_SEARCH.name
 
         elif task == "Cluster":
             self.instruction_label.setText(enums.Task.CLUSTERING.value)
@@ -68,7 +68,7 @@ class MainWindow(MainWindowFront):
         )
 
         # Highlight the selected box
-        if task == "Sample Match":
+        if task == "Face Search":
             self.sample_match_box.setStyleSheet(
                 self.sample_match_box.styleSheet() + " border: 2px solid white;"
             )
@@ -96,7 +96,7 @@ class MainWindow(MainWindowFront):
         self.job["output"] = self.output_path_selector.line_edit.text()
 
         # start by generating jobs based on the selected task
-        if self.current_task == enums.Task.SAMPLE_MATCHING.name:
+        if self.current_task == enums.Task.FACE_SEARCH.name:
 
             if (
                 not self.source_path_selector.line_edit.text()
@@ -109,7 +109,7 @@ class MainWindow(MainWindowFront):
                 self.change_button_status(True)
                 return
 
-            self.job["task"] = enums.Task.SAMPLE_MATCHING.name
+            self.job["task"] = enums.Task.FACE_SEARCH.name
             self.job["source"] = search_all_images(self.source_path_selector.line_edit.text())
             self.job["reference"] = search_all_images(self.reference_path_selector.line_edit.text())
 

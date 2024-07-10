@@ -58,7 +58,7 @@ class JobProcessor:
         logger.info("Jobs executing. This may take a few minutes.")
         self.source_list_images = self.jobs["source"]
 
-        if self.task == enums.Task.SAMPLE_MATCHING.name:
+        if self.task == enums.Task.FACE_SEARCH.name:
             self.reference_list_images = self.jobs["reference"]
 
             # Below function will listen for stop signals

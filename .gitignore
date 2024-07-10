@@ -164,3 +164,4 @@ beeware-venv
 *.exe
 !photolink.spec
 launch.dist
+faiss

@@ -135,7 +135,7 @@ class MainWindowFront(QMainWindow):
         self.application_path = get_application_path()
         config = get_config_file()
         self.config = read_config(config)
-        self.current_task = enums.Task.SAMPLE_MATCHING.name
+        self.current_task = enums.Task.FACE_SEARCH.name
         self.cache_dir = self.application_path / Path(".cache")
         self.setup_cache_dir(self.cache_dir)
         # self.drawUI()
@@ -168,7 +168,7 @@ class MainWindowFront(QMainWindow):
         match_icon = str(self.application_path / Path(self.config.get("IMAGES", "MATCH_ICON")))
         cluster_icon = str(self.application_path / Path(self.config.get("IMAGES", "CLUSTER_ICON")))
         self.sample_match_box = self.create_task_button(
-            match_icon, "Sample Match", self.matching_color[0], self.matching_color[1]
+            match_icon, "Face Search", self.matching_color[0], self.matching_color[1]
         )
         self.cluster_box = self.create_task_button(
             cluster_icon, "Cluster", self.clustering_color[0], self.clustering_color[1]
@@ -224,8 +224,8 @@ class MainWindowFront(QMainWindow):
         self.console.setText(enums.StatusMessage.DEFAULT.value)
         self.main_layout.addWidget(self.console)
 
-        # Set initial selection to "Sample Match"
-        self.select_task("Sample Match")
+        # Set initial selection to "Face Search"
+        self.select_task("Face Search")
 
         # Connect the window resize event to a method
         self.resizeEvent = self.on_resize
@@ -331,7 +331,7 @@ class MainWindowFront(QMainWindow):
         self.reference_path_selector.line_edit.setText("")
         self.output_path_selector.line_edit.setText("")
         self.console.setText(enums.StatusMessage.DEFAULT.value)
-        self.current_task = enums.Task.SAMPLE_MATCHING.name
+        self.current_task = enums.Task.FACE_SEARCH.name
         self.setup_cache_dir(self.cache_dir)
         self.refresh_requested.emit()
 
