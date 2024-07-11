@@ -2,7 +2,8 @@ import photolink.utils.enums as enums
 import glob
 import configparser
 import os
-
+import pickle
+import lzma
 
 def search_all_images(path):
     """Recursively search all images in a directory. Select one if choose_one is True."""
@@ -35,3 +36,12 @@ def config_to_env(config: configparser.ConfigParser, section: str):
 
     return True
 
+def compress_save(data: dict, file: str):
+    """Compress and save the data to a file."""
+    with lzma.open(file, "wb") as f:
+       pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+def decompress_load(file: str) -> dict:
+    """Decompress and load the data from a file."""
+    with lzma.open(file, "rb") as f:
+        return pickle.load(f)

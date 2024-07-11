@@ -3,10 +3,10 @@
 import photolink.models.yunet as yunet
 import photolink.models.sface as sface
 import photolink.utils.enums as enums
+import photolink.utils.function as function
 import os
 import shutil
 import multiprocessing as mp
-import pickle
 import numpy as np
 import faiss
 import hdbscan
@@ -25,7 +25,7 @@ SFACE_MODEL = sface.load_model()
 def _run_ml_model(
     image_path: str, save_path: Path, fail_path: Path, keep_top_n: int = 3
 ):
-    """Process face detection and recognition for images, save embeddings to save_path as pkl file.
+    """Process face detection and recognition for images, save embeddings to save_path as xz file.
 
     Instead of converting all faces to embeddings, only largest top n faces are converted. Result should have both aligned face and converted embeddings as keys.
     """
@@ -66,12 +66,11 @@ def _run_ml_model(
         return warning
 
     save_embedding_name = save_path / Path(
-        os.path.basename(image_path).split(".")[0] + ".pkl"
+        os.path.basename(image_path).split(".")[0] + ".xz"
     )
 
     # pickle dump all face embeddings found in the image.
-    with open(save_embedding_name, "wb") as f:
-        pickle.dump(embedding_dict, f)
+    function.compress_save(embedding_dict, save_embedding_name)
 
     # let's return image path itself as a result. This is for logging purposes.
     return image_path
@@ -133,32 +132,31 @@ def run_model_mp(
             raise e
 
 
-def read_embeddingpkl(embedding_path) -> dict:
-    """Read and validate embeddings pkl file to retrieve dictionary from pickle path."""
+def read_embedding_file(embedding_path) -> dict:
+    """Read and validate embeddings file to retrieve dictionary from pickle path."""
 
     data = {}
 
-    with open(embedding_path, "rb") as f:
-        embedding_dict = pickle.load(f)
+    embedding_dict = function.decompress_load(embedding_path)
 
-        if "embeddings" not in embedding_dict:
-            raise ValueError(
-                f"Failed to read embeddings. Key for embeddings not found in {embedding_path}"
-            )
+    if "embeddings" not in embedding_dict:
+        raise ValueError(
+            f"Failed to read embeddings. Key for embeddings not found in {embedding_path}"
+        )
 
-        if "faces" not in embedding_dict:
-            raise ValueError(
-                f"Failed to read embeddings. Key for faces not found in {embedding_path}"
-            )
+    if "faces" not in embedding_dict:
+        raise ValueError(
+            f"Failed to read embeddings. Key for faces not found in {embedding_path}"
+        )
 
-        embeddings = np.array(embedding_dict["embeddings"])
-        if embeddings.shape[1] != 128:
-            raise ValueError(
-                f"Error on {embedding_path}. Embedding must be a (N, 128) numpy array, not {embeddings.shape}"
-            )
+    embeddings = np.array(embedding_dict["embeddings"])
+    if embeddings.shape[1] != 128:
+        raise ValueError(
+            f"Error on {embedding_path}. Embedding must be a (N, 128) numpy array, not {embeddings.shape}"
+        )
 
-        data["faces"] = np.array(embedding_dict["faces"])
-        data["embeddings"] = embeddings
+    data["faces"] = np.array(embedding_dict["faces"])
+    data["embeddings"] = embeddings
 
     return data
 
@@ -179,13 +177,13 @@ def match_embeddings(
     source_embeddings = [
         source_cache / Path(file)
         for file in os.listdir(source_cache)
-        if file.split(".")[-1] == "pkl"
+        if file.split(".")[-1] == "xz"
     ]
 
     reference_embeddings = [
         reference_cache / Path(file)
         for file in os.listdir(reference_cache)
-        if file.split(".")[-1] == "pkl"
+        if file.split(".")[-1] == "xz"
     ]
 
     # create look up table using Pathlib.
@@ -203,7 +201,7 @@ def match_embeddings(
         logger.info(f"Post-Processing:{int(progress)}")
 
         try:
-            source_embedding_dict = read_embeddingpkl(
+            source_embedding_dict = read_embedding_file(
                 source_cache / Path(embedding_file)
             )
 
@@ -227,7 +225,7 @@ def match_embeddings(
         logger.info(f"Post-Processing:{int(progress)}")
 
         try:
-            reference_embedding_dict = read_embeddingpkl(reference_cache / Path(file))
+            reference_embedding_dict = read_embedding_file(reference_cache / Path(file))
 
             reference_embedding = reference_embedding_dict["embeddings"]
 
@@ -304,7 +302,7 @@ def cluster_embeddings(
     source_embeddings = [
         source_cache / Path(file)
         for file in os.listdir(source_cache)
-        if file.split(".")[-1] == "pkl"
+        if file.split(".")[-1] == "xz"
     ]
 
     embedding_file_to_image_table = {
@@ -340,7 +338,7 @@ def cluster_embeddings(
             return
 
         try:
-            embedding_dict = read_embeddingpkl(source_cache / Path(file))
+            embedding_dict = read_embedding_file(source_cache / Path(file))
             embedding = embedding_dict["embeddings"]
             aligned_face = embedding_dict["faces"]
 

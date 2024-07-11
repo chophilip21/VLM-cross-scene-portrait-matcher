@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import sys
 
 class SingletonPath:
@@ -13,15 +14,12 @@ class SingletonPath:
         """Get the application path."""
 
         if self._application_path is None:
+
+            if "NUITKA_ONEFILE_EXE" in os.environ or getattr(sys, 'frozen', False):
+                self._application_path = Path(sys.executable).parent
             
-            if getattr(sys, 'frozen', False):
-               
-                try:
-                    self._application_path = Path(sys._MEIPASS)
-                except Exception as e:
-                    print(f"You may not be on Pyinstaller, so you get this error: {e}")
-                    self._application_path = Path(__file__).resolve().parents[2]
             else:
+
                 self._application_path = Path(__file__).resolve().parents[2]
           
         return self._application_path
