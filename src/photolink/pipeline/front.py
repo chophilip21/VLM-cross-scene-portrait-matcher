@@ -2,7 +2,8 @@
 
 import photolink.utils.enums as enums
 from photolink.utils.function import read_config
-from PySide6.QtCore import Qt, QRectF, QTimer, Signal
+import photolink.pipeline.settings as settings
+from PySide6.QtCore import Qt, QRectF, QTimer, Signal, QSize
 from PySide6.QtWidgets import (
     QMainWindow,
     QLabel,
@@ -16,8 +17,10 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QTextEdit,
     QMessageBox,
+    QToolButton,
+    
 )
-from PySide6.QtGui import QFont, QBrush, QColor, QConicalGradient, QMovie
+from PySide6.QtGui import QFont, QBrush, QColor, QConicalGradient, QMovie, QIcon
 from PySide6.QtSvgWidgets import QSvgWidget
 from photolink.pipeline.qss import *
 import shutil
@@ -138,7 +141,6 @@ class MainWindowFront(QMainWindow):
         self.current_task = enums.Task.FACE_SEARCH.name
         self.cache_dir = self.application_path / Path(".cache")
         self.setup_cache_dir(self.cache_dir)
-        # self.drawUI()
 
     def drawUI(self):
         """Startup by drawing UI elements"""
@@ -150,14 +152,29 @@ class MainWindowFront(QMainWindow):
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
 
-        # Create main layout
+        # Create main layout and title layout.
         self.main_layout = QVBoxLayout(central_widget)
+        self.title_layout = QHBoxLayout()
 
         # Add a responsive application title
         self.title_label = QLabel("PhotoMatcher v.0.01", self)
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.title_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.main_layout.addWidget(self.title_label, alignment=Qt.AlignmentFlag.AlignTop)
+
+        # Add gear icon button
+        self.settings_button = QToolButton(self)
+        settings_icon = str(self.application_path / Path(self.config.get("IMAGES", "SETTING")))
+        self.settings_button.setIcon(QIcon(settings_icon))  # Set the path to your gear icon
+        self.settings_button.setStyleSheet("border: none;")  # Optional: Remove button border
+        self.settings_button.setToolTip("Settings")
+        self.settings_button.clicked.connect(settings.show_settings)
+
+        # Add title label and settings button to title layout
+        self.title_layout.addWidget(self.title_label)
+        self.title_layout.addWidget(self.settings_button)
+        
+        # Add title layout to the main layout
+        self.main_layout.addLayout(self.title_layout)
 
         # Create grid layout for the boxes
         self.grid_layout = QGridLayout()
@@ -348,6 +365,11 @@ class MainWindowFront(QMainWindow):
         # Adjust font size based on window height
         font_size = max(16, self.height() // 25)
         self.update_font(font_size)
+        
+        # Adjust icon size based on window size
+        new_icon_size = QSize(self.width() // 20, self.height() // 20)
+        self.settings_button.setIconSize(new_icon_size)
+        
         super().resizeEvent(event)
 
     def update_font(self, font_size=24):
@@ -379,3 +401,4 @@ class MainWindowFront(QMainWindow):
             self.start_button.setText("Start Processing")
             self.start_button.setStyleSheet(START_BUTTON_STYLE)
             self.refresh_button.setStyleSheet(REFRESH_BUTTON_STYLE)
+

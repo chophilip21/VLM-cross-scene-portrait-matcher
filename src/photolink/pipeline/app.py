@@ -139,7 +139,6 @@ class MainWindow(MainWindowFront):
         self.progress_message_box.layout().addWidget(self.progress_widget)
         self.progress_message_box.setGeometry(500, 300, 400, 400)
         self.progress_message_box.show()
-        # self.progress_widget.setValue(0)
 
         # proceed to dump the job to a json file for worker nodes.
         job_json = self.cache_dir / "job.json"

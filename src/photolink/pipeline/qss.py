@@ -131,3 +131,37 @@ DARK_THEME = """
         border: 2px solid transparent;
     }
 """
+
+SETTINGS_DESIGN =  """
+        QDialog {
+            background-color: #f0f0f0;
+            color: #333333;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        }
+        QLabel {
+            font-size: 14px;
+            padding: 5px;
+        }
+        QPushButton {
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 14px;
+            margin: 4px 2px;
+        }
+        QPushButton#saveButton {
+            background-color: #007BFF;
+        }
+        QPushButton:pressed {
+            background-color: #3e8e41;
+        }
+        QPushButton[objectName="deleteButton"] {
+            background-color: grey;
+        }
+        QComboBox {
+            padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+        """
