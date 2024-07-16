@@ -120,19 +120,6 @@ def read_json(file_path):
             json.dump({}, json_file)
 
 
-def get_hash_image_pair_list(data: list)-> list:
-    """Return a list of dict, hash to image path pair."""
-
-    converted_data = []
-
-    for image_path in data:
-        hash_ = checksum(image_path)
-        tmp = {}
-        tmp[hash_] = image_path
-        converted_data.append(tmp)
-
-    return converted_data
-
 
 
 

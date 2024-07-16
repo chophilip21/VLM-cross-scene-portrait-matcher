@@ -9,7 +9,15 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QFrame,
 
 from photolink.pipeline.qss import SETTINGS_DESIGN
 from photolink.pipeline import get_cache_dir, read_settings, save_dump_settings
-from photolink.utils.function import custom_rmtree
+from photolink.utils.function import custom_rmtree, get_current_date
+from datetime import datetime, timedelta
+
+
+class SettingSignals(QObject):
+    cache_deleted = Signal()
+    saved = Signal()
+
+signals_object = SettingSignals()
 
 class PeriodManager():
 
@@ -19,14 +27,40 @@ class PeriodManager():
         self.settings_json =  self.cache_dir/ Path("settings.json")
         self.settings_dict = read_settings(self.settings_json)
         self.save_period = self.settings_dict["save_period"]
+        self.last_cache_delete = self.settings_dict.get("last_cache_delete", get_current_date())
 
-class SettingSignals(QObject):
-    cache_deleted = Signal()
-    saved = Signal()
+        # invoke cache delete based on date.
+        self.delete_cache_based_on_date()
+
+    def delete_cache_based_on_date(self):
+        """Delete the cache based on the last cache delete date."""
+        current_date = get_current_date().split("-")
+
+        dt_now = datetime(int(current_date[0]), int(current_date[1]), int(current_date[2]))
+
+        # get date when the cache must be deleted.
+        last_cache_date = self.last_cache_delete.split("-")
+        dt_cache = datetime(int(last_cache_date[0]), int(last_cache_date[1]), int(last_cache_date[2]))
+
+        # check if the difference is greater than the save period.
+        diff = dt_now - dt_cache
+        if diff.days >= self.save_period:
+            custom_rmtree(self.cache_dir)
+            logger.info("Cache deleted based on date")
+
+            # emit the signal to notify the cache has been deleted.
+            signals_object.cache_deleted.emit()
+
+            # update the last cache delete date.
+            self.settings_dict["last_cache_delete"] = get_current_date()
+            save_dump_settings(self.settings_json, self.settings_dict)
+
+        else:
+            expected_delete_date = dt_cache + timedelta(days=self.save_period)
+            logger.info(f"Cache delete date not reached yet. Expected delete date is: {str(expected_delete_date)}")
 
 # instantiate the objects
 pm = PeriodManager()
-signals_object = SettingSignals()
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
@@ -138,6 +172,10 @@ class SettingsDialog(QDialog):
         custom_rmtree(pm.cache_dir)
         logger.info("Cache deleted")
         self.worker_signal.cache_deleted.emit()
+
+        # change the last cache delete date to today.
+        pm.settings_dict["last_cache_delete"] = get_current_date()
+        save_dump_settings(pm.settings_json, pm.settings_dict)
 
     def handle_delete(self):
         """When deleting cache, it must be handled in a separate thread."""

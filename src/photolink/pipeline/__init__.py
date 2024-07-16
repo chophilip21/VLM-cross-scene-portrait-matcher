@@ -1,4 +1,4 @@
-from photolink.utils.function import read_config
+from photolink.utils.function import read_config, get_current_date
 from photolink import get_application_path, get_config_file
 from pathlib import Path
 import json
@@ -17,7 +17,8 @@ def read_settings(settings_file: Path):
     """Read the settings from the settings.json file."""
 
     if not settings_file.exists():
-        return {'save_period': 14}
+        current_date = get_current_date()
+        return {'save_period': 14, 'last_cache_delete': current_date}
     
     with open(settings_file, "r") as f:
         settings = json.load(f)
