@@ -1,6 +1,6 @@
 import sys
 import threading
-import time
+from pathlib import Path
 
 from loguru import logger
 from PySide6.QtCore import QObject, Qt, Signal
@@ -8,14 +8,24 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QFrame,
                                QHBoxLayout, QLabel, QPushButton, QVBoxLayout)
 
 from photolink.pipeline.qss import SETTINGS_DESIGN
+from photolink.pipeline import get_cache_dir, read_settings, save_dump_settings
+from photolink.utils.function import custom_rmtree
 
+class PeriodManager():
+
+    def __init__(self):
+        self.delete_period_options = {0: 'Delete cache every run', 1: 'One day', 7: 'One week', 14: 'Two weeks', 30: 'One month', 180: 'Six months', 365: 'One year'}
+        self.cache_dir = get_cache_dir()
+        self.settings_json =  self.cache_dir/ Path("settings.json")
+        self.settings_dict = read_settings(self.settings_json)
+        self.save_period = self.settings_dict["save_period"]
 
 class SettingSignals(QObject):
     cache_deleted = Signal()
     saved = Signal()
 
-
-# instantiate the signals object
+# instantiate the objects
+pm = PeriodManager()
 signals_object = SettingSignals()
 
 class SettingsDialog(QDialog):
@@ -59,7 +69,7 @@ class SettingsDialog(QDialog):
         delete_cache_layout = QHBoxLayout(delete_cache_row)
         delete_cache_layout.setSpacing(10)  # Adjust spacing within the row
         delete_cache_layout.setContentsMargins(10, 0, 10, 0)
-        delete_cache_label = QLabel("Delete cache", self)
+        delete_cache_label = QLabel("Delete cache Manually", self)
         delete_cache_label.setStyleSheet("color: black; font-weight: bold;")
         delete_cache_label.setAlignment(Qt.AlignLeft)
 
@@ -81,10 +91,12 @@ class SettingsDialog(QDialog):
         auto_delete_label.setStyleSheet("color: black; font-weight: bold;")
         self.combo_box = QComboBox(self)
         self.combo_box.setStyleSheet("background-color: #ffffff; color: #333333; border-radius: 5px;")
-        options = ["Delete cache every run", "One day", "One week", "Two weeks", 
-                   "One month", "Six months", "One year"]
+        options = [value for value in pm.delete_period_options.values()]
         self.combo_box.addItems(options)
-        self.combo_box.setCurrentIndex(3)
+
+        # set the default index based on the self.save_period
+        current_index = list(pm.delete_period_options.keys()).index(pm.save_period)
+        self.combo_box.setCurrentIndex(current_index)
 
         auto_delete_layout.addWidget(auto_delete_label, alignment=Qt.AlignLeft)
         auto_delete_layout.addWidget(self.combo_box, alignment=Qt.AlignRight)
@@ -92,9 +104,6 @@ class SettingsDialog(QDialog):
 
         main_layout.addWidget(table_frame)
 
-        # TODO:
-        # Must have something like state.json file. We can use this to save the settings
-        # Add Save button
         self.save_button = QPushButton("Save", self)
         self.save_button.setObjectName("saveButton")
         self.save_button.setStyleSheet("background-color: #007BFF; color: white; border-radius: 5px; padding: 10px 20px;")
@@ -110,6 +119,13 @@ class SettingsDialog(QDialog):
 
     def save_settings(self):
         """Accept the dialog and save the settings."""
+        # get the selected index from the combo box, and update. 
+        selected_index = self.combo_box.currentIndex()
+        pm.settings_dict["save_period"] = list(pm.delete_period_options.keys())[selected_index]
+        pm.save_period = pm.settings_dict["save_period"]
+
+        # save the settings to the settings.json file
+        save_dump_settings(pm.settings_json, pm.settings_dict)
         self.accept()
         self.worker_signal.saved.emit()
         logger.info("Settings saved")
@@ -119,7 +135,7 @@ class SettingsDialog(QDialog):
 
     def delete_cache_immediately(self):
         """Immediately flush out the cache and send signals."""
-        time.sleep(5)
+        custom_rmtree(pm.cache_dir)
         logger.info("Cache deleted")
         self.worker_signal.cache_deleted.emit()
 

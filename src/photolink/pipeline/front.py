@@ -1,11 +1,9 @@
 """Divide functional and UI related logic."""
 
-import shutil
 from pathlib import Path
 
-from PySide6.QtCore import QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QFont, QIcon,
-                           QMovie, QPainter, QPen)
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QFont, QIcon, QMovie
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (QFileDialog, QGridLayout, QHBoxLayout, QLabel,
                                QLineEdit, QMainWindow, QMessageBox,
@@ -18,76 +16,11 @@ from photolink import get_application_path, get_config_file
 from photolink.pipeline.qss import *
 from photolink.utils.function import read_config
 
-
-# NOT USING. KEEP IT FOR REFERENCES
-class CircularProgress(QWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.value = 0
-        self.width = 200
-        self.height = 200
-        self.setMinimumSize(self.width, self.height)
-        self.angle = 0
-
-        # Timer for the spinning light effect
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_angle)
-        self.timer.start(35)  # Adjusted timer for slower movement
-
-    def setValue(self, value):
-        self.value = value
-        self.update()
-
-    def update_angle(self):
-        self.angle = (self.angle + 5) % 360  # Smaller increment for slower spinning
-        self.update()
-
-        if self.value == 100:
-            self.timer.stop()
-
-    def paintEvent(self, event):
-        width = self.width
-        height = self.height
-        value = self.value
-
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setRenderHint(QPainter.TextAntialiasing)
-
-        rect = QRectF(10, 10, width - 20, height - 20)  # Rectangle for the blue progress arc
-        outer_rect = QRectF(2.5, 2.5, width - 5, height - 5)  # Larger outer rectangle for the green spinning light
-
-        # Background circle
-        painter.setPen(Qt.NoPen)
-        background_brush = QBrush(QColor(240, 240, 240))
-        painter.setBrush(background_brush)
-        painter.drawEllipse(rect)
-
-        # Progress arc (blue part as a rigid line within the circle, contacting the edge)
-        pen = QPen(QColor(45, 140, 240), 10, Qt.SolidLine, Qt.RoundCap)  # Thinner rigid line
-        painter.setPen(pen)
-        painter.drawArc(rect, 90 * 16, -int((value / 100) * 360) * 16)
-
-        # Spinning light with gradient outside the circle
-        gradient = QConicalGradient(outer_rect.center(), self.angle)
-        gradient.setColorAt(0.0, QColor(0, 255, 127))  # Start color: Greenish
-        gradient.setColorAt(1.0, QColor(0, 100, 0))    # End color: Darker green
-        painter.setBrush(QBrush(gradient))
-        pen_light = QPen(QBrush(gradient), 5, Qt.SolidLine, Qt.RoundCap)  # Thinner pen for the spinning light
-        painter.setPen(pen_light)
-        painter.drawArc(outer_rect, (90 + self.angle) * 16, 60 * 16)  # Longer arc length for the light effect
-
-        # Percentage text
-        painter.setPen(QPen(QColor(45, 140, 240)))
-        painter.setFont(QFont("Arial", 20, QFont.Bold))
-        painter.drawText(rect, Qt.AlignCenter, f"{int(value)}%")
-        
-class ProgressWidget(QWidget):
+class ProcessWidget(QWidget):
     """Integrate circular progress bar with QmessageBox."""
 
     def __init__(self, stop_callback, parent=None):
         super().__init__(parent)
-        # self.circular_progress = CircularProgress()
         self.loading_label = QLabel('Disclaimer: This software is only meant for internal usage.', self)
         self.loading_label.setAlignment(Qt.AlignCenter)
         font = QFont()
@@ -115,9 +48,6 @@ class ProgressWidget(QWidget):
         # layout.addWidget(self.circular_progress)
         layout.addWidget(self.stop_button)
         self.setLayout(layout)
-
-    # def setValue(self, value):
-    #     self.circular_progress.setValue(value)
 
 class MainWindowFront(QMainWindow):
 
@@ -369,8 +299,9 @@ class MainWindowFront(QMainWindow):
 
     def setup_cache_dir(self, cache_dir: Path):
         """clean up cache folders on start up, and recreate dir"""
-        if cache_dir.exists():
-            shutil.rmtree(cache_dir)
+        # SHOULD NO LONGER DELETE CACHE LIKE THIS.
+        # if cache_dir.exists():
+        #     shutil.rmtree(cache_dir)
         cache_dir.mkdir(parents=True, exist_ok=True)
 
     def change_button_status(self, enable=True):
@@ -392,4 +323,3 @@ class MainWindowFront(QMainWindow):
             self.start_button.setText("Start Processing")
             self.start_button.setStyleSheet(START_BUTTON_STYLE)
             self.refresh_button.setStyleSheet(REFRESH_BUTTON_STYLE)
-

@@ -1,9 +1,16 @@
-import photolink.utils.enums as enums
-import glob
 import configparser
+import glob
+import hashlib
+import lzma
 import os
 import pickle
-import lzma
+
+from loguru import logger
+from pathlib import Path
+
+import photolink.utils.enums as enums
+import shutil
+
 
 def search_all_images(path):
     """Recursively search all images in a directory. Select one if choose_one is True."""
@@ -45,3 +52,34 @@ def decompress_load(file: str) -> dict:
     """Decompress and load the data from a file."""
     with lzma.open(file, "rb") as f:
         return pickle.load(f)
+    
+def checksum(
+    filename, hash_factory=hashlib.blake2b, chunk_num_blocks=128, digest_size=32
+):
+    """Create hash based on path, or bytes. Avoid multiple opening by using bytes input"""
+
+    success = True
+
+    if hash_factory == hashlib.blake2b:
+        h = hashlib.blake2b(digest_size=digest_size)
+    else:
+        h = hash_factory()
+
+    if isinstance(filename, str):
+        with open(filename, "rb") as f:
+            for chunk in iter(lambda: f.read(chunk_num_blocks * h.block_size), b""):
+                h.update(chunk)
+    elif isinstance(filename, bytes):
+        h.update(filename)
+    else:
+        success = False
+        logger.error(f"Input must be either bytes or string")
+
+    return h.hexdigest() if success else None
+
+def custom_rmtree(directory: Path):
+    """Wipe out all files and directories."""
+    for item in directory.iterdir():
+        # we only care about directories. Not files.
+        if item.is_dir():
+            shutil.rmtree(item)

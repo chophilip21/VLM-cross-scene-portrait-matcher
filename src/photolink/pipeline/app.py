@@ -12,7 +12,7 @@ from PySide6.QtWidgets import QLabel, QMessageBox
 import photolink.pipeline.settings as settings
 import photolink.utils.enums as enums
 from photolink import get_application_path, get_config_file
-from photolink.pipeline.front import MainWindowFront, ProgressWidget
+from photolink.pipeline.front import MainWindowFront, ProcessWidget
 from photolink.pipeline.qss import *
 from photolink.utils.function import read_config, search_all_images
 from photolink.workers.worker import Worker
@@ -139,7 +139,7 @@ class MainWindow(MainWindowFront):
             raise ValueError("Invalid task selected")
         
         # Now passed all validation, so display the progress bar.
-        self.progress_widget = ProgressWidget(self.stop_processing)
+        self.progress_widget = ProcessWidget(self.stop_processing)
         self.progress_message_box = QMessageBox(self)
         self.progress_message_box.setWindowTitle("Processing has started. Please wait.")
         self.progress_message_box.setStandardButtons(QMessageBox.NoButton)
