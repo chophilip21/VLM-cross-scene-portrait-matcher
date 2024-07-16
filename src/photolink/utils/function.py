@@ -10,19 +10,35 @@ from pathlib import Path
 
 import photolink.utils.enums as enums
 import shutil
+from datetime import datetime
+import json
 
 
-def search_all_images(path):
-    """Recursively search all images in a directory. Select one if choose_one is True."""
+def search_all_images(path: Path):
+    """Recursively search all images in a directory. """
     images = []
     path_ = path + '/**/*.*'
     files = glob.glob(path_,recursive = True) 
+
     for file in files:
-        
+    
         if file.split('.')[-1].lower() in enums.IMAGE_EXTENSION:
             images.append(file)
 
     return images
+
+def search_all_xz_file(path: Path)-> list:
+    """Recursively search all embeddings file in a directory. """
+    embeddings = []
+    path_ = str(path) + '/**/*.*'
+    files = glob.glob(path_,recursive = True) 
+
+    for file in files:
+        if file.split('.')[-1].lower() == 'xz':
+            embeddings.append(file)
+
+    return embeddings
+
 
 def read_config(file)-> dict:
     """Read config file"""
@@ -83,3 +99,41 @@ def custom_rmtree(directory: Path):
         # we only care about directories. Not files.
         if item.is_dir():
             shutil.rmtree(item)
+
+def get_current_date()->str:
+    """Return the current date as integer values for year, month, and day."""
+    now = datetime.now()
+    year = now.year
+    month = now.month
+    day = now.day
+    time_string = f"{year}-{month}-{day}"
+    return time_string
+
+def read_json(file_path):
+    """Read and return data from a JSON file."""
+    if Path(file_path).exists():
+        with open(file_path, 'r') as json_file:
+            return json.load(json_file)
+    else:
+        # create empty file if it does not exist
+        with open(file_path, 'w') as json_file:
+            json.dump({}, json_file)
+
+
+def get_hash_image_pair_list(data: list)-> list:
+    """Return a list of dict, hash to image path pair."""
+
+    converted_data = []
+
+    for image_path in data:
+        hash_ = checksum(image_path)
+        tmp = {}
+        tmp[hash_] = image_path
+        converted_data.append(tmp)
+
+    return converted_data
+
+
+
+
+    

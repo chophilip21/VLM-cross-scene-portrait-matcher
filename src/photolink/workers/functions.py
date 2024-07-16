@@ -30,10 +30,19 @@ def _run_ml_model(
     Instead of converting all faces to embeddings, only largest top n faces are converted. Result should have both aligned face and converted embeddings as keys.
     """
 
+    # check if this exists. If exists, skip.
+    save_embedding_name = save_path / Path(
+        os.path.basename(image_path).split(".")[0] + ".xz"
+    )
+
+    if save_embedding_name.exists():
+        logger.info(
+            f"Embeddings already exists for {image_path}. Skipping processing.")
+        return image_path
+
     # Use the pre-loaded global models
     global YUNET_MODEL, SFACE_MODEL
     detection_result = YUNET_MODEL.run_face_detection(image_path)
-    # logger.info(f"Pre-Processing:{image_path}")
     failed_image = fail_path / Path(os.path.basename(image_path))
 
     if "error" in detection_result:
