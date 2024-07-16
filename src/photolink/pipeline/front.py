@@ -1,32 +1,23 @@
 """Divide functional and UI related logic."""
 
-import photolink.utils.enums as enums
-from photolink.utils.function import read_config
-import photolink.pipeline.settings as settings
-from PySide6.QtCore import Qt, QRectF, QTimer, Signal, QSize
-from PySide6.QtWidgets import (
-    QMainWindow,
-    QLabel,
-    QVBoxLayout,
-    QGridLayout,
-    QWidget,
-    QPushButton,
-    QFileDialog,
-    QHBoxLayout,
-    QLineEdit,
-    QSizePolicy,
-    QTextEdit,
-    QMessageBox,
-    QToolButton,
-    
-)
-from PySide6.QtGui import QFont, QBrush, QColor, QConicalGradient, QMovie, QIcon
-from PySide6.QtSvgWidgets import QSvgWidget
-from photolink.pipeline.qss import *
 import shutil
-from photolink import get_application_path, get_config_file
 from pathlib import Path
-from PySide6.QtGui import QPainter, QPen, QFont
+
+from PySide6.QtCore import QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QFont, QIcon,
+                           QMovie, QPainter, QPen)
+from PySide6.QtSvgWidgets import QSvgWidget
+from PySide6.QtWidgets import (QFileDialog, QGridLayout, QHBoxLayout, QLabel,
+                               QLineEdit, QMainWindow, QMessageBox,
+                               QPushButton, QSizePolicy, QTextEdit,
+                               QToolButton, QVBoxLayout, QWidget)
+
+import photolink.pipeline.settings as settings
+import photolink.utils.enums as enums
+from photolink import get_application_path, get_config_file
+from photolink.pipeline.qss import *
+from photolink.utils.function import read_config
+
 
 # NOT USING. KEEP IT FOR REFERENCES
 class CircularProgress(QWidget):

@@ -1,13 +1,16 @@
 """Main entry point for the application."""
-import sys
 import signal
-from photolink.utils.function import read_config, config_to_env
-from PySide6.QtCore import QTimer, Qt, QCoreApplication, QProcess
-from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QIcon
-from photolink.pipeline.qss import *
-from photolink import get_application_path, get_config_file
+import sys
+
 from loguru import logger
+from PySide6.QtCore import QCoreApplication, QProcess, Qt, QTimer
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication
+
+from photolink import get_application_path, get_config_file
+from photolink.pipeline.qss import *
+from photolink.utils.function import config_to_env, read_config
+
 
 def restart_application():
     logger.warning("Hard restarting application...")

@@ -22,6 +22,7 @@ devel = [
     "nuitka",
     "loguru",
     "swig",
+    "isort",
 ]
 
 [tool.hatch.build.targets.wheel]

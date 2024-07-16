@@ -1,19 +1,22 @@
 import sys
-import time
 import threading
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QLabel, QPushButton, 
-                               QComboBox, QApplication, QHBoxLayout, QFrame)
-from PySide6.QtCore import Qt, Signal, QObject
+import time
+
 from loguru import logger
+from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QFrame,
+                               QHBoxLayout, QLabel, QPushButton, QVBoxLayout)
+
 from photolink.pipeline.qss import SETTINGS_DESIGN
 
-class Worker(QObject):
-    finished = Signal()
 
-    def run(self):
-        time.sleep(5)
-        self.finished.emit()
-        logger.info("Cache deleted")
+class SettingSignals(QObject):
+    cache_deleted = Signal()
+    saved = Signal()
+
+
+# instantiate the signals object
+signals_object = SettingSignals()
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
@@ -23,6 +26,7 @@ class SettingsDialog(QDialog):
         self.initUI()
         self.setStyleSheet(self.get_stylesheet())
         self.worker_thread = None
+        self.worker_signal = signals_object
 
     def initUI(self):
         main_layout = QVBoxLayout()
@@ -88,11 +92,14 @@ class SettingsDialog(QDialog):
 
         main_layout.addWidget(table_frame)
 
+        # TODO:
+        # Must have something like state.json file. We can use this to save the settings
         # Add Save button
         self.save_button = QPushButton("Save", self)
         self.save_button.setObjectName("saveButton")
         self.save_button.setStyleSheet("background-color: #007BFF; color: white; border-radius: 5px; padding: 10px 20px;")
-        self.save_button.clicked.connect(self.accept)
+        self.save_button.clicked.connect(self.save_settings)
+
         save_layout = QHBoxLayout()
         save_layout.addStretch()
         save_layout.addWidget(self.save_button)
@@ -101,19 +108,31 @@ class SettingsDialog(QDialog):
 
         self.setLayout(main_layout)
 
+    def save_settings(self):
+        """Accept the dialog and save the settings."""
+        self.accept()
+        self.worker_signal.saved.emit()
+        logger.info("Settings saved")
+
     def get_stylesheet(self):
         return SETTINGS_DESIGN
 
+    def delete_cache_immediately(self):
+        """Immediately flush out the cache and send signals."""
+        time.sleep(5)
+        logger.info("Cache deleted")
+        self.worker_signal.cache_deleted.emit()
+
     def handle_delete(self):
+        """When deleting cache, it must be handled in a separate thread."""
         self.delete_button.setObjectName("deleteButton")
         self.delete_button.setStyleSheet("background-color: red; color: white;")
         self.delete_button.setText("Deleting...")
         self.delete_button.setEnabled(False)
+        self.worker_signal.cache_deleted.connect(self.reset_delete_button)
 
-        self.worker = Worker()
-        self.worker.finished.connect(self.reset_delete_button)
-
-        self.worker_thread = threading.Thread(target=self.worker.run)
+        # must be deleted on 
+        self.worker_thread = threading.Thread(target=self.delete_cache_immediately)
         self.worker_thread.start()
 
     def reset_delete_button(self):
@@ -122,11 +141,19 @@ class SettingsDialog(QDialog):
         self.delete_button.setEnabled(True)
 
 def show_settings():
+    """Display settings related content."""
     app = QApplication.instance()
     if app is None:
         app = QApplication(sys.argv)
-    dialog = SettingsDialog()
-    dialog.exec()
+
+    try:
+        dialog = SettingsDialog()
+        dialog.exec()
+    finally:
+        # try doing some clean up in case. 
+        if dialog.worker_thread is not None:
+            logger.info("Cleaning up worker thread for settings dialog.")
+            dialog.worker_thread.join()
 
 if __name__ == "__main__":
     show_settings()

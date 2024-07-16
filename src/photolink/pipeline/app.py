@@ -1,18 +1,21 @@
 """Divide functional and UI related logic."""
 
-import photolink.utils.enums as enums
-from photolink.utils.function import search_all_images, read_config
-from PySide6.QtCore import Slot
-from PySide6.QtWidgets import QLabel, QMessageBox
-from photolink.pipeline.qss import *
 import json
-from photolink.pipeline.front import MainWindowFront, ProgressWidget
-from photolink import get_application_path, get_config_file
-from photolink.workers.worker import Worker
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
+
 from loguru import logger
+from PySide6.QtCore import Slot
+from PySide6.QtWidgets import QLabel, QMessageBox
+
+import photolink.pipeline.settings as settings
+import photolink.utils.enums as enums
+from photolink import get_application_path, get_config_file
+from photolink.pipeline.front import MainWindowFront, ProgressWidget
+from photolink.pipeline.qss import *
+from photolink.utils.function import read_config, search_all_images
+from photolink.workers.worker import Worker
 
 
 class MainWindow(MainWindowFront):
@@ -33,10 +36,14 @@ class MainWindow(MainWindowFront):
         self.threads = []
 
         #setup log path.
-     
         logger.info(f"Application path: {self.application_path}")
         logger.info(f"Cache dir: {self.cache_dir}")
         logger.info(f"Operating system: {self.operating_system}")
+
+        # settings related signals.
+        self.settings = settings.signals_object
+        self.settings.saved.connect(self.notify_settings_saved)
+        self.settings.cache_deleted.connect(self.notify_cache_deleted)
 
     @Slot()
     def handle_box_click(self):
@@ -148,7 +155,6 @@ class MainWindow(MainWindowFront):
         # start the worker on a thread. This will prevent the GUI from freezing.
         worker = Worker(self.job["task"])
         worker.signals.stopped.connect(self.task_interrupted)
-        worker.signals.progress.connect(self.task_progress)
         worker.signals.result.connect(self.task_result)
         worker.signals.finished.connect(self.task_finished)
         worker.signals.error.connect(self.task_error)
@@ -180,13 +186,6 @@ class MainWindow(MainWindowFront):
         self.num_postprocessed = 0
         self.current_progress = 0
 
-    # TODO: This is not used at the moment.
-    def task_progress(self, value):
-        """Called to update progress bar based on signals from worker."""
-        if value > int(self.current_progress):
-            self.current_progress = value
-            self.progress_widget.setValue(self.current_progress)
-
     def task_error(self, error):
         """Called when an error has occured during processing."""
         logger.error(f"Error has occured on the thread: {error}")
@@ -196,3 +195,11 @@ class MainWindow(MainWindowFront):
     def task_result(self, result):
         """Called to log task results to console."""
         self.log_message(result)
+
+    def notify_settings_saved(self):
+        """Called when the settings dialog is saved."""
+        self.log_message("Settings saved successfully.")
+
+    def notify_cache_deleted(self):
+        """Called when the cache is deleted."""
+        self.log_message("Cache deleted successfully.")
