@@ -15,6 +15,7 @@ import photolink.utils.enums as enums
 from photolink import get_application_path, get_config_file
 from photolink.pipeline.qss import *
 from photolink.utils.function import read_config
+import os
 
 class ProcessWidget(QWidget):
     """Integrate circular progress bar with QmessageBox."""
@@ -299,9 +300,8 @@ class MainWindowFront(QMainWindow):
 
     def setup_cache_dir(self, cache_dir: Path):
         """clean up cache folders on start up, and recreate dir"""
-        # SHOULD NO LONGER DELETE CACHE LIKE THIS.
-        # if cache_dir.exists():
-        #     shutil.rmtree(cache_dir)
+        # set cache dir as env variable.
+        os.environ["CACHE_DIR"] = str(cache_dir)
         cache_dir.mkdir(parents=True, exist_ok=True)
 
     def change_button_status(self, enable=True):

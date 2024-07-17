@@ -15,6 +15,7 @@ from pathlib import Path
 import math
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from loguru import logger
+from multiprocessing import Manager
 
 
 # Global variables for pre-loaded models
@@ -30,15 +31,14 @@ def _run_ml_model(
     Instead of converting all faces to embeddings, only largest top n faces are converted. Result should have both aligned face and converted embeddings as keys.
     """
 
-    # check if this exists. If exists, skip.
-    save_embedding_name = save_path / Path(
-        os.path.basename(image_path).split(".")[0] + ".xz"
-    )
+    # Use the checksum of the image as the hash to avoid duplicates.
+    image_hash = function.checksum(image_path)
+    save_embedding_name = save_path / Path(image_hash + ".xz")
 
+    # no need to calculate if the embeddings already exist.
     if save_embedding_name.exists():
-        logger.info(
-            f"Embeddings already exists for {image_path}. Skipping processing.")
-        return image_path
+        logger.info(f"Embeddings already exists for {image_path}. Skipping processing.")
+        return (image_path, image_hash)
 
     # Use the pre-loaded global models
     global YUNET_MODEL, SFACE_MODEL
@@ -68,21 +68,20 @@ def _run_ml_model(
     faces = sorted(faces, key=lambda face: face[2] * face[3], reverse=True)[:keep_top_n]
     embedding_dict = SFACE_MODEL.run_embedding_conversion(image, faces)
 
+    # add image path to the dictionary.
+    embedding_dict["image_path"] = image_path
+
     if "error" in embedding_dict:
         shutil.copy(image_path, failed_image)
         warning = f"Warning! Face recognition error on source image {image_path}: {embedding_dict['error']}"
 
         return warning
 
-    save_embedding_name = save_path / Path(
-        os.path.basename(image_path).split(".")[0] + ".xz"
-    )
-
     # pickle dump all face embeddings found in the image.
     function.compress_save(embedding_dict, save_embedding_name)
 
-    # let's return image path itself as a result. This is for logging purposes.
-    return image_path
+    # return image path and hash as result.
+    return (image_path, image_hash)
 
 
 def run_task(entry, stop_flag, save_path, fail_path, keep_top_n):
@@ -107,6 +106,11 @@ def run_model_mp(
     stop_flag = manager.Value("i", 0)
     entries = sorted(entries)
 
+    # This should have already been setup in the main function.
+    hash_json_dict = function.read_hash_file(raise_missing_error=False)
+    manager = Manager()
+    hash_json_dict = manager.dict(hash_json_dict)  # for thread safety.
+
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         future_to_entry = {
             executor.submit(
@@ -118,19 +122,29 @@ def run_model_mp(
         try:
             for future in as_completed(future_to_entry):
                 if stop_event.is_set():
-                    logger.warning("JobProcessor: Stop event detected, shutting down executor.")
+                    logger.warning(
+                        "JobProcessor: Stop event detected, shutting down executor."
+                    )
                     stop_flag.value = 1  # Set the stop flag
                     executor.shutdown(wait=False)
                     break
 
                 try:
-                    result = future.result().strip()
 
-                    if not result.startswith("Warning"):
-                        logger.info(result)
-                    else:
+                    # check if result is string or tuple.
+                    result = future.result()
+
+                    if isinstance(result, str):
                         logger.warning(result)
-                        
+                        continue
+
+                    # result is a tuple of (image_path, image_hash). Add to dict.
+                    image_path, image_hash = future.result()
+                    hash_json_dict[image_hash] = image_path
+                    logger.info(
+                        f"run_model_mp: Processed entry {image_path}, hash: {image_hash}"
+                    )
+
                 except Exception as e:
                     logger.error(
                         f"run_model_mp: Error processing entry {future_to_entry[future]}: {e}"
@@ -139,6 +153,9 @@ def run_model_mp(
         except Exception as e:
             logger.error(f"Error during concurrent processing: {e}")
             raise e
+
+    # save the hash json file.
+    function.write_hash_file(hash_json_dict)
 
 
 def read_embedding_file(embedding_path) -> dict:
@@ -173,31 +190,22 @@ def read_embedding_file(embedding_path) -> dict:
 def match_embeddings(
     source_cache: Path,
     reference_cache: Path,
-    source_list_images: list,
-    reference_list_images: list,
     output_path: Path,
     stop_event: mp.Event,
 ) -> dict:
     """Match the embeddings and save the match. Return result status."""
 
+    # retreive the lookup table. This must exist at this point.
+    hash_json_dict = function.read_hash_file(raise_missing_error=True)
+
+    # Get a list of relevant source/reference embeddings.
+    source_embeddings = function.get_relevant_embeddings(source_cache, "source")
+    reference_embeddings = function.get_relevant_embeddings(
+        reference_cache, "reference"
+    )
+
     result = {}
-
     faiss_index = faiss.IndexFlatL2(128)
-    source_embeddings = [
-        source_cache / Path(file)
-        for file in os.listdir(source_cache)
-        if file.split(".")[-1] == "xz"
-    ]
-
-    reference_embeddings = [
-        reference_cache / Path(file)
-        for file in os.listdir(reference_cache)
-        if file.split(".")[-1] == "xz"
-    ]
-
-    # create look up table using Pathlib.
-    source_dict = {Path(file).stem: file for file in source_list_images}
-    reference_dict = {Path(file).stem: file for file in reference_list_images}
 
     # start by reading each embedding file, and adding to faiss index.
     for i, embedding_file in enumerate(source_embeddings):
@@ -207,7 +215,9 @@ def match_embeddings(
             return result
 
         progress = math.ceil(50 + ((i + 1) / len(source_embeddings) * 25))
-        logger.info(f"Post-Processing:{int(progress)}")
+
+        if progress % 5 == 0:
+            logger.info(f"Post-Processing:{int(progress)}")
 
         try:
             source_embedding_dict = read_embedding_file(
@@ -231,7 +241,9 @@ def match_embeddings(
     for i, file in enumerate(reference_embeddings):
 
         progress = math.ceil(75 + ((i + 1) / len(reference_embeddings) * 25))
-        logger.info(f"Post-Processing:{int(progress)}")
+
+        if progress % 5 == 0:
+            logger.info(f"Post-Processing:{int(progress)}")
 
         try:
             reference_embedding_dict = read_embedding_file(reference_cache / Path(file))
@@ -246,27 +258,25 @@ def match_embeddings(
 
                 # search for the nearest embedding in the source embeddings.
                 D, I = faiss_index.search(face_embedding, 1)
-                distance = D[0][0]
 
-                # predicted label must exist in the lookup table.
                 predicted_label = Path(source_embeddings[I[0][0]]).stem
 
-                if predicted_label not in source_dict:
+                if predicted_label not in hash_json_dict:
                     raise ValueError(
                         f"Predicted label {predicted_label} not found in source_dict."
                     )
 
-                predicted_source_input_path = source_dict[predicted_label]
+                predicted_source_input_path = hash_json_dict[predicted_label]
 
                 # now get the equivalent reference image.
                 reference_label = Path(file).stem
 
-                if reference_label not in reference_dict:
+                if reference_label not in hash_json_dict:
                     raise ValueError(
                         f"Reference label {reference_label} not found in reference_dict."
                     )
 
-                ref_img_input_path = reference_dict[reference_label]
+                ref_img_input_path = hash_json_dict[reference_label]
 
                 # to output folder, create a folder based predicted_label.
                 predicted_label_folder = output_path / Path(predicted_label)
@@ -295,7 +305,6 @@ def match_embeddings(
 
 def cluster_embeddings(
     source_cache: Path,
-    source_list_images: list,
     clustering_algorithm: str,
     eps: float,
     min_samples: int,
@@ -308,15 +317,9 @@ def cluster_embeddings(
     result = {}
     result["missed_count"] = 0
 
-    source_embeddings = [
-        source_cache / Path(file)
-        for file in os.listdir(source_cache)
-        if file.split(".")[-1] == "xz"
-    ]
-
-    embedding_file_to_image_table = {
-        Path(file).stem: file for file in source_list_images
-    }
+    # get list of relevant embeddings.
+    source_embeddings = function.get_relevant_embeddings(source_cache, "source")
+    hash_json_dict = function.read_hash_file(raise_missing_error=True)
 
     loaded_embeddings = []
     loaded_faces = []
@@ -324,7 +327,7 @@ def cluster_embeddings(
 
     # init clustering algorithm.
     if clustering_algorithm == enums.ClusteringAlgorithm.DBSCAN.value:
-       raise NotImplementedError(
+        raise NotImplementedError(
             f"Clustering algorithm {clustering_algorithm} not supported."
         )
     elif clustering_algorithm == enums.ClusteringAlgorithm.OPTICS.value:
@@ -379,12 +382,20 @@ def cluster_embeddings(
             return
 
         progress = math.ceil(50 + ((i + 1) / len(labels) * 50))
-        logger.info(f"Post-Processing:{int(progress)}")
+        if progress % 5 == 0:
+            logger.info(f"Post-Processing:{int(progress)}")
 
         # find the original image from look up table.
         backtracked_file_name = Path(face_to_embedding_file_table[i])
 
-        source_img_path = embedding_file_to_image_table[backtracked_file_name.stem]
+        # assert the hash is correct length.
+        if len(backtracked_file_name.stem) != 64:
+            logger.warning(
+                f"Invalid hash length for {backtracked_file_name.stem}. Skipping."
+            )
+            continue
+
+        source_img_path = hash_json_dict[backtracked_file_name.stem]
 
         # label -1 indicates failed clustering.
         if label == -1:
@@ -392,7 +403,7 @@ def cluster_embeddings(
                 fail_path / Path(os.path.basename(source_img_path))
             )
             shutil.copy(source_img_path, failed_img_output_path)
-            logger.error(
+            logger.warning(
                 f"Failed clustering on {source_img_path}. Saved to {failed_img_output_path}"
             )
             result["missed_count"] += 1

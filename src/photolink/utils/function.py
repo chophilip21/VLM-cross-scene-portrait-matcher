@@ -72,7 +72,7 @@ def decompress_load(file: str) -> dict:
 def checksum(
     filename, hash_factory=hashlib.blake2b, chunk_num_blocks=128, digest_size=32
 ):
-    """Create hash based on path, or bytes. Avoid multiple opening by using bytes input"""
+    """Create hash based on path, or bytes. Avoid multiple opening by using bytes input. Calculating hash on file ensures file integrity, also it's cheaper because we calculate based on blocks. """
 
     success = True
 
@@ -95,6 +95,13 @@ def checksum(
 
 def custom_rmtree(directory: Path):
     """Wipe out all files and directories."""
+
+    # if hash.json exist, delete this.
+    hash_file = directory / "hash.json"
+    if hash_file.exists():
+        logger.info(f"Deleting hash file: {hash_file}")
+        os.remove(hash_file)
+
     for item in directory.iterdir():
         # we only care about directories. Not files.
         if item.is_dir():
@@ -112,15 +119,94 @@ def get_current_date()->str:
 def read_json(file_path):
     """Read and return data from a JSON file."""
     if Path(file_path).exists():
-        with open(file_path, 'r') as json_file:
-            return json.load(json_file)
+
+        try:
+            with open(file_path, 'r') as json_file:
+                return json.load(json_file) or {}
+        except json.JSONDecodeError as e:
+            logger.error(f"Error reading JSON file: {file_path}, {e}")
+            return {}
     else:
         # create empty file if it does not exist
         with open(file_path, 'w') as json_file:
             json.dump({}, json_file)
 
+        return {}
 
 
+def write_json(data, file_path):
+    """Write data to a JSON file."""
+    with open(file_path, 'w') as json_file:
+        json.dump(data, json_file, indent=4)
 
 
+def read_hash_file(raise_missing_error=True):
+    """Read and return the hash file (image hash-image path pairs)."""
+    cache_dir = os.getenv("CACHE_DIR")
+
+    if cache_dir is None:
+        raise EnvironmentError("Please set the CACHE_DIR environment variable.")
     
+    hash_file = Path(cache_dir) / "hash.json"
+
+    # when postprocessing, it would be unacceptable for the hash file to be missing.
+    if raise_missing_error and not hash_file.exists():
+        raise FileNotFoundError(f"Hash file not found. It must exist by now: {hash_file}")
+
+    return read_json(hash_file)
+        
+
+def write_hash_file(hash_json_dict):
+    """Write the hash file (image hash-image path pairs)."""
+    cache_dir = os.getenv("CACHE_DIR")
+
+    if cache_dir is None:
+        raise EnvironmentError("Please set the CACHE_DIR environment variable.")
+    
+    hash_file = Path(cache_dir) / "hash.json"
+    write_json(dict(hash_json_dict), hash_file)
+
+
+def get_relevant_embeddings(embeddings_path: Path, job_key: str)-> list:
+    """Get the relevant embeddings from the cache by screening with job.json key. Job key can be either 'source' or 'reference'. Output is list ov xz files."""
+    
+    cache_dir = os.getenv("CACHE_DIR")
+
+    if cache_dir is None:
+        raise EnvironmentError("Please set the CACHE_DIR environment variable.")
+    
+    # we need both hash table and job table to truly find out what matters for the job.
+    job_file = Path(cache_dir) / "job.json"
+    hash_file = Path(cache_dir) / "hash.json"
+
+    if not job_file.exists():
+        raise FileNotFoundError(f"Job file not found. Must exist by now: {job_file}")
+    
+    if not hash_file.exists():
+        raise FileNotFoundError(f"Hash file not found. Must exist by now: {hash_file}")
+
+    if job_key not in ["source", "reference"]:
+        raise ValueError(f"Invalid job key: {job_key}")
+
+    job = read_json(job_file)
+    hash_ = read_json(hash_file)
+
+    if job_key not in job:
+        raise KeyError(f"Job key not found in the job file: {job_key}")
+
+    # invert key and values in hash_ dict, so path is key and hash is value.
+    hash_inverted = {v: k for k, v in hash_.items()}
+    relevant_images = set(job[job_key])
+
+    # relevant hashes
+    relevant_hashes = set([hash_inverted[image] for image in relevant_images])
+
+    # now we can screen out embeddings that really matters, instead of everything.
+    relevant_embedding_list = [embeddings_path / Path(file) for file in os.listdir(embeddings_path) if file.split('.')[-1] == "xz" and file.split('.')[0] in relevant_hashes]
+
+    if not relevant_embedding_list:
+        logger.error(f"No relevant embeddings found for job key: {job_key}")
+    else:
+        logger.info(f'{len(relevant_embedding_list)} Relevant embeddings found for job key: {job_key}')
+
+    return relevant_embedding_list

@@ -189,7 +189,7 @@ class MainWindow(MainWindowFront):
     def task_error(self, error):
         """Called when an error has occured during processing."""
         logger.error(f"Error has occured on the thread: {error}")
-        self.display_notification("Error", "An error has occured during processing.")
+        self.display_notification("Error", f"An error has occured during processing: {error}")
         self.stop_processing()
 
     def task_result(self, result):

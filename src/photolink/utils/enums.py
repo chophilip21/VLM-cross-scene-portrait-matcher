@@ -3,7 +3,7 @@ from enum import Enum
 
 class Task(Enum):
     """Enum for task type."""
-    FACE_SEARCH = "Face searching can be used to find photos of the subject from heaps of unlabeled photos. You can add multiple subjects to the source folder, but ensure that you use exactly one source image per subject. Results will be saved to output path."
+    FACE_SEARCH = "Search photos of your target subject from heaps of unlabeled photos. Source here is an image of a person you are looking for. You can add multiple subjects to the source folder, but ensure that you use exactly one source image per subject, and that each source photo has precisely one person in it. Results will be saved to output path."
     CLUSTERING = "When you do not know how many subjects you have, place all images into a single folder and run clustering. Each cluster represents identified subject. Uncertain ones will be transferred to uncertain folder. Subject must have at least two images to be considered as a cluster."
 
 class ErrorMessage(Enum):

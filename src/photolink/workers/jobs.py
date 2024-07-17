@@ -76,7 +76,7 @@ class JobProcessor:
                 return enums.StatusMessage.STOPPED.name
 
         elif self.task == enums.Task.CLUSTERING.name:
-            
+
             self.preprocess_clustering()
             if self.stop_event.is_set():
                 return enums.StatusMessage.STOPPED.name
@@ -99,12 +99,12 @@ class JobProcessor:
         if len(self.source_list_images) == 0:
             e = enums.ErrorMessage.SOURCE_FOLDER_EMPTY.value
             logger.error(f"preprocessing error during matching: {e}", file=sys.stderr)
-            sys.exit(1)
+            self.signals.error.emit(str(e))
 
         if len(self.reference_list_images) == 0:
             e = enums.ErrorMessage.REFERENCE_FOLDER_EMPTY.value
-            logger.error(f"preprocessing error during matching: {e}", file=sys.stderr)
-            sys.exit(1)
+            logger.error(f"preprocessing error during matching: {e}")
+            self.signals.error.emit(str(e))
 
         try:
             functions.run_model_mp(
@@ -129,7 +129,7 @@ class JobProcessor:
                 f"Unexpected preprocessing error during matching: {e}", file=sys.stderr
             )
             logger.error(traceback.format_exc())
-            sys.exit(1)
+            self.signals.error.emit(str(e))
 
     def postprocess_sample_matching(self):
         """Postprocess the matching algorithm."""
@@ -137,8 +137,6 @@ class JobProcessor:
             result = functions.match_embeddings(
                 source_cache=self.source_cache,
                 reference_cache=self.reference_cache,
-                source_list_images=self.source_list_images,
-                reference_list_images=self.reference_list_images,
                 output_path=self.output_path,
                 stop_event=self.stop_event,
             )
@@ -146,17 +144,14 @@ class JobProcessor:
             if "error" in result:
                 logger.error(
                     f"Postprocessing Error during matching: {result['error']}",
-                    file=sys.stderr,
                 )
-                sys.exit(1)
+                self.signals.error.emit(str((result["error"])))
 
         except Exception as e:
             # let handle_stderr handle the error
-            logger.error(
-                f"Unexpected postprocessing error during matching: {e}", file=sys.stderr
-            )
+            logger.error(f"Unexpected postprocessing error during matching: {e}")
             logger.error(traceback.format_exc())
-            sys.exit(1)
+            self.signals.error.emit(str(e))
 
     def preprocess_clustering(self) -> None:
         """Preprocessing for the clustering algorithm. Use MP."""
@@ -178,10 +173,9 @@ class JobProcessor:
         except Exception as e:
             logger.error(
                 f"Unexpected preprocessing error during clustering: {e}",
-                file=sys.stderr,
             )
             logger.error(traceback.format_exc())
-            sys.exit(1)
+            self.signals.error.emit(str(e))
 
     def postprocess_clustering(self) -> None:
         """Postprocess the clustering algorithm."""
@@ -192,7 +186,6 @@ class JobProcessor:
         try:
             result = functions.cluster_embeddings(
                 source_cache=self.source_cache,
-                source_list_images=self.source_list_images,
                 clustering_algorithm=clustering_algorithm,
                 eps=eps,
                 min_samples=min_samples,
@@ -203,9 +196,6 @@ class JobProcessor:
 
         except Exception as e:
             # let handle_stderr handle the error
-            logger.error(
-                f"Unexpected postprocessing error during clustering: {e}",
-                file=sys.stderr,
-            )
+            logger.error(f"Unexpected postprocessing error during clustering: {e}")
             logger.error(traceback.format_exc())
-            sys.exit(1)  # Exit with a non-zero status to indicate an error
+            self.signals.error.emit(str(e))
