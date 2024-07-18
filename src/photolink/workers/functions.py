@@ -15,7 +15,6 @@ from pathlib import Path
 import math
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from loguru import logger
-import IPython
 
 
 # Global variables for pre-loaded models
