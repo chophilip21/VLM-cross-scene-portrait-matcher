@@ -15,7 +15,7 @@ from pathlib import Path
 import math
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from loguru import logger
-from multiprocessing import Manager
+import IPython
 
 
 # Global variables for pre-loaded models
@@ -108,8 +108,7 @@ def run_model_mp(
 
     # This should have already been setup in the main function.
     hash_json_dict = function.read_hash_file(raise_missing_error=False)
-    manager = Manager()
-    hash_json_dict = manager.dict(hash_json_dict)  # for thread safety.
+    hash_json_dict_ = manager.dict(hash_json_dict)  # for thread safety.
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         future_to_entry = {
@@ -128,10 +127,8 @@ def run_model_mp(
                     stop_flag.value = 1  # Set the stop flag
                     executor.shutdown(wait=False)
                     break
-
+                
                 try:
-
-                    # check if result is string or tuple.
                     result = future.result()
 
                     if isinstance(result, str):
@@ -140,22 +137,21 @@ def run_model_mp(
 
                     # result is a tuple of (image_path, image_hash). Add to dict.
                     image_path, image_hash = future.result()
-                    hash_json_dict[image_hash] = image_path
+                    hash_json_dict_[image_hash] = image_path
                     logger.info(
                         f"run_model_mp: Processed entry {image_path}, hash: {image_hash}"
                     )
-
                 except Exception as e:
-                    logger.error(
-                        f"run_model_mp: Error processing entry {future_to_entry[future]}: {e}"
-                    )
+                    entry = future_to_entry[future]
+                    logger.error(f"Error processing entry {entry}: {e}")
 
         except Exception as e:
             logger.error(f"Error during concurrent processing: {e}")
             raise e
 
     # save the hash json file.
-    function.write_hash_file(hash_json_dict)
+    # IPython.embed()
+    function.write_hash_file(hash_json_dict_)
 
 
 def read_embedding_file(embedding_path) -> dict:

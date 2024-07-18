@@ -198,8 +198,8 @@ def get_relevant_embeddings(embeddings_path: Path, job_key: str)-> list:
     hash_inverted = {v: k for k, v in hash_.items()}
     relevant_images = set(job[job_key])
 
-    # relevant hashes
-    relevant_hashes = set([hash_inverted[image] for image in relevant_images])
+    # relevant hashes, only if they are in the hash table.
+    relevant_hashes = set([hash_inverted[image] for image in relevant_images if image in hash_inverted])
 
     # now we can screen out embeddings that really matters, instead of everything.
     relevant_embedding_list = [embeddings_path / Path(file) for file in os.listdir(embeddings_path) if file.split('.')[-1] == "xz" and file.split('.')[0] in relevant_hashes]
