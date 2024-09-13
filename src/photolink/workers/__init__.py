@@ -1,8 +1,10 @@
 """Init file for worker module."""
-from PySide6.QtCore import Signal, QObject
+
+from PySide6.QtCore import QObject, Signal
+
 
 class WorkerSignals(QObject):
-    '''
+    """
     Defines the signals available from a running worker thread.
 
     Supported signals are:
@@ -19,7 +21,8 @@ class WorkerSignals(QObject):
     progress
         int indicating % progress
 
-    '''
+    """
+
     finished = Signal()
     stopped = Signal()
     error = Signal(tuple)

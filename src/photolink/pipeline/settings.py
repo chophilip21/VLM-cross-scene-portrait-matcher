@@ -1,5 +1,6 @@
 import sys
 import threading
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from loguru import logger
@@ -7,27 +8,38 @@ from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QFrame,
                                QHBoxLayout, QLabel, QPushButton, QVBoxLayout)
 
-from photolink.pipeline.qss import SETTINGS_DESIGN
 from photolink.pipeline import get_cache_dir, read_settings, save_dump_settings
+from photolink.pipeline.qss import SETTINGS_DESIGN
 from photolink.utils.function import custom_rmtree, get_current_date
-from datetime import datetime, timedelta
 
 
 class SettingSignals(QObject):
     cache_deleted = Signal()
     saved = Signal()
 
+
 signals_object = SettingSignals()
 
-class PeriodManager():
+
+class PeriodManager:
 
     def __init__(self):
-        self.delete_period_options = {0: 'Delete cache every run', 1: 'One day', 7: 'One week', 14: 'Two weeks', 30: 'One month', 180: 'Six months', 365: 'One year'}
+        self.delete_period_options = {
+            0: "Delete cache every run",
+            1: "One day",
+            7: "One week",
+            14: "Two weeks",
+            30: "One month",
+            180: "Six months",
+            365: "One year",
+        }
         self.cache_dir = get_cache_dir()
-        self.settings_json =  self.cache_dir/ Path("settings.json")
+        self.settings_json = self.cache_dir / Path("settings.json")
         self.settings_dict = read_settings(self.settings_json)
         self.save_period = self.settings_dict["save_period"]
-        self.last_cache_delete = self.settings_dict.get("last_cache_delete", get_current_date())
+        self.last_cache_delete = self.settings_dict.get(
+            "last_cache_delete", get_current_date()
+        )
 
         # invoke cache delete based on date.
         self.delete_cache_based_on_date()
@@ -36,11 +48,15 @@ class PeriodManager():
         """Delete the cache based on the last cache delete date."""
         current_date = get_current_date().split("-")
 
-        dt_now = datetime(int(current_date[0]), int(current_date[1]), int(current_date[2]))
+        dt_now = datetime(
+            int(current_date[0]), int(current_date[1]), int(current_date[2])
+        )
 
         # get date when the cache must be deleted.
         last_cache_date = self.last_cache_delete.split("-")
-        dt_cache = datetime(int(last_cache_date[0]), int(last_cache_date[1]), int(last_cache_date[2]))
+        dt_cache = datetime(
+            int(last_cache_date[0]), int(last_cache_date[1]), int(last_cache_date[2])
+        )
 
         # check if the difference is greater than the save period.
         diff = dt_now - dt_cache
@@ -57,10 +73,14 @@ class PeriodManager():
 
         else:
             expected_delete_date = dt_cache + timedelta(days=self.save_period)
-            logger.info(f"Cache delete date not reached yet. Expected delete date is: {str(expected_delete_date)}")
+            logger.info(
+                f"Cache delete date not reached yet. Expected delete date is: {str(expected_delete_date)}"
+            )
+
 
 # instantiate the objects
 pm = PeriodManager()
+
 
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
@@ -79,13 +99,17 @@ class SettingsDialog(QDialog):
         # Add top title
         title_label = QLabel("Settings Menu", self)
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 18px; font-weight: bold; color: black; background-color: #f0f0f0; padding: 10px 0;")
+        title_label.setStyleSheet(
+            "font-size: 18px; font-weight: bold; color: black; background-color: #f0f0f0; padding: 10px 0;"
+        )
         main_layout.addWidget(title_label)
 
         # Create table frame
         table_frame = QFrame(self)
         table_frame.setFrameShape(QFrame.StyledPanel)
-        table_frame.setStyleSheet("background-color: #ffffff; border-radius: 10px; border: 1px solid #dcdcdc;")
+        table_frame.setStyleSheet(
+            "background-color: #ffffff; border-radius: 10px; border: 1px solid #dcdcdc;"
+        )
 
         table_layout = QVBoxLayout(table_frame)
         table_layout.setSpacing(10)
@@ -94,12 +118,16 @@ class SettingsDialog(QDialog):
         # Add table header directly to main_layout
         header_label = QLabel("Cache settings", self)
         header_label.setAlignment(Qt.AlignLeft)
-        header_label.setStyleSheet("font-size: 16px; font-weight: bold; color: white; margin: 10px 0; background-color: #8C8CFF;")
+        header_label.setStyleSheet(
+            "font-size: 16px; font-weight: bold; color: white; margin: 10px 0; background-color: #8C8CFF;"
+        )
         table_layout.addWidget(header_label)
 
         # Create delete cache section with rounded border
         delete_cache_row = QFrame(self)
-        delete_cache_row.setStyleSheet("background-color: #f9f9f9; border-radius: 10px; padding: 10px;")
+        delete_cache_row.setStyleSheet(
+            "background-color: #f9f9f9; border-radius: 10px; padding: 10px;"
+        )
         delete_cache_layout = QHBoxLayout(delete_cache_row)
         delete_cache_layout.setSpacing(10)  # Adjust spacing within the row
         delete_cache_layout.setContentsMargins(10, 0, 10, 0)
@@ -108,7 +136,9 @@ class SettingsDialog(QDialog):
         delete_cache_label.setAlignment(Qt.AlignLeft)
 
         self.delete_button = QPushButton("Delete", self)
-        self.delete_button.setStyleSheet("background-color: grey; color: white; border-radius: 5px;")
+        self.delete_button.setStyleSheet(
+            "background-color: grey; color: white; border-radius: 5px;"
+        )
         self.delete_button.clicked.connect(self.handle_delete)
 
         delete_cache_layout.addWidget(delete_cache_label, alignment=Qt.AlignLeft)
@@ -117,14 +147,18 @@ class SettingsDialog(QDialog):
 
         # Create auto delete cache on schedule section with rounded border
         auto_delete_row = QFrame(self)
-        auto_delete_row.setStyleSheet("background-color: #f9f9f9; border-radius: 10px; padding: 10px;")
+        auto_delete_row.setStyleSheet(
+            "background-color: #f9f9f9; border-radius: 10px; padding: 10px;"
+        )
         auto_delete_layout = QHBoxLayout(auto_delete_row)
         auto_delete_layout.setSpacing(10)
         auto_delete_layout.setContentsMargins(10, 0, 10, 0)
         auto_delete_label = QLabel("Auto Delete Cache on Schedule", self)
         auto_delete_label.setStyleSheet("color: black; font-weight: bold;")
         self.combo_box = QComboBox(self)
-        self.combo_box.setStyleSheet("background-color: #ffffff; color: #333333; border-radius: 5px;")
+        self.combo_box.setStyleSheet(
+            "background-color: #ffffff; color: #333333; border-radius: 5px;"
+        )
         options = [value for value in pm.delete_period_options.values()]
         self.combo_box.addItems(options)
 
@@ -140,7 +174,9 @@ class SettingsDialog(QDialog):
 
         self.save_button = QPushButton("Save", self)
         self.save_button.setObjectName("saveButton")
-        self.save_button.setStyleSheet("background-color: #007BFF; color: white; border-radius: 5px; padding: 10px 20px;")
+        self.save_button.setStyleSheet(
+            "background-color: #007BFF; color: white; border-radius: 5px; padding: 10px 20px;"
+        )
         self.save_button.clicked.connect(self.save_settings)
 
         save_layout = QHBoxLayout()
@@ -153,9 +189,11 @@ class SettingsDialog(QDialog):
 
     def save_settings(self):
         """Accept the dialog and save the settings."""
-        # get the selected index from the combo box, and update. 
+        # get the selected index from the combo box, and update.
         selected_index = self.combo_box.currentIndex()
-        pm.settings_dict["save_period"] = list(pm.delete_period_options.keys())[selected_index]
+        pm.settings_dict["save_period"] = list(pm.delete_period_options.keys())[
+            selected_index
+        ]
         pm.save_period = pm.settings_dict["save_period"]
 
         # save the settings to the settings.json file
@@ -185,7 +223,7 @@ class SettingsDialog(QDialog):
         self.delete_button.setEnabled(False)
         self.worker_signal.cache_deleted.connect(self.reset_delete_button)
 
-        # must be deleted on 
+        # must be deleted on
         self.worker_thread = threading.Thread(target=self.delete_cache_immediately)
         self.worker_thread.start()
 
@@ -193,6 +231,7 @@ class SettingsDialog(QDialog):
         self.delete_button.setStyleSheet("background-color: grey; color: white;")
         self.delete_button.setText("Delete")
         self.delete_button.setEnabled(True)
+
 
 def show_settings():
     """Display settings related content."""
@@ -204,10 +243,11 @@ def show_settings():
         dialog = SettingsDialog()
         dialog.exec()
     finally:
-        # try doing some clean up in case. 
+        # try doing some clean up in case.
         if dialog.worker_thread is not None:
             logger.info("Cleaning up worker thread for settings dialog.")
             dialog.worker_thread.join()
+
 
 if __name__ == "__main__":
     show_settings()

@@ -1,19 +1,27 @@
+import json
+import multiprocessing as mp
+import sys
 import threading
 import time
-import sys
 import traceback
-from photolink.workers import WorkerSignals
-import multiprocessing as mp
+from pathlib import Path
+
 import photolink.utils.enums as enums
 from photolink import get_application_path, get_config_file
 from photolink.utils.function import read_config
-from pathlib import Path
-import json
+from photolink.workers import WorkerSignals
 
 
 class ProgressMonitor(threading.Thread):
     """Periodically monitors the progress by checking the number of files generated."""
-    def __init__(self, task: enums.Task, stop_event: mp.Event, signals: WorkerSignals, monitor_interval: int):
+
+    def __init__(
+        self,
+        task: enums.Task,
+        stop_event: mp.Event,
+        signals: WorkerSignals,
+        monitor_interval: int,
+    ):
         super().__init__()
         self.monitor_interval = monitor_interval
         self.stop_event = stop_event
@@ -44,7 +52,7 @@ class ProgressMonitor(threading.Thread):
                         f.seek(where)
                     else:
                         # retrieve the name of the image that just got processed.
-                        progress_input = ' '.join(line.split(':')[-2:])
+                        progress_input = " ".join(line.split(":")[-2:])
                         self.signals.result.emit(progress_input)
 
                 except Exception as e:
@@ -62,11 +70,11 @@ class ProgressMonitor(threading.Thread):
         except Exception as e:
             exctype, value, tb = sys.exc_info()
             self.signals.error.emit((exctype, value, traceback.format_exc()))
-        
+
         # keep a bit of pause.
         time.sleep(self.monitor_interval)
 
     def read_json_file(self, file_path):
-        with open(str(file_path), 'r') as file:
+        with open(str(file_path), "r") as file:
             data = json.load(file)
         return data

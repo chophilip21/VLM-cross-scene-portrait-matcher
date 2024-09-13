@@ -1,11 +1,12 @@
 """Modules for Face recognition using Sface."""
 
 import os
+from pathlib import Path
 
 import cv2 as cv
 import numpy as np
+
 from photolink import get_application_path
-from pathlib import Path
 
 
 class Sface:

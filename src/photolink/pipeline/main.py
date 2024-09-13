@@ -1,4 +1,5 @@
 """Main entry point for the application."""
+
 import signal
 import sys
 
@@ -18,6 +19,7 @@ def restart_application():
     status = QProcess.startDetached(sys.executable, sys.argv)
     sys.exit(status)
 
+
 def run():
     """Main entry point for the application."""
 
@@ -26,8 +28,10 @@ def run():
     config_data = read_config(config_file)
 
     # Init global logger
-    logger_path = application_path / "worker.log" 
-    logger.add(logger_path, format="{time}:{level}:{message}", level="INFO", enqueue=True)
+    logger_path = application_path / "worker.log"
+    logger.add(
+        logger_path, format="{time}:{level}:{message}", level="INFO", enqueue=True
+    )
 
     if not config_file.exists():
         logger.error(f"Config file {config_file} not found. Exiting...")
@@ -40,12 +44,14 @@ def run():
         sys.exit(1)
 
     app = QApplication(sys.argv)
-    
+
     # import needs to happen after env variable set.
     from photolink.pipeline.app import MainWindow
 
     # Enable stylesheet propagation
-    QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseStyleSheetPropagationInWidgetStyles, True)
+    QApplication.setAttribute(
+        Qt.ApplicationAttribute.AA_UseStyleSheetPropagationInWidgetStyles, True
+    )
 
     def signal_handler(sig, frame):
         logger.warning("Received shutdown signal:", sig)
@@ -56,14 +62,14 @@ def run():
     signal.signal(signal.SIGTERM, signal_handler)
 
     # Set application icon
-    icon_path = config_data['IMAGES']['LOGO_PATH']
+    icon_path = config_data["IMAGES"]["LOGO_PATH"]
     app.setWindowIcon(QIcon(icon_path))
 
     # Set dark theme with task box selection styles
     app.setStyleSheet(DARK_THEME)
     window = MainWindow()
     window.setWindowIcon(QIcon(icon_path))  # Set window icon
-    
+
     # allow hard reset.
     window.refresh_requested.connect(restart_application)
     window.show()
@@ -81,6 +87,7 @@ def run():
     except KeyboardInterrupt:
         logger.warning("KeyboardInterrupt caught, exiting...")
         app.quit()
+
 
 if __name__ == "__main__":
     run()

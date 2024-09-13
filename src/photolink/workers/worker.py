@@ -1,14 +1,16 @@
 """Top logic layer right below application. Execute the jobs for the worker via threading."""
 
-from photolink.workers.jobs import JobProcessor
-import threading
 import multiprocessing as mp
-from photolink.workers import WorkerSignals
-from photolink.workers.monitor import ProgressMonitor
-import photolink.utils.enums as enums
 import sys
+import threading
 import traceback
+
 from loguru import logger
+
+import photolink.utils.enums as enums
+from photolink.workers import WorkerSignals
+from photolink.workers.jobs import JobProcessor
+from photolink.workers.monitor import ProgressMonitor
 
 
 class Worker(threading.Thread):
@@ -34,7 +36,6 @@ class Worker(threading.Thread):
             signals=self.signals,
             monitor_interval=3,
         )
-
 
     def run(self):
         """Run the worker thread to execute the jobs."""

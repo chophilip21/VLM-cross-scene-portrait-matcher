@@ -1,21 +1,22 @@
 """Lowest functional layer for Various ML algorithms/functions (face detection and recognition, and clustering)."""
 
-import photolink.models.yunet as yunet
-import photolink.models.sface as sface
-import photolink.utils.enums as enums
-import photolink.utils.function as function
+import math
+import multiprocessing as mp
 import os
 import shutil
-import multiprocessing as mp
-import numpy as np
-import nmslib
-import hdbscan
-import cv2
-from pathlib import Path
-import math
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
+
+import cv2
+import hdbscan
+import nmslib
+import numpy as np
 from loguru import logger
 
+import photolink.models.sface as sface
+import photolink.models.yunet as yunet
+import photolink.utils.enums as enums
+import photolink.utils.function as function
 
 # Global variables for pre-loaded models
 YUNET_MODEL = yunet.load_model()
@@ -126,7 +127,7 @@ def run_model_mp(
                     stop_flag.value = 1  # Set the stop flag
                     executor.shutdown(wait=False)
                     break
-                
+
                 try:
                     result = future.result()
 
@@ -195,7 +196,9 @@ def match_embeddings(
 
     # Get a list of relevant source/reference embeddings.
     source_embeddings = function.get_relevant_embeddings(source_cache, "source")
-    reference_embeddings = function.get_relevant_embeddings(reference_cache, "reference")
+    reference_embeddings = function.get_relevant_embeddings(
+        reference_cache, "reference"
+    )
 
     result = {}
     try:
@@ -209,12 +212,16 @@ def match_embeddings(
                 result["error"] = "Stop event detected. Exiting matching."
                 return result
 
-            progress = math.ceil(50 + ((label_counter + 1) / len(source_embeddings) * 25))
+            progress = math.ceil(
+                50 + ((label_counter + 1) / len(source_embeddings) * 25)
+            )
 
             if progress % 5 == 0:
                 logger.info(f"Post-Processing:{int(progress)}")
 
-            source_embedding_dict = read_embedding_file(source_cache / Path(embedding_file))
+            source_embedding_dict = read_embedding_file(
+                source_cache / Path(embedding_file)
+            )
             source_embedding = source_embedding_dict["embeddings"].astype(np.float32)
 
             if source_embedding.ndim == 1:
@@ -232,16 +239,16 @@ def match_embeddings(
         logger.info("Creating NMSLIB index...")
 
         # Initialize NMSLIB index
-        index = nmslib.init(method='hnsw', space='l2')
+        index = nmslib.init(method="hnsw", space="l2")
 
         # Add data points to the index
         index.addDataPointBatch(all_source_embeddings)
 
         # Create the index
-        index.createIndex({'post': 2}, print_progress=False)
+        index.createIndex({"post": 2}, print_progress=False)
 
         # Ensure the index is queryable from multiple threads
-        index.setQueryTimeParams({'efSearch': 100})
+        index.setQueryTimeParams({"efSearch": 100})
 
         logger.info("NMSLIB index created.")
 
@@ -257,7 +264,9 @@ def match_embeddings(
                 logger.info(f"Post-Processing:{int(progress)}")
 
             reference_embedding_dict = read_embedding_file(reference_cache / Path(file))
-            reference_embedding = reference_embedding_dict["embeddings"].astype(np.float32)
+            reference_embedding = reference_embedding_dict["embeddings"].astype(
+                np.float32
+            )
 
             if reference_embedding.ndim == 1:
                 reference_embedding = reference_embedding[np.newaxis, :]
@@ -310,6 +319,7 @@ def match_embeddings(
         return result
 
     return result
+
 
 def cluster_embeddings(
     source_cache: Path,

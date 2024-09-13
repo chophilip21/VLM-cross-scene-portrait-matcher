@@ -1,5 +1,6 @@
 """Divide functional and UI related logic."""
 
+import os
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, Signal
@@ -15,14 +16,16 @@ import photolink.utils.enums as enums
 from photolink import get_application_path, get_config_file
 from photolink.pipeline.qss import *
 from photolink.utils.function import read_config
-import os
+
 
 class ProcessWidget(QWidget):
     """Integrate circular progress bar with QmessageBox."""
 
     def __init__(self, stop_callback, parent=None):
         super().__init__(parent)
-        self.loading_label = QLabel('Disclaimer: This software is only meant for internal usage.', self)
+        self.loading_label = QLabel(
+            "Disclaimer: This software is only meant for internal usage.", self
+        )
         self.loading_label.setAlignment(Qt.AlignCenter)
         font = QFont()
         font.setPointSize(12)
@@ -34,7 +37,9 @@ class ProcessWidget(QWidget):
         self.application_path = get_application_path()
         config = get_config_file()
         self.config = read_config(config)
-        self.loading_gif = str(self.application_path / Path(self.config.get("IMAGES", "LOAD_GIF")))
+        self.loading_gif = str(
+            self.application_path / Path(self.config.get("IMAGES", "LOAD_GIF"))
+        )
         self.movie = QMovie(self.loading_gif)
         self.spinner.setMovie(self.movie)
         self.movie.start()
@@ -42,13 +47,14 @@ class ProcessWidget(QWidget):
         self.stop_button = QPushButton("Stop")
         self.stop_button.clicked.connect(stop_callback)
         self.stop_button.setStyleSheet(STOP_BUTTON_STYLE)
-        
+
         layout = QVBoxLayout()
         layout.addWidget(self.spinner)
         layout.addWidget(self.loading_label)
         # layout.addWidget(self.circular_progress)
         layout.addWidget(self.stop_button)
         self.setLayout(layout)
+
 
 class MainWindowFront(QMainWindow):
 
@@ -85,27 +91,49 @@ class MainWindowFront(QMainWindow):
 
         # Add gear icon button
         self.settings_button = QToolButton(self)
-        settings_icon = str(self.application_path / Path(self.config.get("IMAGES", "SETTING")))
-        self.settings_button.setIcon(QIcon(settings_icon))  # Set the path to your gear icon
-        self.settings_button.setStyleSheet("border: none;")  # Optional: Remove button border
+        settings_icon = str(
+            self.application_path / Path(self.config.get("IMAGES", "SETTING"))
+        )
+        self.settings_button.setIcon(
+            QIcon(settings_icon)
+        )  # Set the path to your gear icon
+        self.settings_button.setStyleSheet(
+            "border: none;"
+        )  # Optional: Remove button border
         self.settings_button.setToolTip("Settings")
         self.settings_button.clicked.connect(settings.show_settings)
 
         # Add title label and settings button to title layout
         self.title_layout.addWidget(self.title_label)
         self.title_layout.addWidget(self.settings_button)
-        
+
         # Add title layout to the main layout
         self.main_layout.addLayout(self.title_layout)
 
         # Create grid layout for the boxes
         self.grid_layout = QGridLayout()
 
-        # Task layout goes here.
+        # Define button colors
         self.matching_color = self.config.get("UI", "MATCHING_TASK_COLOR").split(",")
-        self.clustering_color = self.config.get("UI", "CLUSTERING_TASK_COLOR").split(",")
-        match_icon = str(self.application_path / Path(self.config.get("IMAGES", "MATCH_ICON")))
-        cluster_icon = str(self.application_path / Path(self.config.get("IMAGES", "CLUSTER_ICON")))
+        self.clustering_color = self.config.get("UI", "CLUSTERING_TASK_COLOR").split(
+            ","
+        )
+        self.dp2_color = self.config.get("UI", "DP2_TASK_COLOR").split(
+            ","
+        )  # Add this line
+
+        # Define button icons
+        match_icon = str(
+            self.application_path / Path(self.config.get("IMAGES", "MATCH_ICON"))
+        )
+        cluster_icon = str(
+            self.application_path / Path(self.config.get("IMAGES", "CLUSTER_ICON"))
+        )
+        dp2_icon = str(
+            self.application_path / Path(self.config.get("IMAGES", "DP2_ICON"))
+        )  # Add this line
+
+        # Create task selection boxes with button color and icon
         self.sample_match_box = self.create_task_button(
             match_icon, "Face Search", self.matching_color[0], self.matching_color[1]
         )
@@ -113,9 +141,14 @@ class MainWindowFront(QMainWindow):
             cluster_icon, "Cluster", self.clustering_color[0], self.clustering_color[1]
         )
 
+        self.dp2_box = self.create_task_button(
+            dp2_icon, "DP2 Match", self.dp2_color[0], self.dp2_color[1]
+        )
+
         # Add boxes to the grid layout
         self.grid_layout.addWidget(self.sample_match_box, 0, 0)
         self.grid_layout.addWidget(self.cluster_box, 0, 1)
+        self.grid_layout.addWidget(self.dp2_box, 0, 2)  # Add this line
 
         # Add the grid layout to the main layout
         self.main_layout.addLayout(self.grid_layout)
@@ -176,7 +209,9 @@ class MainWindowFront(QMainWindow):
         button = QPushButton(self)
 
         if color1 is not None and color2 is None:
-            button.setStyleSheet(f"background-color: {color1}; border: 2px solid black;")
+            button.setStyleSheet(
+                f"background-color: {color1}; border: 2px solid black;"
+            )
 
         # use gradient when two colors are provided
         elif color1 is not None and color2 is not None:
@@ -287,11 +322,11 @@ class MainWindowFront(QMainWindow):
         # Adjust font size based on window height
         font_size = max(16, self.height() // 25)
         self.update_font(font_size)
-        
+
         # Adjust icon size based on window size
         new_icon_size = QSize(self.width() // 20, self.height() // 20)
         self.settings_button.setIconSize(new_icon_size)
-        
+
         super().resizeEvent(event)
 
     def update_font(self, font_size=24):

@@ -132,7 +132,7 @@ DARK_THEME = """
     }
 """
 
-SETTINGS_DESIGN =  """
+SETTINGS_DESIGN = """
         QDialog {
             background-color: #f0f0f0;
             color: #333333;

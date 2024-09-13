@@ -1,15 +1,24 @@
 """Enums for the application."""
+
 from enum import Enum
+
 
 class Task(Enum):
     """Enum for task type."""
-    FACE_SEARCH = "Search photos of your target subject from heaps of unlabeled photos based on face detection. Source here refers to an image of a person you are looking for. You can add multiple subjects to the source folder, but ensure that you use exactly one source image per subject, and that each source photo has precisely one person in it. Results will be saved to output path."
+
+    FACE_SEARCH = "Search your target subject from heaps of unlabeled photos. Source here refers to an image of a person you are looking for. You can add multiple subjects to the source folder, but ensure that you use exactly one source image per subject, and that each source photo has precisely one person."
     CLUSTERING = "When you do not know how many subjects you have, place all images into a single folder and run clustering. Each cluster represents identified subject. Uncertain ones will be transferred to uncertain folder. Subject must have at least two images to be considered as a cluster."
+    DP2_MATCH = "Automatically detect main subject (e.g the graduating student) in the photo to ensure photos of the subjects are in order. Apply culling algorithm to remove duplicates/bad photos and get exactly the same number of photos on both source and reference folders."
+
 
 class ErrorMessage(Enum):
     PATH_NOT_SELECTED = "Error, Please select all required valid paths."
-    SOURCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the source folder."
-    REFERENCE_FOLDER_EMPTY = "Error, Please make sure that there are image files in the reference folder."
+    SOURCE_FOLDER_EMPTY = (
+        "Error, Please make sure that there are image files in the source folder."
+    )
+    REFERENCE_FOLDER_EMPTY = (
+        "Error, Please make sure that there are image files in the reference folder."
+    )
     REFRESH_REQUIRED = "Please hit refresh first and try again."
 
 
@@ -19,8 +28,10 @@ class StatusMessage(Enum):
     ERROR = "An error occurred. Please check the logs for more information."
     STOPPED = "Task manager shutting down."
 
+
 class OperatingSystem(Enum):
     """Enum for operating system."""
+
     WINDOWS = "win32"
     MACOS = "darwin"
     LINUX = "linux"
@@ -28,9 +39,11 @@ class OperatingSystem(Enum):
 
 class ClusteringAlgorithm(Enum):
     """Enum for clustering algorithm."""
+
     DBSCAN = "DBSCAN"
     OPTICS = "OPTICS"
     HDBSCAN = "HDBSCAN"
+
 
 IMAGE_EXTENSION = [
     "ase",

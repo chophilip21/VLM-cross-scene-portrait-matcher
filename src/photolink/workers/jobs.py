@@ -1,17 +1,19 @@
 """Middle logic layer b/w worker and functions."""
 
-import photolink.workers.functions as functions
-import photolink.utils.enums as enums
 import json
+import multiprocessing as mp
+import os
 import sys
 import traceback
+from pathlib import Path
+
+from loguru import logger
+
+import photolink.utils.enums as enums
+import photolink.workers.functions as functions
 from photolink import get_application_path, get_config_file
 from photolink.utils.function import read_config
-import os
-from pathlib import Path
-import multiprocessing as mp
 from photolink.workers import WorkerSignals
-from loguru import logger
 
 
 class JobProcessor:

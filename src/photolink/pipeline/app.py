@@ -22,20 +22,22 @@ class MainWindow(MainWindowFront):
     """All functional codes related to Pyside go here."""
 
     def __init__(self):
-       
+
         super().__init__()
         self.application_path = get_application_path()
-        self.pipeline_path = self.application_path / "src" /"photolink" /"pipeline"
+        self.pipeline_path = self.application_path / "src" / "photolink" / "pipeline"
         config = get_config_file()
         self.config = read_config(config)
-        self.venv_path = self.application_path / Path(self.config["WINDOWS"]["VIRTUAL_ENV"])
+        self.venv_path = self.application_path / Path(
+            self.config["WINDOWS"]["VIRTUAL_ENV"]
+        )
         self.job = {}
         self.operating_system = sys.platform
         self.drawUI()
         self.current_progress = 0
         self.threads = []
 
-        #setup log path.
+        # setup log path.
         logger.info(f"Application path: {self.application_path}")
         logger.info(f"Cache dir: {self.cache_dir}")
         logger.info(f"Operating system: {self.operating_system}")
@@ -60,11 +62,19 @@ class MainWindow(MainWindowFront):
 
         elif task == "Cluster":
             self.instruction_label.setText(enums.Task.CLUSTERING.value)
-            self.reference_path_selector.line_edit.setPlaceholderText("Not required for clustering")
+            self.reference_path_selector.line_edit.setPlaceholderText(
+                "Not required for clustering"
+            )
             # clean up reference path text
             self.reference_path_selector.line_edit.setText("")
             self.reference_path_selector.button.setEnabled(False)
             self.current_task = enums.Task.CLUSTERING.name
+
+        elif task == "DP2 Match":
+            self.instruction_label.setText(enums.Task.DP2_MATCH.value)
+            self.reference_path_selector.line_edit.setPlaceholderText("")
+            self.reference_path_selector.button.setEnabled(True)
+            self.current_task = enums.Task.DP2_MATCH.name
 
         # Reset border colors for both boxes
         self.sample_match_box.setStyleSheet(
@@ -72,6 +82,10 @@ class MainWindow(MainWindowFront):
         )
         self.cluster_box.setStyleSheet(
             f"background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {self.clustering_color[0]}, stop:1 {self.clustering_color[1]}); border: 2px solid black;"
+        )
+
+        self.dp2_box.setStyleSheet(
+            f"background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 {self.dp2_color[0]}, stop:1 {self.dp2_color[1]}); border: 2px solid black;"
         )
 
         # Highlight the selected box
@@ -82,6 +96,10 @@ class MainWindow(MainWindowFront):
         elif task == "Cluster":
             self.cluster_box.setStyleSheet(
                 self.cluster_box.styleSheet() + " border: 2px solid white;"
+            )
+        elif task == "DP2 Match":
+            self.dp2_box.setStyleSheet(
+                self.dp2_box.styleSheet() + " border: 2px solid white;"
             )
 
     def process_jobs(self):
@@ -117,9 +135,12 @@ class MainWindow(MainWindowFront):
                 return
 
             self.job["task"] = enums.Task.FACE_SEARCH.name
-            self.job["source"] = search_all_images(self.source_path_selector.line_edit.text())
-            self.job["reference"] = search_all_images(self.reference_path_selector.line_edit.text())
-
+            self.job["source"] = search_all_images(
+                self.source_path_selector.line_edit.text()
+            )
+            self.job["reference"] = search_all_images(
+                self.reference_path_selector.line_edit.text()
+            )
 
         elif self.current_task == enums.Task.CLUSTERING.name:
 
@@ -132,12 +153,18 @@ class MainWindow(MainWindowFront):
                 return
 
             self.job["task"] = enums.Task.CLUSTERING.name
-            self.job["source"] = search_all_images(self.source_path_selector.line_edit.text())
+            self.job["source"] = search_all_images(
+                self.source_path_selector.line_edit.text()
+            )
+
+        elif self.current_task == enums.Task.DP2_MATCH.name:
+            logger.info("DP2 Match task selected.")
+
 
         else:
             self.change_button_status(True)
             raise ValueError("Invalid task selected")
-        
+
         # Now passed all validation, so display the progress bar.
         self.progress_widget = ProcessWidget(self.stop_processing)
         self.progress_message_box = QMessageBox(self)
@@ -160,7 +187,7 @@ class MainWindow(MainWindowFront):
         worker.signals.error.connect(self.task_error)
         worker.start()
         self.threads.append(worker)
-        
+
     def task_interrupted(self):
         """Called when the process is stopped by user"""
         self.stop_processing()
@@ -189,7 +216,9 @@ class MainWindow(MainWindowFront):
     def task_error(self, error):
         """Called when an error has occured during processing."""
         logger.error(f"Error has occured on the thread: {error}")
-        self.display_notification("Error", f"An error has occured during processing: {error}")
+        self.display_notification(
+            "Error", f"An error has occured during processing: {error}"
+        )
         self.stop_processing()
 
     def task_result(self, result):

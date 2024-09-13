@@ -1,22 +1,22 @@
 import configparser
+import copy
 import glob
 import hashlib
+import json
 import lzma
 import os
 import pickle
-
-from loguru import logger
-from pathlib import Path
-
-import photolink.utils.enums as enums
 import shutil
 from datetime import datetime
-import json
-from typing import Union
-import numpy as np
-from PIL import Image, ImageOps
 from io import BytesIO
-import copy
+from pathlib import Path
+from typing import Union
+
+import numpy as np
+from loguru import logger
+from PIL import Image, ImageOps
+
+import photolink.utils.enums as enums
 
 
 def _copy_image_meta(src: Image.Image, dest: Image.Image):
@@ -25,6 +25,7 @@ def _copy_image_meta(src: Image.Image, dest: Image.Image):
         if hasattr(src, key):
             setattr(dest, key, copy.deepcopy(getattr(src, key)))
     return dest
+
 
 def safe_load_image(image: Union[bytes, str]) -> Image.Image:
     """Load an image from bytes or a file path, and ensure the orientation is correct."""
@@ -45,36 +46,38 @@ def safe_load_image(image: Union[bytes, str]) -> Image.Image:
 
 
 def search_all_images(path: Path):
-    """Recursively search all images in a directory. """
+    """Recursively search all images in a directory."""
     images = []
-    path_ = path + '/**/*.*'
-    files = glob.glob(path_,recursive = True) 
+    path_ = path + "/**/*.*"
+    files = glob.glob(path_, recursive=True)
 
     for file in files:
-    
-        if file.split('.')[-1].lower() in enums.IMAGE_EXTENSION:
+
+        if file.split(".")[-1].lower() in enums.IMAGE_EXTENSION:
             images.append(file)
 
     return images
 
-def search_all_xz_file(path: Path)-> list:
-    """Recursively search all embeddings file in a directory. """
+
+def search_all_xz_file(path: Path) -> list:
+    """Recursively search all embeddings file in a directory."""
     embeddings = []
-    path_ = str(path) + '/**/*.*'
-    files = glob.glob(path_,recursive = True) 
+    path_ = str(path) + "/**/*.*"
+    files = glob.glob(path_, recursive=True)
 
     for file in files:
-        if file.split('.')[-1].lower() == 'xz':
+        if file.split(".")[-1].lower() == "xz":
             embeddings.append(file)
 
     return embeddings
 
 
-def read_config(file)-> dict:
+def read_config(file) -> dict:
     """Read config file"""
     config = configparser.ConfigParser()
     config.read(file)
     return config
+
 
 def config_to_env(config: configparser.ConfigParser, section: str):
     """Set some of the config variables as env variables."""
@@ -89,20 +92,23 @@ def config_to_env(config: configparser.ConfigParser, section: str):
 
     return True
 
+
 def compress_save(data: dict, file: str):
     """Compress and save the data to a file."""
     with lzma.open(file, "wb") as f:
-       pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 def decompress_load(file: str) -> dict:
     """Decompress and load the data from a file."""
     with lzma.open(file, "rb") as f:
         return pickle.load(f)
-    
+
+
 def checksum(
     filename, hash_factory=hashlib.blake2b, chunk_num_blocks=128, digest_size=32
 ):
-    """Create hash based on path, or bytes. Avoid multiple opening by using bytes input. Calculating hash on file ensures file integrity, also it's cheaper because we calculate based on blocks. """
+    """Create hash based on path, or bytes. Avoid multiple opening by using bytes input. Calculating hash on file ensures file integrity, also it's cheaper because we calculate based on blocks."""
 
     success = True
 
@@ -123,6 +129,7 @@ def checksum(
 
     return h.hexdigest() if success else None
 
+
 def custom_rmtree(directory: Path):
     """Wipe out all files and directories."""
 
@@ -137,7 +144,8 @@ def custom_rmtree(directory: Path):
         if item.is_dir():
             shutil.rmtree(item)
 
-def get_current_date()->str:
+
+def get_current_date() -> str:
     """Return the current date as integer values for year, month, and day."""
     now = datetime.now()
     year = now.year
@@ -146,19 +154,20 @@ def get_current_date()->str:
     time_string = f"{year}-{month}-{day}"
     return time_string
 
+
 def read_json(file_path):
     """Read and return data from a JSON file."""
     if Path(file_path).exists():
 
         try:
-            with open(file_path, 'r') as json_file:
+            with open(file_path, "r") as json_file:
                 return json.load(json_file) or {}
         except json.JSONDecodeError as e:
             logger.error(f"Error reading JSON file: {file_path}, {e}")
             return {}
     else:
         # create empty file if it does not exist
-        with open(file_path, 'w') as json_file:
+        with open(file_path, "w") as json_file:
             json.dump({}, json_file)
 
         return {}
@@ -166,7 +175,7 @@ def read_json(file_path):
 
 def write_json(data, file_path):
     """Write data to a JSON file."""
-    with open(file_path, 'w') as json_file:
+    with open(file_path, "w") as json_file:
         json.dump(data, json_file, indent=4)
 
 
@@ -176,15 +185,17 @@ def read_hash_file(raise_missing_error=True):
 
     if cache_dir is None:
         raise EnvironmentError("Please set the CACHE_DIR environment variable.")
-    
+
     hash_file = Path(cache_dir) / "hash.json"
 
     # when postprocessing, it would be unacceptable for the hash file to be missing.
     if raise_missing_error and not hash_file.exists():
-        raise FileNotFoundError(f"Hash file not found. It must exist by now: {hash_file}")
+        raise FileNotFoundError(
+            f"Hash file not found. It must exist by now: {hash_file}"
+        )
 
     return read_json(hash_file)
-        
+
 
 def write_hash_file(hash_json_dict):
     """Write the hash file (image hash-image path pairs)."""
@@ -192,26 +203,26 @@ def write_hash_file(hash_json_dict):
 
     if cache_dir is None:
         raise EnvironmentError("Please set the CACHE_DIR environment variable.")
-    
+
     hash_file = Path(cache_dir) / "hash.json"
     write_json(dict(hash_json_dict), hash_file)
 
 
-def get_relevant_embeddings(embeddings_path: Path, job_key: str)-> list:
+def get_relevant_embeddings(embeddings_path: Path, job_key: str) -> list:
     """Get the relevant embeddings from the cache by screening with job.json key. Job key can be either 'source' or 'reference'. Output is list ov xz files."""
-    
+
     cache_dir = os.getenv("CACHE_DIR")
 
     if cache_dir is None:
         raise EnvironmentError("Please set the CACHE_DIR environment variable.")
-    
+
     # we need both hash table and job table to truly find out what matters for the job.
     job_file = Path(cache_dir) / "job.json"
     hash_file = Path(cache_dir) / "hash.json"
 
     if not job_file.exists():
         raise FileNotFoundError(f"Job file not found. Must exist by now: {job_file}")
-    
+
     if not hash_file.exists():
         raise FileNotFoundError(f"Hash file not found. Must exist by now: {hash_file}")
 
@@ -229,14 +240,22 @@ def get_relevant_embeddings(embeddings_path: Path, job_key: str)-> list:
     relevant_images = set(job[job_key])
 
     # relevant hashes, only if they are in the hash table.
-    relevant_hashes = set([hash_inverted[image] for image in relevant_images if image in hash_inverted])
+    relevant_hashes = set(
+        [hash_inverted[image] for image in relevant_images if image in hash_inverted]
+    )
 
     # now we can screen out embeddings that really matters, instead of everything.
-    relevant_embedding_list = [embeddings_path / Path(file) for file in os.listdir(embeddings_path) if file.split('.')[-1] == "xz" and file.split('.')[0] in relevant_hashes]
+    relevant_embedding_list = [
+        embeddings_path / Path(file)
+        for file in os.listdir(embeddings_path)
+        if file.split(".")[-1] == "xz" and file.split(".")[0] in relevant_hashes
+    ]
 
     if not relevant_embedding_list:
         logger.error(f"No relevant embeddings found for job key: {job_key}")
     else:
-        logger.info(f'{len(relevant_embedding_list)} Relevant embeddings found for job key: {job_key}')
+        logger.info(
+            f"{len(relevant_embedding_list)} Relevant embeddings found for job key: {job_key}"
+        )
 
     return relevant_embedding_list
