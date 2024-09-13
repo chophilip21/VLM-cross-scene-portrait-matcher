@@ -6,6 +6,7 @@ import os
 from photolink import get_application_path
 from pathlib import Path
 from loguru import logger
+from photolink.utils.function import safe_load_image
 
 class YuNet:
     """Face detection model using Yunet."""
@@ -50,7 +51,7 @@ class YuNet:
         face_table['resize_ratio'] = 1.0
 
         try:
-            image = cv2.imread(image_path)
+            image = safe_load_image(image_path)
 
             if image.shape[0] > 1000:
                 image = cv2.resize(image, (0, 0),

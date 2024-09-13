@@ -133,6 +133,7 @@ class JobProcessor:
 
     def postprocess_sample_matching(self):
         """Postprocess the matching algorithm."""
+
         try:
             result = functions.match_embeddings(
                 source_cache=self.source_cache,

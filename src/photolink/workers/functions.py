@@ -8,7 +8,7 @@ import os
 import shutil
 import multiprocessing as mp
 import numpy as np
-import faiss
+import nmslib
 import hdbscan
 import cv2
 from pathlib import Path
@@ -188,115 +188,128 @@ def match_embeddings(
     output_path: Path,
     stop_event: mp.Event,
 ) -> dict:
-    """Match the embeddings and save the match. Return result status."""
+    """Match the embeddings using NMSLIB and save the matches. Return result status."""
 
-    # retreive the lookup table. This must exist at this point.
+    # Retrieve the lookup table. This must exist at this point.
     hash_json_dict = function.read_hash_file(raise_missing_error=True)
 
     # Get a list of relevant source/reference embeddings.
     source_embeddings = function.get_relevant_embeddings(source_cache, "source")
-    reference_embeddings = function.get_relevant_embeddings(
-        reference_cache, "reference"
-    )
+    reference_embeddings = function.get_relevant_embeddings(reference_cache, "reference")
 
     result = {}
-    faiss_index = faiss.IndexFlatL2(128)
+    try:
+        # Collect all source embeddings
+        all_source_embeddings = []
+        label_to_source_file = {}
+        label_counter = 0
 
-    # start by reading each embedding file, and adding to faiss index.
-    for i, embedding_file in enumerate(source_embeddings):
+        for embedding_file in source_embeddings:
+            if stop_event.is_set():
+                result["error"] = "Stop event detected. Exiting matching."
+                return result
 
-        if stop_event.is_set():
-            result["error"] = "Stop event detected. Exiting matching."
-            return result
+            progress = math.ceil(50 + ((label_counter + 1) / len(source_embeddings) * 25))
 
-        progress = math.ceil(50 + ((i + 1) / len(source_embeddings) * 25))
+            if progress % 5 == 0:
+                logger.info(f"Post-Processing:{int(progress)}")
 
-        if progress % 5 == 0:
-            logger.info(f"Post-Processing:{int(progress)}")
+            source_embedding_dict = read_embedding_file(source_cache / Path(embedding_file))
+            source_embedding = source_embedding_dict["embeddings"].astype(np.float32)
 
-        try:
-            source_embedding_dict = read_embedding_file(
-                source_cache / Path(embedding_file)
-            )
+            if source_embedding.ndim == 1:
+                source_embedding = source_embedding[np.newaxis, :]
 
-            source_embedding = source_embedding_dict["embeddings"]
+            num_embeddings = source_embedding.shape[0]
+            all_source_embeddings.append(source_embedding)
+            for _ in range(num_embeddings):
+                label_to_source_file[label_counter] = embedding_file
+                label_counter += 1
 
-            for face_embedding in source_embedding:
+        # Concatenate all embeddings
+        all_source_embeddings = np.vstack(all_source_embeddings)
 
-                # check number of dimensions. Should be (1, 128)
-                if face_embedding.ndim == 1:
-                    face_embedding = np.expand_dims(face_embedding, axis=0)
+        logger.info("Creating NMSLIB index...")
 
-                faiss_index.add(face_embedding)
+        # Initialize NMSLIB index
+        index = nmslib.init(method='hnsw', space='l2')
 
-        except Exception as e:
-            result["error"] = f"Error adding source embeddings to faiss index: {e}"
-            return result
+        # Add data points to the index
+        index.addDataPointBatch(all_source_embeddings)
 
-    for i, file in enumerate(reference_embeddings):
+        # Create the index
+        index.createIndex({'post': 2}, print_progress=False)
 
-        progress = math.ceil(75 + ((i + 1) / len(reference_embeddings) * 25))
+        # Ensure the index is queryable from multiple threads
+        index.setQueryTimeParams({'efSearch': 100})
 
-        if progress % 5 == 0:
-            logger.info(f"Post-Processing:{int(progress)}")
+        logger.info("NMSLIB index created.")
 
-        try:
+        # Process reference embeddings
+        for i, file in enumerate(reference_embeddings):
+            if stop_event.is_set():
+                result["error"] = "Stop event detected. Exiting matching."
+                return result
+
+            progress = math.ceil(75 + ((i + 1) / len(reference_embeddings) * 25))
+
+            if progress % 5 == 0:
+                logger.info(f"Post-Processing:{int(progress)}")
+
             reference_embedding_dict = read_embedding_file(reference_cache / Path(file))
+            reference_embedding = reference_embedding_dict["embeddings"].astype(np.float32)
 
-            reference_embedding = reference_embedding_dict["embeddings"]
+            if reference_embedding.ndim == 1:
+                reference_embedding = reference_embedding[np.newaxis, :]
 
-            for face_embedding in reference_embedding:
+            # Query the index
+            neighbors = index.knnQueryBatch(reference_embedding, k=1, num_threads=1)
 
-                # check number of dimensions. Should be (1, 128)
-                if face_embedding.ndim == 1:
-                    face_embedding = np.expand_dims(face_embedding, axis=0)
-
-                # search for the nearest embedding in the source embeddings.
-                D, I = faiss_index.search(face_embedding, 1)
-
-                predicted_label = Path(source_embeddings[I[0][0]]).stem
+            for idx, (indices, distances) in enumerate(neighbors):
+                predicted_label_idx = indices[0]
+                predicted_label_file = label_to_source_file[predicted_label_idx]
+                predicted_label = Path(predicted_label_file).stem
 
                 if predicted_label not in hash_json_dict:
                     raise ValueError(
-                        f"Predicted label {predicted_label} not found in source_dict."
+                        f"Predicted label {predicted_label} not found in hash_json_dict."
                     )
 
                 predicted_source_input_path = hash_json_dict[predicted_label]
 
-                # now get the equivalent reference image.
+                # Get the equivalent reference image
                 reference_label = Path(file).stem
 
                 if reference_label not in hash_json_dict:
                     raise ValueError(
-                        f"Reference label {reference_label} not found in reference_dict."
+                        f"Reference label {reference_label} not found in hash_json_dict."
                     )
 
                 ref_img_input_path = hash_json_dict[reference_label]
 
-                # to output folder, create a folder based predicted_label.
+                # Create a folder based on predicted_label in the output path
                 predicted_label_folder = output_path / Path(predicted_label)
                 predicted_label_folder.mkdir(parents=True, exist_ok=True)
 
-                # copy everything to the output folder.
+                # Copy the predicted source image to the output folder
                 predicted_source_output_path = predicted_label_folder / Path(
                     os.path.basename(predicted_source_input_path),
                 )
-
                 shutil.copy(predicted_source_input_path, predicted_source_output_path)
 
+                # Copy the reference image to the output folder
                 ref_img_output_path = predicted_label_folder / Path(
                     os.path.basename(ref_img_input_path)
                 )
-
                 shutil.copy(ref_img_input_path, ref_img_output_path)
-                result["status"] = "success"
 
-        except Exception as e:
-            result["error"] = f"Error matching embeddings: {e}"
-            return result
+            result["status"] = "success"
+
+    except Exception as e:
+        result["error"] = f"Error matching embeddings: {e}"
+        return result
 
     return result
-
 
 def cluster_embeddings(
     source_cache: Path,

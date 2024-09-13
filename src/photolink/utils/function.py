@@ -12,6 +12,36 @@ import photolink.utils.enums as enums
 import shutil
 from datetime import datetime
 import json
+from typing import Union
+import numpy as np
+from PIL import Image, ImageOps
+from io import BytesIO
+import copy
+
+
+def _copy_image_meta(src: Image.Image, dest: Image.Image):
+    preserve_metadata_keys = ["info", "icc_profile", "exif", "dpi", "applist", "format"]
+    for key in preserve_metadata_keys:
+        if hasattr(src, key):
+            setattr(dest, key, copy.deepcopy(getattr(src, key)))
+    return dest
+
+def safe_load_image(image: Union[bytes, str]) -> Image.Image:
+    """Load an image from bytes or a file path, and ensure the orientation is correct."""
+    # make sure image is bytes or a valid file path
+    if isinstance(image, str):
+        with open(image, "rb") as f:
+            image = f.read()
+    elif not isinstance(image, bytes):
+        raise TypeError("image must be bytes or a file path")
+    pil_image = Image.open(BytesIO(image))
+
+    # Make sure the orientation is correct
+    if hasattr(pil_image, "_getexif") and pil_image._getexif() is not None:
+        new_pil_image = ImageOps.exif_transpose(pil_image)
+        pil_image = _copy_image_meta(pil_image, new_pil_image)
+
+    return np.array(pil_image)
 
 
 def search_all_images(path: Path):

@@ -18,11 +18,13 @@ devel = [
     "packaging",
     "hdbscan",
     "opencv-python",
+    "pillow",
     "nuitka",
     "loguru",
     "swig",
     "isort",
     "dropbox",
+    "nmslib-metabrainz",
 ]
 
 [tool.hatch.build.targets.wheel]
