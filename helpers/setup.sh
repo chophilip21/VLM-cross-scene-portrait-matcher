@@ -4,8 +4,8 @@
 
 # Check if Python 3.11 is installed
 PYTHON_COMMAND=$(command -v python3)
-if [[ -z "$PYTHON_COMMAND" || ! "$("$PYTHON_COMMAND" --version 2>&1)" =~ "Python 3.11" ]]; then
-    echo "Python 3.11 is not installed or not the default python. Please install Python 3.11 or set it as default."
+if [[ -z "$PYTHON_COMMAND" || ! "$("$PYTHON_COMMAND" --version 2>&1)" =~ "Python 3.12" ]]; then
+    echo "Python 3.12 is not installed or not the default python. Please install Python 3.12 or set it as default."
     exit 1
 fi
 
@@ -22,7 +22,16 @@ fi
 # Create virtual environment
 python3 -m venv env
 echo "Virtual environment created."
-source env/bin/activate
+
+# Activate virtual environment based on the operating system
+OS_TYPE=$(uname -s)
+if [[ "$OS_TYPE" == "MINGW"* || "$OS_TYPE" == "CYGWIN"* || "$OS_TYPE" == "MSYS_NT"* ]]; then
+    # Windows activation
+    source env/Scripts/activate
+else
+    # Linux or MacOS activation
+    source env/bin/activate
+fi
 
 # Upgrade pip
 python -m pip install --upgrade pip
@@ -38,15 +47,12 @@ fi
 # Run make commands
 pip install build
 python -m build
+python -m pip install --upgrade pip setuptools wheel
 pip install --upgrade -e .[devel]
 
-# Determine the operating system
-OS_TYPE=$(uname -s)
-echo "Operating System: $OS_TYPE"
-
+# Check the operating system for FAISS installation
 if [[ "$OS_TYPE" == "MINGW"* || "$OS_TYPE" == "CYGWIN"* || "$OS_TYPE" == "MSYS_NT"* ]]; then
     # Windows-specific FAISS setup
-    # Check if 'faiss' folder exists
     if [ ! -d "faiss" ]; then
         git clone "https://github.com/facebookresearch/faiss.git" faiss
     fi
@@ -74,7 +80,7 @@ if [[ "$OS_TYPE" == "MINGW"* || "$OS_TYPE" == "CYGWIN"* || "$OS_TYPE" == "MSYS_N
         exit 1
     fi
 
-    # remove build folder from faiss for clean start
+    # Remove build folder from faiss for clean start
     rm -rf build
 
     # Run cmake to build FAISS

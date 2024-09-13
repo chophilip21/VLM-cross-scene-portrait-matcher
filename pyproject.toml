@@ -6,10 +6,9 @@ build-backend = "hatchling.build"
 name = "PhotolinkML"
 version = "0.0.1" # should be dynamic later on
 description = "Photolink application"
-requires-python = ">=3.9, <3.12"
+requires-python = ">=3.10"
 authors = [
     { name = "Philip Cho", email = "chophilip21@gmail.com" },
-    { name = "Alinstein Jose", email = "alinsteinjose@gmail.com" },
 ]
 
 [project.optional-dependencies]
@@ -23,6 +22,7 @@ devel = [
     "loguru",
     "swig",
     "isort",
+    "dropbox",
 ]
 
 [tool.hatch.build.targets.wheel]

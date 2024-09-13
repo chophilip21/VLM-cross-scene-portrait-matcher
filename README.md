@@ -1,6 +1,27 @@
 # Getting started with Pyinside6
 
-The way you set things up on Linux and Windows is slightly different.
+The way you set things up on Linux and Windows is slightly different. Windows make life hard for devs.
+
+First, install Chocolatey. This acts like homebrew for Mac. Open command prompt as admin.
+
+```bash
+@"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "[System.Net.ServicePointManager]::SecurityProtocol = 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))" && SET "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
+```
+
+You may have to run:
+
+```bash
+nano ~/.bash_profile
+export PATH=$PATH:/c/ProgramData/chocolatey/bin
+```
+
+If you don't have it already, you also need the [C++ build tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) for some libraries, as well as [Cmake](https://cmake.org/download/).
+
+## MKL Library
+
+In order to use `Faiss` for fast vector search and export it to Windows without error, we need to build it from source. `Pip install faiss` will be very slow when you compile it using Nuitka. To install Faiss from source, a requirement for this is to have [MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html?operatingsystem=windows&windows-install-type=online) library installed. Read Nuitka [readme](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md) for more details. When MKL is installed properly, you should be able to run `make setup`.
+
+Then you run:
 
 ```bash
 # general setup
@@ -14,13 +35,11 @@ choco install make
 sudo apt-get install libxcb-cursor0
 ```
 
-In order to use `Faiss` for fast vector search and export it to Windows without error, we need to build it from source. `Pip install faiss` will be very slow when you compile it using Nuitka. To install Faiss from source, a requirement for this is to have [MKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/base-toolkit-download.html?operatingsystem=windows&windows-install-type=online) library installed. Read Nuitka [readme](https://github.com/facebookresearch/faiss/blob/main/INSTALL.md) for more details. When MKL is installed properly, you should be able to run `make setup`.
 
-
-If you get error during `make setup` for `faiss`, you can cd into faiss directory after git clone, and try running something like this manually:
+If you still get error during `make setup` for `faiss`, you can cd into faiss directory after git clone, and try running something like this manually:
 
 ```bash 
-cmake -B build -DFAISS_ENABLE_GPU=OFF -DBLA_VENDOR=Intel10_64_dyn -DBLAS_LIBRARIES="C:\Program Files (x86)\Intel\oneAPI\mkl\2024.2\lib\mkl_intel_lp64.lib;C:\Program Files (x86)\Intel\oneAPI\mkl\2024.2\lib\mkl_sequential.lib;C:\Program Files (x86)\Intel\oneAPI\mkl\2024.2\lib\mkl_core.lib" -DLAPACK_LIBRARIES="C:\Program Files (x86)\Intel\oneAPI\mkl\2024.2\lib\mkl_intel_lp64.lib;C:\Program Files (x86)\Intel\oneAPI\mkl\2024.2\lib\mkl_sequential.lib;C:\Program Files (x86)\Intel\oneAPI\mkl\2024.2\lib\mkl_core.lib" -DPython_EXECUTABLE="C:\Users\choph\photomatcher\env\Scripts\python3.exe" .
+cmake -B build -DFAISS_ENABLE_GPU=OFF -DBLA_VENDOR=Intel10_64_dyn -DBLAS_LIBRARIES="C:\Program Files (x86)\Intel\oneAPI\mkl\2024.2\lib\mkl_intel_lp64.lib;C:\Program Files (x86)\Intel\oneAPI\mkl\2024.2\lib\mkl_sequential.lib;C:\Program Files (x86)\Intel\oneAPI\mkl\2024.2\lib\mkl_core.lib" -DLAPACK_LIBRARIES="C:\Program Files (x86)\Intel\oneAPI\mkl\2024.2\lib\mkl_intel_lp64.lib;C:\Program Files (x86)\Intel\oneAPI\mkl\2024.2\lib\mkl_sequential.lib;C:\Program Files (x86)\Intel\oneAPI\mkl\2024.2\lib\mkl_core.lib" -DPython_EXECUTABLE="C:\Users\choph\photomatcher\env\Scripts\python.exe" .
 ```
 
 Obviously you need to swap out the paths. And then
