@@ -7,8 +7,7 @@ import traceback
 from pathlib import Path
 
 import photolink.utils.enums as enums
-from photolink import get_application_path, get_config_file
-from photolink.utils.function import read_config
+from photolink import get_application_path, get_config
 from photolink.workers import WorkerSignals
 
 
@@ -31,8 +30,7 @@ class ProgressMonitor(threading.Thread):
 
         # call some basic path info.
         self.application_path = get_application_path()
-        config = get_config_file()
-        self.config = read_config(config)
+        self.config = get_config()
         self.cache_dir = self.application_path / ".cache"
         self.source_cache = self.cache_dir / "source"
         self.reference_cache = self.cache_dir / "reference"

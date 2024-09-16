@@ -11,10 +11,10 @@ from PySide6.QtWidgets import QLabel, QMessageBox
 
 import photolink.pipeline.settings as settings
 import photolink.utils.enums as enums
-from photolink import get_application_path, get_config_file
+from photolink import get_application_path, get_config
 from photolink.pipeline.front import MainWindowFront, ProcessWidget
 from photolink.pipeline.qss import *
-from photolink.utils.function import read_config, search_all_images
+from photolink.utils.function import search_all_images
 from photolink.workers.worker import Worker
 
 
@@ -26,8 +26,7 @@ class MainWindow(MainWindowFront):
         super().__init__()
         self.application_path = get_application_path()
         self.pipeline_path = self.application_path / "src" / "photolink" / "pipeline"
-        config = get_config_file()
-        self.config = read_config(config)
+        self.config = get_config()
         self.venv_path = self.application_path / Path(
             self.config["WINDOWS"]["VIRTUAL_ENV"]
         )

@@ -11,8 +11,7 @@ from loguru import logger
 
 import photolink.utils.enums as enums
 import photolink.workers.functions as functions
-from photolink import get_application_path, get_config_file
-from photolink.utils.function import read_config
+from photolink import get_application_path, get_config
 from photolink.workers import WorkerSignals
 
 
@@ -21,8 +20,7 @@ class JobProcessor:
 
     def __init__(self, stop_event: mp.Event, signals: WorkerSignals):
         self.application_path = get_application_path()
-        config = get_config_file()
-        self.config = read_config(config)
+        self.config = get_config()
         self.cache_dir = self.application_path / ".cache"
         self.stop_event = stop_event
         self.jobs_file = self.cache_dir / Path("job.json")

@@ -13,9 +13,8 @@ from PySide6.QtWidgets import (QFileDialog, QGridLayout, QHBoxLayout, QLabel,
 
 import photolink.pipeline.settings as settings
 import photolink.utils.enums as enums
-from photolink import get_application_path, get_config_file
+from photolink import get_application_path, get_config
 from photolink.pipeline.qss import *
-from photolink.utils.function import read_config
 
 
 class ProcessWidget(QWidget):
@@ -35,8 +34,7 @@ class ProcessWidget(QWidget):
         self.spinner = QLabel(self)
         self.spinner.setAlignment(Qt.AlignCenter)
         self.application_path = get_application_path()
-        config = get_config_file()
-        self.config = read_config(config)
+        self.config = get_config()
         self.loading_gif = str(
             self.application_path / Path(self.config.get("IMAGES", "LOAD_GIF"))
         )
@@ -64,8 +62,7 @@ class MainWindowFront(QMainWindow):
         """All UI related codes go here."""
         super().__init__()
         self.application_path = get_application_path()
-        config = get_config_file()
-        self.config = read_config(config)
+        self.config = get_config()
         self.current_task = enums.Task.FACE_SEARCH.name
         self.cache_dir = self.application_path / Path(".cache")
         self.setup_cache_dir(self.cache_dir)

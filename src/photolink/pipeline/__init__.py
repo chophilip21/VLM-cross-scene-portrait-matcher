@@ -1,12 +1,11 @@
 import json
 from pathlib import Path
 
-from photolink import get_application_path, get_config_file
-from photolink.utils.function import get_current_date, read_config
+from photolink import get_application_path, get_config
+from photolink.utils.function import get_current_date
 
 application_path = get_application_path()
-config = get_config_file()
-config = read_config(config)
+config = get_config()
 
 
 def get_cache_dir():

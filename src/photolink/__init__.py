@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+import configparser
 
 
 class SingletonPath:
@@ -9,6 +10,7 @@ class SingletonPath:
     def __init__(self):
         self._application_path = None
         self._config_file_path = None
+        self._config = None
 
     @property
     def application_path(self):
@@ -41,17 +43,30 @@ class SingletonPath:
                 )
 
         return self._config_file_path
+    
+    @property
+    def config(self):
+        """Read the config file."""
+        if self._config is None:
+            self._config = read_config(self.config_file)
+        return self._config
 
 
-path = SingletonPath()
+configuration = SingletonPath()
 
 
 # should be used when using pyinstaller
 def get_application_path() -> Path:
     """Get the application path."""
-    return path.application_path
+    return configuration.application_path
 
+def read_config(file) -> dict:
+    """Read config file"""
+    config = configparser.ConfigParser()
+    config.read(file)
+    return config
 
-def get_config_file() -> Path:
-    """Get the config file path."""
-    return path.config_file
+def get_config() -> dict:
+    """Get the config file from cache."""
+    return configuration.config
+

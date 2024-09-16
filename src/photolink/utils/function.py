@@ -72,13 +72,6 @@ def search_all_xz_file(path: Path) -> list:
     return embeddings
 
 
-def read_config(file) -> dict:
-    """Read config file"""
-    config = configparser.ConfigParser()
-    config.read(file)
-    return config
-
-
 def config_to_env(config: configparser.ConfigParser, section: str):
     """Set some of the config variables as env variables."""
 

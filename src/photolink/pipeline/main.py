@@ -8,9 +8,9 @@ from PySide6.QtCore import QCoreApplication, QProcess, Qt, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
-from photolink import get_application_path, get_config_file
+from photolink import get_application_path, get_config
 from photolink.pipeline.qss import *
-from photolink.utils.function import config_to_env, read_config
+from photolink.utils.function import config_to_env
 
 
 def restart_application():
@@ -24,8 +24,7 @@ def run():
     """Main entry point for the application."""
 
     application_path = get_application_path()
-    config_file = get_config_file()
-    config_data = read_config(config_file)
+    config_data = get_config()
 
     # Init global logger
     logger_path = application_path / "worker.log"
@@ -33,14 +32,10 @@ def run():
         logger_path, format="{time}:{level}:{message}", level="INFO", enqueue=True
     )
 
-    if not config_file.exists():
-        logger.error(f"Config file {config_file} not found. Exiting...")
-        sys.exit(1)
-
     try:
         config_to_env(config_data, "MODEL")
     except Exception as e:
-        logger.error(f"Error: {e} in reading config file {config_file}. Check again.")
+        logger.error(f"Error: {e} in reading config file to env variable. Check again.")
         sys.exit(1)
 
     app = QApplication(sys.argv)
