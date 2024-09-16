@@ -39,7 +39,7 @@ The code, dependencies, and assets all need to be converted into executables fir
 
 ```bash
 chmod +x helpers/package.sh
-make package
+make nuitka
 ```
 
 ## Distributing to Windows Users (Windows Installer file)
@@ -49,11 +49,21 @@ Now collected execution files need to be wrapped up for Windows users, so that t
 To distribute the `.exe` file to Windows Users in a standard way, you need [INNO setup tools](https://jrsoftware.org/isdl.php). Just download the installer and feed in your files based on Wizard prompt to generate `.iss` Pascal script that can be auto-compiled into a Windows installer by Inno setup tools. You do not have to code anything, just make sure you pass my `windows.iss` to Inno setup, and it will compile the installer for you. You can pass the output to the client. Getting code signing is very troublesome, and requires payment. Not worth it for this purpose.
 
 
+**Important**
+
+We inject the credentials for dropbox, and others at this point. We should not commit iss files anywhere. Once you have nuitka compiled binaries, create iss file based on template with real credentials using:
+
+```bash
+make windows
+```
+
 # TODO List
 
-✅ Replace `faiss` that was difficult to build with `nmslib-metabrainz`
-✅ Implement function to read images safely using metadata
-❌ Create the yoloworld feature. work on the pipeline. Call in `DP2 match` for now. Download the weights efficienly from dropbox. 
-❌ Think about ways to obfuscate credentials. 
-❌ Replace yunet with scrfd for better performance. 
-
+- ✅ Replace `faiss` that was difficult to build with `nmslib-metabrainz`
+- ✅ Implement function to read images safely using metadata
+- ❌ Create the yoloworld feature. work on the pipeline. Call in `DP2 match` for now. Download the weights efficienly from dropbox.
+- ❌ Research face-reidentification model that is super light. 
+- ❌ Think about ways to obfuscate credentials. 
+- ❌ Replace yunet with scrfd for better performance. 
+- ❌ Think about ways to counter rotated images using landmark detections. No detection -> rotate. If left eye is higher than right eye, wrong detection. 
+- ❌ Implement yoloworld for clustering and face match for multi-face case, instead of relying on heuristics.

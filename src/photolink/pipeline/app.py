@@ -108,7 +108,7 @@ class MainWindow(MainWindowFront):
         self.init_time = time.time()
         self.log_message("Processing started.")
 
-        # first check there is output path.
+        # Check output path. Universal check for all tasks.
         if not self.output_path_selector.line_edit.text():
             self.display_notification(
                 enums.ErrorMessage.PATH_NOT_SELECTED.name,
@@ -121,7 +121,10 @@ class MainWindow(MainWindowFront):
         self.job["output"] = self.output_path_selector.line_edit.text()
 
         # start by generating jobs based on the selected task
-        if self.current_task == enums.Task.FACE_SEARCH.name:
+        if (
+            self.current_task == enums.Task.FACE_SEARCH.name
+            or self.current_task == enums.Task.DP2_MATCH.name
+        ):
 
             if (
                 not self.source_path_selector.line_edit.text()
@@ -134,7 +137,7 @@ class MainWindow(MainWindowFront):
                 self.change_button_status(True)
                 return
 
-            self.job["task"] = enums.Task.FACE_SEARCH.name
+            self.job["task"] = self.current_task
             self.job["source"] = search_all_images(
                 self.source_path_selector.line_edit.text()
             )
@@ -144,6 +147,7 @@ class MainWindow(MainWindowFront):
 
         elif self.current_task == enums.Task.CLUSTERING.name:
 
+            # only source path is required for clustering.
             if not self.source_path_selector.line_edit.text():
                 self.display_notification(
                     enums.ErrorMessage.PATH_NOT_SELECTED.name,
@@ -152,15 +156,10 @@ class MainWindow(MainWindowFront):
                 self.change_button_status(True)
                 return
 
-            self.job["task"] = enums.Task.CLUSTERING.name
+            self.job["task"] = self.current_task
             self.job["source"] = search_all_images(
                 self.source_path_selector.line_edit.text()
             )
-
-        elif self.current_task == enums.Task.DP2_MATCH.name:
-            logger.info("DP2 Match task selected.")
-
-
         else:
             self.change_button_status(True)
             raise ValueError("Invalid task selected")

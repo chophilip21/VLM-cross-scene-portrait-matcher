@@ -164,3 +164,5 @@ beeware-venv
 *.exe
 !launch.spec
 launch.dist
+*.sh
+*.iss
