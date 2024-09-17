@@ -1,7 +1,7 @@
+import configparser
 import os
 import sys
 from pathlib import Path
-import configparser
 
 
 class SingletonPath:

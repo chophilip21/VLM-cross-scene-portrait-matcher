@@ -1,13 +1,14 @@
 """Module to monitor the progress of the worker."""
 
 import json
+import sys
 import threading
 import time
-import sys
 import traceback
 from pathlib import Path
-from loguru import logger
+
 import gdown
+from loguru import logger
 
 import photolink.utils.enums as enums
 from photolink import get_application_path, get_config
@@ -69,7 +70,9 @@ class ProgressMonitor(threading.Thread):
                     self.application_path
                     / Path(self.config.get("YOLO-WORLD", "GRAD_EMBEDDING_LOCAL"))
                 )
-                self.storage_download(embedding_remote, embedding_local, "grad_embedding")
+                self.storage_download(
+                    embedding_remote, embedding_local, "grad_embedding"
+                )
 
         with open(self.log_file, "r") as f:
             while not self.stop_event.is_set():

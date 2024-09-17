@@ -3,8 +3,8 @@
 import os
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, Signal, QTimer
-from PySide6.QtGui import QFont, QIcon, QMovie, QFontMetrics
+from PySide6.QtCore import QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QFont, QFontMetrics, QIcon, QMovie
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -27,8 +27,9 @@ import photolink.utils.enums as enums
 from photolink import get_application_path, get_config
 from photolink.pipeline.qss import *
 
+
 class ProcessWidget(QWidget):
-    """Widget that displays a loading spinner and a stop button."""
+    """Widget that displays a loading spinner and a stop button when processing starts."""
 
     def __init__(self, stop_callback, parent=None):
         super().__init__(parent)
@@ -87,7 +88,9 @@ class ProcessWidget(QWidget):
         """Adjust the size of the loading label based on the longest message."""
         # Ensure the font is applied to QLabel before measuring text
         font_metrics = QFontMetrics(self.loading_label.font())
-        longest_message = max(self.messages, key=lambda msg: font_metrics.horizontalAdvance(msg))
+        longest_message = max(
+            self.messages, key=lambda msg: font_metrics.horizontalAdvance(msg)
+        )
         fixed_width = font_metrics.horizontalAdvance(longest_message)
         fixed_height = font_metrics.height()
 
@@ -103,7 +106,9 @@ class ProcessWidget(QWidget):
         # Move to the next message, loop back if at the end
         self.message_index = (self.message_index + 1) % len(self.messages)
 
+
 class MainWindowFront(QMainWindow):
+    """Main frontend window class for the application."""
 
     refresh_requested = Signal()
 
@@ -131,7 +136,7 @@ class MainWindowFront(QMainWindow):
         self.title_layout = QHBoxLayout()
 
         # Add a responsive application title
-        self.title_label = QLabel("PhotoMatcher v.0.01", self)
+        self.title_label = QLabel("PhotoMatcher v.0.1.2", self)
         self.title_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.title_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 

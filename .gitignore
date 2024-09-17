@@ -168,3 +168,4 @@ launch.dist
 *.iss
 *.onnx
 *.pkl
+demo

@@ -4,6 +4,7 @@ import json
 import multiprocessing as mp
 import os
 import sys
+import time
 import traceback
 from pathlib import Path
 
@@ -13,7 +14,6 @@ import photolink.utils.enums as enums
 import photolink.workers.functions as functions
 from photolink import get_application_path, get_config
 from photolink.workers import WorkerSignals
-import time
 
 
 class JobProcessor:

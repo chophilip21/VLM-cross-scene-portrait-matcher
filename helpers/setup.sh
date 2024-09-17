@@ -4,8 +4,8 @@
 
 # Check if Python 3.11 is installed
 PYTHON_COMMAND=$(command -v python3)
-if [[ -z "$PYTHON_COMMAND" || ! "$("$PYTHON_COMMAND" --version 2>&1)" =~ "Python 3.12" ]]; then
-    echo "Python 3.12 is not installed or not the default python. Please install Python 3.12 or set it as default."
+if [[ -z "$PYTHON_COMMAND" || ! "$("$PYTHON_COMMAND" --version 2>&1)" =~ "Python 3.11" ]]; then
+    echo "Python 3.11 is not installed or not the default python. Please install Python 3.11 or set it as default."
     exit 1
 fi
 
