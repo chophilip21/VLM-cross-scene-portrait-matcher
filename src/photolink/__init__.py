@@ -43,7 +43,7 @@ class SingletonPath:
                 )
 
         return self._config_file_path
-    
+
     @property
     def config(self):
         """Read the config file."""
@@ -60,13 +60,14 @@ def get_application_path() -> Path:
     """Get the application path."""
     return configuration.application_path
 
+
 def read_config(file) -> dict:
     """Read config file"""
     config = configparser.ConfigParser()
     config.read(file)
     return config
 
+
 def get_config() -> dict:
     """Get the config file from cache."""
     return configuration.config
-

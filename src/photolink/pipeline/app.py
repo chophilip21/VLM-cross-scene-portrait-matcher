@@ -199,7 +199,6 @@ class MainWindow(MainWindowFront):
         self.change_button_status(True)
         self.display_notification("Complete", "All operations completed successfully.")
         self.log_message("Processing finished.")
-        # self.progress_widget.setValue(100)
 
     def stop_processing(self):
         """Universal stop mechanism for the processing."""
@@ -221,7 +220,7 @@ class MainWindow(MainWindowFront):
 
     def task_result(self, result):
         """Called to log task results to console."""
-        self.log_message(result)
+        self.log_message(f"check:  {result}")
 
     def notify_settings_saved(self):
         """Called when the settings dialog is saved."""

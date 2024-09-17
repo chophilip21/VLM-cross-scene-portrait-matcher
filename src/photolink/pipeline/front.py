@@ -6,10 +6,21 @@ from pathlib import Path
 from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QFont, QIcon, QMovie
 from PySide6.QtSvgWidgets import QSvgWidget
-from PySide6.QtWidgets import (QFileDialog, QGridLayout, QHBoxLayout, QLabel,
-                               QLineEdit, QMainWindow, QMessageBox,
-                               QPushButton, QSizePolicy, QTextEdit,
-                               QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QSizePolicy,
+    QTextEdit,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 import photolink.pipeline.settings as settings
 import photolink.utils.enums as enums

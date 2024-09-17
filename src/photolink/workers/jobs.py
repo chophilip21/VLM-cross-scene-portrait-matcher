@@ -13,6 +13,7 @@ import photolink.utils.enums as enums
 import photolink.workers.functions as functions
 from photolink import get_application_path, get_config
 from photolink.workers import WorkerSignals
+import time
 
 
 class JobProcessor:
@@ -87,6 +88,11 @@ class JobProcessor:
             # final stop check
             if self.stop_event.is_set():
                 return enums.StatusMessage.STOPPED.name
+
+        elif self.task == enums.Task.DP2_MATCH.name:
+
+            # simulate work
+            time.sleep(10)
 
         else:
             raise NotImplementedError(f"Task not implemented: {self.task}")

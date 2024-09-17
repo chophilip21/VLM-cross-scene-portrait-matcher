@@ -1,6 +1,5 @@
 """Yoloworld related modules go here."""
 
-from photolink.utils.dropbox_client import download_file
 from photolink import get_application_path, get_config
 from photolink.utils.function import get_current_date
 

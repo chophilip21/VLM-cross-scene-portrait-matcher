@@ -23,7 +23,7 @@ devel = [
     "loguru",
     "swig",
     "isort",
-    "dropbox",
+    "google-api-python-client",
     "nmslib-metabrainz",
 ]
 
