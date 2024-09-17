@@ -166,3 +166,5 @@ beeware-venv
 launch.dist
 *.sh
 *.iss
+*.onnx
+*.pkl

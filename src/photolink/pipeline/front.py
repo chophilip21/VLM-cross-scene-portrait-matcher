@@ -3,8 +3,8 @@
 import os
 from pathlib import Path
 
-from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QFont, QIcon, QMovie
+from PySide6.QtCore import QSize, Qt, Signal, QTimer
+from PySide6.QtGui import QFont, QIcon, QMovie, QFontMetrics
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -27,21 +27,20 @@ import photolink.utils.enums as enums
 from photolink import get_application_path, get_config
 from photolink.pipeline.qss import *
 
-
 class ProcessWidget(QWidget):
-    """Integrate circular progress bar with QmessageBox."""
+    """Widget that displays a loading spinner and a stop button."""
 
     def __init__(self, stop_callback, parent=None):
         super().__init__(parent)
-        self.loading_label = QLabel(
-            "Disclaimer: This software is only meant for internal usage.", self
-        )
+
+        # Initialize the loading label
+        self.loading_label = QLabel("Initializing the modules 🔥🔥🔥", self)
         self.loading_label.setAlignment(Qt.AlignCenter)
         font = QFont()
         font.setPointSize(12)
         self.loading_label.setFont(font)
 
-        # add spinner to the loading label
+        # Add spinner to the loading label
         self.spinner = QLabel(self)
         self.spinner.setAlignment(Qt.AlignCenter)
         self.application_path = get_application_path()
@@ -53,17 +52,56 @@ class ProcessWidget(QWidget):
         self.spinner.setMovie(self.movie)
         self.movie.start()
 
+        # Initialize the stop button
         self.stop_button = QPushButton("Stop")
         self.stop_button.clicked.connect(stop_callback)
         self.stop_button.setStyleSheet(STOP_BUTTON_STYLE)
 
+        # List of messages to display
+        self.messages = [
+            "Disclaimer: This software is only meant for internal usage.",
+            "Processing images. Please be patient. This may take a while.",
+            "Machine learning model processing the images 🤖",
+            "If the volume of images is large, this may take a while 😔",
+            "Almost done...hang in there! 🍺",
+            "Go get a cup of coffee ☕, this may need a bit more time :)",
+        ]
+        self.message_index = 0  # Track the current message index
+
+        # Set up the layout
         layout = QVBoxLayout()
         layout.addWidget(self.spinner)
         layout.addWidget(self.loading_label)
-        # layout.addWidget(self.circular_progress)
         layout.addWidget(self.stop_button)
         self.setLayout(layout)
 
+        # Measure the longest message to set a fixed size (after setting font)
+        self.adjust_label_size()
+
+        # Set up the timer to change messages every 3 seconds
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_loading_message)
+        self.timer.start(8000)  # Update every 3000 milliseconds (3 seconds)
+
+    def adjust_label_size(self):
+        """Adjust the size of the loading label based on the longest message."""
+        # Ensure the font is applied to QLabel before measuring text
+        font_metrics = QFontMetrics(self.loading_label.font())
+        longest_message = max(self.messages, key=lambda msg: font_metrics.horizontalAdvance(msg))
+        fixed_width = font_metrics.horizontalAdvance(longest_message)
+        fixed_height = font_metrics.height()
+
+        # Set the fixed size based on the longest message
+        self.loading_label.setFixedWidth(fixed_width + 20)  # Add padding
+        self.loading_label.setFixedHeight(fixed_height + 10)  # Add padding
+
+    def update_loading_message(self):
+        """Update the loading label's text."""
+        # Update the label with the next message
+        self.loading_label.setText(self.messages[self.message_index])
+
+        # Move to the next message, loop back if at the end
+        self.message_index = (self.message_index + 1) % len(self.messages)
 
 class MainWindowFront(QMainWindow):
 

@@ -61,7 +61,7 @@ make windows
 
 - ✅ Replace `faiss` that was difficult to build with `nmslib-metabrainz`
 - ✅ Implement function to read images safely using metadata
-- ❌ Create the yoloworld feature. work on the pipeline. Call in `DP2 match` for now. Download the weights efficienly from dropbox.
+- ❌ Create the yoloworld feature. work on the pipeline. Call in `DP2 match` for now. Download the weights efficienly from google drive.
 - ❌ Research face-reidentification model that is super light. 
 - ❌ Think about ways to obfuscate credentials. 
 - ❌ Replace yunet with scrfd for better performance. 

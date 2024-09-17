@@ -6,15 +6,12 @@ import time
 import sys
 import traceback
 from pathlib import Path
-import dropbox.session
 from loguru import logger
-import dropbox
-import requests
+import gdown
 
 import photolink.utils.enums as enums
 from photolink import get_application_path, get_config
 from photolink.workers import WorkerSignals
-from photolink.utils.dropbox_client import download_file_with_timeout
 
 
 class ProgressMonitor(threading.Thread):
@@ -55,25 +52,24 @@ class ProgressMonitor(threading.Thread):
         if self.task == enums.Task.DP2_MATCH.name:
             local_path = str(
                 self.application_path
-                / Path(self.config.get("MODEL", "YOLO_WORLD_LOCAL"))
+                / Path(self.config.get("YOLO-WORLD", "LOCAL_PATH"))
             )
 
-            remote_path = str(self.config.get("MODEL", "YOLO_WORLD_REMOTE"))
+            remote_path = str(self.config.get("YOLO-WORLD", "REMOTE_PATH"))
 
             if not Path(local_path).exists():
                 logger.info("Downloading weights for yoloworld model.")
-                self.signals.result.emit(
-                    "Downloading weights for yoloworld model. Make sure you have a stable internet connection."
-                )
+                self.storage_download(remote_path, local_path, "yoloworld")
 
-                try:
-                    download_file_with_timeout(
-                        dropbox_path=remote_path, local_path=local_path, timeout=100
-                    )
-                except:
-                    logger.error("Error downloading weights for yoloworld model.")
-                    self.signals.error.emit((exctype, value, traceback.format_exc()))
-                    return
+                # also download empbedding
+                embedding_remote = str(
+                    self.config.get("YOLO-WORLD", "GRAD_EMBEDDING_REMOTE")
+                )
+                embedding_local = str(
+                    self.application_path
+                    / Path(self.config.get("YOLO-WORLD", "GRAD_EMBEDDING_LOCAL"))
+                )
+                self.storage_download(embedding_remote, embedding_local, "grad_embedding")
 
         with open(self.log_file, "r") as f:
             while not self.stop_event.is_set():
@@ -98,3 +94,22 @@ class ProgressMonitor(threading.Thread):
         with open(str(file_path), "r") as file:
             data = json.load(file)
         return data
+
+    def storage_download(self, remote_path: str, local_path: str, model_name: str):
+        """Download the file from the remote storage to the local storage.
+
+        Args:
+            remote_path (str): Path to the file in the remote storage.
+            local_path (str): Path to the file in the local storage.
+            model_name (str): Name of the model for which the weights are being downloaded.
+        """
+        try:
+            gdown.download(remote_path, local_path, quiet=False, fuzzy=True)
+            logger.info(f"Weights downloaded successfully for model : {model_name}")
+            self.signals.result.emit(f"{model_name} weights downloaded successfully.")
+
+        except Exception as e:
+            logger.error(f"Error downloading weights for {model_name} model : {e}")
+            exctype, value, tb = sys.exc_info()
+            self.signals.error.emit((exctype, value, traceback.format_exc()))
+            return

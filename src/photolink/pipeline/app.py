@@ -203,6 +203,7 @@ class MainWindow(MainWindowFront):
     def stop_processing(self):
         """Universal stop mechanism for the processing."""
         self.progress_widget.movie.stop()
+        self.progress_widget.timer.stop()
         for thread in self.threads:
             thread.stop()
         self.progress_message_box.accept()
@@ -220,7 +221,7 @@ class MainWindow(MainWindowFront):
 
     def task_result(self, result):
         """Called to log task results to console."""
-        self.log_message(f"check:  {result}")
+        self.log_message(f"\n SYSTEM MESSAGE:  {result}")
 
     def notify_settings_saved(self):
         """Called when the settings dialog is saved."""

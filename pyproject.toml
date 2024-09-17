@@ -25,6 +25,7 @@ devel = [
     "isort",
     "google-api-python-client",
     "nmslib-metabrainz",
+    "gdown",
 ]
 
 [tool.hatch.build.targets.wheel]

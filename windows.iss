@@ -44,12 +44,6 @@ Root: HKLM; Subkey: "Software\Classes\{#MyAppAssocKey}\DefaultIcon"; ValueType: 
 Root: HKLM; Subkey: "Software\Classes\{#MyAppAssocKey}\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
 Root: HKLM; Subkey: "Software\Classes\Applications\{#MyAppExeName}\SupportedTypes"; ValueType: string; ValueName: ".myp"; ValueData: ""
 
-; Set a system-wide environment variable DROPBOX_ACCESS_TOKEN
-Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; \
-    ValueType: string; ValueName: "DROPBOX_ACCESS_TOKEN"; ValueData: "ADS02323SD123"; \
-    Flags: createvalueifdoesntexist uninsdeletevalue; \
-    Permissions: users-full
-
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename: "{app}\icon.ico"
@@ -57,6 +51,3 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 Filename: "{cmd}"; Parameters: "/C icacls ""{app}"" /grant *S-1-1-0:(OI)(CI)F"; Flags: runhidden
-
-; Refresh environment variables so they take effect immediately
-Filename: "{cmd}"; Parameters: "/C setx DROPBOX_ACCESS_TOKEN \"ADS02323SD123\" /M"; Flags: runhidden
