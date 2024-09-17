@@ -27,7 +27,7 @@ def _copy_image_meta(src: Image.Image, dest: Image.Image):
     return dest
 
 
-def safe_load_image(image: Union[bytes, str]) -> Image.Image:
+def safe_load_image(image: Union[bytes, str]) -> np.ndarray:
     """Load an image from bytes or a file path, and ensure the orientation is correct."""
     # make sure image is bytes or a valid file path
     if isinstance(image, str):

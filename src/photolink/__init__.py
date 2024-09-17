@@ -34,7 +34,7 @@ class SingletonPath:
         if self._config_file_path is None:
 
             self._config_file_path = Path(
-                self._application_path / "assets" / "config.ini"
+                self.application_path / "assets" / "config.ini"
             )
 
             if not self._config_file_path.exists():

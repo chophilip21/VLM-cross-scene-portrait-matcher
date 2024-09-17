@@ -1,7 +1,5 @@
 """Yoloworld related modules go here."""
 
-from photolink import get_application_path, get_config
-from photolink.utils.function import get_current_date
 import time
 import cv2
 import numpy as np
@@ -66,7 +64,7 @@ class YOLOWorld:
 
         # Initialize model
         self.session = onnxruntime.InferenceSession(
-            path, providers=["OpenVINOExecutionProvider"]
+            path, providers=["CPUExecutionProvider"]
         )
 
         # check what runtime i am using
