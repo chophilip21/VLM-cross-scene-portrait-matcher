@@ -51,3 +51,30 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 Filename: "{cmd}"; Parameters: "/C icacls ""{app}"" /grant *S-1-1-0:(OI)(CI)F"; Flags: runhidden
+
+[Code]
+function ShouldDownloadWeights(): Boolean;
+begin
+  Result := MsgBox('Would you like to download the model weights now? This requires an internet connection and will allow the application to work offline later.', mbConfirmation, MB_YESNO) = IDYES;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    if ShouldDownloadWeights() then
+    begin
+      // Pass {app} as an argument to the batch script
+      if Exec(ExpandConstant('{app}\download_weights.bat'), '"' + ExpandConstant('{app}') + '"', '', SW_SHOW, ewWaitUntilTerminated, ResultCode) then
+      begin
+        MsgBox('Model weights downloaded successfully!', mbInformation, MB_OK);
+      end
+      else
+      begin
+        MsgBox('Failed to download model weights. Please check your internet connection and try again later.', mbError, MB_OK);
+      end;
+    end;
+  end;
+end;
