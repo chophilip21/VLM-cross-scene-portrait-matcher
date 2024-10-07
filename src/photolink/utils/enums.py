@@ -6,7 +6,6 @@ from enum import Enum
 class Task(Enum):
     """Enum for task type."""
 
-    # TODO: Implement YOLOWORLD model to auto-select subject.
     FACE_SEARCH = "Search your target subject from heaps of unlabeled photos. Source refers to an image of a person you are looking for. You can add multiple subjects to the source folder, but ensure that you use exactly one source image per subject, and that each source photo has precisely one person."
     CLUSTERING = "When you do not know how many subjects you have, place all images into a single folder and run clustering. Each cluster represents identified subject. Uncertain ones will be transferred to uncertain folder. Subject must have at least two images to be considered as a cluster."
     DP2_MATCH = "Automatically detect main subject (e.g the graduating student) in the photo to ensure photos of the subjects are in order. Apply culling algorithm to remove duplicates/bad photos and get exactly the same number of photos on both source and reference folders."

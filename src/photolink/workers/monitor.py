@@ -53,26 +53,14 @@ class ProgressMonitor(threading.Thread):
         if self.task == enums.Task.DP2_MATCH.name:
             local_path = str(
                 self.application_path
-                / Path(self.config.get("YOLO-WORLD", "LOCAL_PATH"))
+                / Path(self.config.get("YOLOSEG", "LOCAL_PATH"))
             )
 
-            remote_path = str(self.config.get("YOLO-WORLD", "REMOTE_PATH"))
+            remote_path = str(self.config.get("YOLOSEG", "REMOTE_PATH"))
 
             if not Path(local_path).exists():
-                logger.info("Downloading weights for yoloworld model.")
-                self.storage_download(remote_path, local_path, "yoloworld")
-
-                # also download empbedding
-                embedding_remote = str(
-                    self.config.get("YOLO-WORLD", "GRAD_EMBEDDING_REMOTE")
-                )
-                embedding_local = str(
-                    self.application_path
-                    / Path(self.config.get("YOLO-WORLD", "GRAD_EMBEDDING_LOCAL"))
-                )
-                self.storage_download(
-                    embedding_remote, embedding_local, "grad_embedding"
-                )
+                logger.info("Downloading weights for yolo seg model.")
+                self.storage_download(remote_path, local_path, "YOLOSEG")
 
         with open(self.log_file, "r") as f:
             while not self.stop_event.is_set():

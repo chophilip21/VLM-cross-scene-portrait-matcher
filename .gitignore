@@ -168,5 +168,7 @@ launch.dist
 *.iss
 *.onnx
 *.pkl
+*.pt
 demo
 debug
+/test

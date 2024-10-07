@@ -48,22 +48,29 @@ Now collected execution files need to be wrapped up for Windows users, so that t
 
 To distribute the `.exe` file to Windows Users in a standard way, you need [INNO setup tools](https://jrsoftware.org/isdl.php). Just download the installer and feed in your files based on Wizard prompt to generate `.iss` Pascal script that can be auto-compiled into a Windows installer by Inno setup tools. You do not have to code anything, just make sure you pass my `windows.iss` to Inno setup, and it will compile the installer for you. You can pass the output to the client. Getting code signing is very troublesome, and requires payment. Not worth it for this purpose.
 
-
-**Important**
-
-We inject the credentials for dropbox, and others at this point. We should not commit iss files anywhere. Once you have nuitka compiled binaries, create iss file based on template with real credentials using:
-
 ```bash
 make windows
 ```
 
-# TODO List
+# V1 todo list (Prototype)
 
-- ✅ Replace `faiss` that was difficult to build with `nmslib-metabrainz`
-- ✅ Implement function to read images safely using metadata
-- ❌ Create the yoloworld feature. work on the pipeline. Call in `DP2 match` for now. Download the weights efficienly from google drive.
-- ❌ Research face-reidentification model that is super light. 
-- ❌ Think about ways to obfuscate credentials. 
-- ❌ Replace yunet with scrfd for better performance. 
-- ❌ Think about ways to counter rotated images using landmark detections. No detection -> rotate. If left eye is higher than right eye, wrong detection. 
-- ❌ Implement yoloworld for clustering and face match for multi-face case, instead of relying on heuristics.
+- ✅ Complete the front-end using Pyside6. Use threads to unblock GUI and send signals b/w layers.
+- ✅ Complete multiprocessor face detection to be used by face search feature and face clustering
+- ✅ Complete post-processing logic. Only use the top three biggest face for multi-face scenarios.  
+- ✅ Replace `faiss` that was difficult to build with `nmslib-metabrainz` (Half complete. This should be built natively).
+- ✅ Implement function to read images safely using metadata for rotated face scenarios
+- ✅ Create a feature to download heavy weights efficienly from google drive.
+- ✅ Test building the package using Nuitka and Inno setup for deployment on Windows. 
+- ✅ Create `DP2 match` feature. Drop `yolo-world`, since the result is subpar. Use `yolo11-seg`, use heuristics to capture most likely targets in the center. Get extracted mask of the candidate using semgentation masks.  
+- ❌ Add face-reidentification based on masks and apply culling feature to DP2 match. Complete the dp2 feature. 
+- ❌ Improve yunet with resize retry logic. 
+- ❌ Use openvino for faster inference.
+
+# V2 todo list
+
+- ❌ Pyside can only handle rudimentary design. Work on Javascript front-end together. 
+- ❌ Put all the machine learning models inside a backend server and respond to requests from front-end. Use things like MLServer, Kserve, Bentoml. Triton server is overkill because we won't be using GPU models. 
+- ❌ Work on general culling feature this should be easy because Dp2 feature would already have the basic culling feature
+- ❌ Work on image retrieval feature. If user throws some query, "Find me a photo of a person standing in front of beatch", use a caption model to convert images into captions, and calculate linguistic similarities. 
+- ❌ Build for both windows and mac. 
+
