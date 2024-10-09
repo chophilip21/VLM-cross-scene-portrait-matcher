@@ -1,156 +1,7 @@
 import cv2
 import numpy as np
 import onnxruntime as ort
-
-class_names = [
-    "person",
-    "bicycle",
-    "car",
-    "motorcycle",
-    "airplane",
-    "bus",
-    "train",
-    "truck",
-    "boat",
-    "traffic light",
-    "fire hydrant",
-    "stop sign",
-    "parking meter",
-    "bench",
-    "bird",
-    "cat",
-    "dog",
-    "horse",
-    "sheep",
-    "cow",
-    "elephant",
-    "bear",
-    "zebra",
-    "giraffe",
-    "backpack",
-    "umbrella",
-    "handbag",
-    "tie",
-    "suitcase",
-    "frisbee",
-    "skis",
-    "snowboard",
-    "sports ball",
-    "kite",
-    "baseball bat",
-    "baseball glove",
-    "skateboard",
-    "surfboard",
-    "tennis racket",
-    "bottle",
-    "wine glass",
-    "cup",
-    "fork",
-    "knife",
-    "spoon",
-    "bowl",
-    "banana",
-    "apple",
-    "sandwich",
-    "orange",
-    "broccoli",
-    "carrot",
-    "hot dog",
-    "pizza",
-    "donut",
-    "cake",
-    "chair",
-    "couch",
-    "potted plant",
-    "bed",
-    "dining table",
-    "toilet",
-    "tv",
-    "laptop",
-    "mouse",
-    "remote",
-    "keyboard",
-    "cell phone",
-    "microwave",
-    "oven",
-    "toaster",
-    "sink",
-    "refrigerator",
-    "book",
-    "clock",
-    "vase",
-    "scissors",
-    "teddy bear",
-    "hair drier",
-    "toothbrush",
-]
-
-
-class Colors:
-    """Color palette for visualization."""
-
-    def __init__(self):
-        """Initialize colors as hex = matplotlib.colors.TABLEAU_COLORS.values()."""
-        hexs = (
-            "042AFF",
-            "0BDBEB",
-            "F3F3F3",
-            "00DFB7",
-            "111F68",
-            "FF6FDD",
-            "FF444F",
-            "CCED00",
-            "00F344",
-            "BD00FF",
-            "00B4FF",
-            "DD00BA",
-            "00FFFF",
-            "26C000",
-            "01FFB3",
-            "7D24FF",
-            "7B0068",
-            "FF1B6C",
-            "FC6D2F",
-            "A2FF0B",
-        )
-        self.palette = [self.hex2rgb(f"#{c}") for c in hexs]
-        self.n = len(self.palette)
-        self.pose_palette = np.array(
-            [
-                [255, 128, 0],
-                [255, 153, 51],
-                [255, 178, 102],
-                [230, 230, 0],
-                [255, 153, 255],
-                [153, 204, 255],
-                [255, 102, 255],
-                [255, 51, 255],
-                [102, 178, 255],
-                [51, 153, 255],
-                [255, 153, 153],
-                [255, 102, 102],
-                [255, 51, 51],
-                [153, 255, 153],
-                [102, 255, 102],
-                [51, 255, 51],
-                [0, 255, 0],
-                [0, 0, 255],
-                [255, 0, 0],
-                [255, 255, 255],
-            ],
-            dtype=np.uint8,
-        )
-
-    def __call__(self, i, bgr=False):
-        """Converts hex color codes to RGB values."""
-        c = self.palette[int(i) % self.n]
-        return (c[2], c[1], c[0]) if bgr else c
-
-    @staticmethod
-    def hex2rgb(h):
-        """Converts hex color codes to RGB values (i.e. default PIL order)."""
-        return tuple(int(h[1 + i : 1 + i + 2], 16) for i in (0, 2, 4))
-
+from photolink.models import Colors, class_names
 
 class YOLOSeg:
     """YOLOv8 style segmentation model."""
@@ -193,10 +44,8 @@ class YOLOSeg:
             else np.single
         )
 
-        # Get model width and height
-        self.model_height, self.model_width = [
-            x.shape for x in self.session.get_inputs()
-        ][0][-2:]
+        # TODO: Instead of hardcoding, need to read from config.
+        self.model_height, self.model_width = 640, 640
 
         # Load COCO class names
         self.classes = class_names
@@ -487,7 +336,7 @@ class YOLOSeg:
             masks = masks[:, :, None]
         return masks
 
-    def draw_and_visualize(self, im, bboxes, segments, vis=False, save=True):
+    def draw_and_visualize(self, im, bboxes, segments, vis=False, save=True, name=None):
         """
         Draw and visualize results.
 
@@ -546,13 +395,26 @@ class YOLOSeg:
 
         # Save image
         if save:
-            cv2.imwrite("test/demo.jpg", im)
+            if name is not None:
+                cv2.imwrite(name, im)
+            else:
+                cv2.imwrite("test/demo.jpg", im)
 
 
 if __name__ == "__main__":
+    
+    # # export model
+    # from ultralytics import YOLO
+    # model = YOLO("yolo11m-seg.pt")
+    # model.export(format="onnx", dynamic=True, half=True, int8=True, batch=4)
+
+    
     from pathlib import Path
     import time
     from loguru import logger
+    from photolink.utils.function import search_all_images
+    import os
+    
 
     model_path = str(
         Path(r"C:\Users\choph\photomatcher\assets\weights\yolo11m-seg.onnx")
@@ -565,18 +427,35 @@ if __name__ == "__main__":
     model = YOLOSeg(
         model_path, human_only=True, num_candidates=3, heuristic_threshold=0.7
     )
-    # model = YOLOSeg(model_path, human_only=False)
-
     logger.info(f"Model loaded from {model_path}")
 
-    # Read image by OpenCV
+    # single Inference test
     img = cv2.imread(img_url)
-
-    # Inference
     start = time.time()
     boxes, segments, _ = model(img, conf_threshold=conf, iou_threshold=iou)
     logger.info(f"Time cost: {time.time() - start:.3f}s")
 
-    # Draw bboxes and polygons
-    if len(boxes) > 0:
-        model.draw_and_visualize(img, boxes, segments, vis=False, save=True)
+    # batch inference test.
+    # img_path = Path(r"C:\Users\choph\photomatcher\demo")
+    # output_path = Path(r"C:\Users\choph\photomatcher\test")
+
+    # images = search_all_images(str(img_path))
+    # imgs = []
+
+    # for image in images:
+    #     img_url = str(image)
+    #     logger.info(f"Processing image: {img_url}")
+
+    #     # Read image by OpenCV
+    #     img = cv2.imread(img_url)
+    #     imgs.append(img)
+
+    # IPython.embed()
+
+    # # Batch inference
+    # result = model(imgs, conf_threshold=conf, iou_threshold=iou)
+
+    # # Draw bboxes and polygons
+    # if len(boxes) > 0:
+    #     output_name = output_path / os.path.basename(img_url)
+    #     model.draw_and_visualize(img, boxes, segments, vis=False, save=True, name=output_name)

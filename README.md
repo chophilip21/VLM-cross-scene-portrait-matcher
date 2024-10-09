@@ -64,7 +64,14 @@ make windows
 - ✅ Create `DP2 match` feature. Drop `yolo-world`, since the result is subpar. Use `yolo11-seg`, use heuristics to capture most likely targets in the center. Get extracted mask of the candidate using semgentation masks.  
 - ❌ Add face-reidentification based on masks and apply culling feature to DP2 match. Complete the dp2 feature. 
 - ❌ Improve yunet with resize retry logic. 
-- ❌ Use openvino for faster inference.
+- ❌ Use openvino for faster inference. Think about batch export instead of multiprocessing.
+
+**How would embeddings work?**
+A. Run yolo seg algorithm and heuristics finder to find masks of candidates across stack A and B. Convert every masks into embeddings by cropping image regions with polgon mask. 
+B. For each embedding, cluster them using HDBSCAN, while maintaining the source metadata (where it came from). Ignore the ones that have too many matches, because it is very like that it is a professor or other people who repetively appear on frames. 
+C. For each cluster (ensure each embeddings are indeed from different, yet consecutive images, of a same person), run culling algorithm (bad exposure, eyes closed, etc) to remove bad images and duplicates.
+D. Make sure that stack A and B have same number of images this way. If the number of images do not match, do not remove images even if image is bad in terms of culling. If there is not enough image, create blank dummy image.     
+
 
 # V2 todo list
 
