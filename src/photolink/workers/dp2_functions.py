@@ -17,7 +17,7 @@ def run_yolo_seg(image_list: list) -> dict:
     if not isinstance(image_list, list):
         logger.error(f"Invalid image list: {image_list}")
         raise ValueError("Invalid image list.")
-    
+
     if len(image_list) == 0:
         logger.error(f"Empty image list: {image_list}")
         raise ValueError("Empty image list.")

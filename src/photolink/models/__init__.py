@@ -1,4 +1,5 @@
 """Init file for models module."""
+
 import numpy as np
 
 class_names = [

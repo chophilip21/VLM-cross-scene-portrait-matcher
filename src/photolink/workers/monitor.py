@@ -52,8 +52,7 @@ class ProgressMonitor(threading.Thread):
         # check if there is any weights to be downloaded
         if self.task == enums.Task.DP2_MATCH.name:
             local_path = str(
-                self.application_path
-                / Path(self.config.get("YOLOSEG", "LOCAL_PATH"))
+                self.application_path / Path(self.config.get("YOLOSEG", "LOCAL_PATH"))
             )
 
             remote_path = str(self.config.get("YOLOSEG", "REMOTE_PATH"))
