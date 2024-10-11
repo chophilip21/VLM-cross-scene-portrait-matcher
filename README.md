@@ -66,6 +66,8 @@ make windows
 - ❌ Improve yunet with resize retry logic. 
 - ❌ Use openvino for faster inference. Think about batch export instead of multiprocessing.
 
+![dp2](assets\img\roadmap.png)
+
 **How would embeddings work?**
 A. Run yolo seg algorithm and heuristics finder to find masks of candidates across stack A and B. Convert every masks into embeddings by cropping image regions with polgon mask. 
 B. For each embedding, cluster them using HDBSCAN, while maintaining the source metadata (where it came from). Ignore the ones that have too many matches, because it is very like that it is a professor or other people who repetively appear on frames. 
