@@ -12,11 +12,13 @@ from io import BytesIO
 from pathlib import Path
 from typing import Union
 
+import gdown
 import numpy as np
 from loguru import logger
 from PIL import Image, ImageOps
 
 import photolink.utils.enums as enums
+from photolink import get_application_path
 
 
 def _copy_image_meta(src: Image.Image, dest: Image.Image):
@@ -252,3 +254,25 @@ def get_relevant_embeddings(embeddings_path: Path, job_key: str) -> list:
         )
 
     return relevant_embedding_list
+
+
+def check_weights_exist(local_path, remote_path):
+    """Check if weights exist locally, if not download from remote path. Ensure path compatibility b/w linux and windows."""
+    application_path = get_application_path()
+    local = os.path.join(application_path, str(local_path))
+
+    if not os.path.exists(local):
+        logger.info(
+            f"Weights for {str(local_path)} not found. Downloading from {str(remote_path)}"
+        )
+
+        try:
+            gdown.download(str(remote_path), str(local), quiet=False, fuzzy=True)
+            logger.info(f"Weights downloaded successfully for model : {str(local)}")
+
+        except Exception as e:
+            logger.error(f"Error downloading weights for {str(local)} model : {e}")
+            return
+    else:
+        logger.info(f"Weights found locally for {str(local)}")
+        return

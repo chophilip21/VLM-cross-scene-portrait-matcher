@@ -1,4 +1,4 @@
-# Getting started with Pyinside6
+# Getting started on Windows
 
 The way you set things up on Linux and Windows is slightly different. Windows make life hard for devs.
 
@@ -18,13 +18,25 @@ export PATH=$PATH:/c/ProgramData/chocolatey/bin
 If you don't have it already, you also need the [C++ build tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) for some libraries, as well as [Cmake](https://cmake.org/download/).
 
 
-# Testing locally
-
 Now we need to confirm that our code works first. You can run the application in debug mode directly via:
 
 ```bash
 # look into config.ini 
+make setup
 source env/Scripts/activate
+python launch.py
+```
+
+## For Mac
+
+Assuming you have brew and conda installed, everything should be easy.
+
+```bash
+brew install cmake
+brew install pkg-config
+brew install cairo
+make setup
+source env/bin/activate
 python launch.py
 ```
 
@@ -66,7 +78,7 @@ make windows
 - ❌ Improve yunet with resize retry logic. 
 - ❌ Use openvino for faster inference. Think about batch export instead of multiprocessing.
 
-![dp2](assets\img\roadmap.png)
+![dp2](assets/img/roadmap.png)
 
 **How would embeddings work?**
 A. Run yolo seg algorithm and heuristics finder to find masks of candidates across stack A and B. Convert every masks into embeddings by cropping image regions with polgon mask. 

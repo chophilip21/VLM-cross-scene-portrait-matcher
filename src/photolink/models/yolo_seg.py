@@ -1,12 +1,14 @@
+from pathlib import Path
+from typing import Union
+
 import cv2
 import numpy as np
 import onnxruntime as ort
-from photolink.models import Colors, class_names
-from photolink import get_application_path, get_config
 from loguru import logger
-from typing import Union
-from photolink.utils.function import safe_load_image
-from pathlib import Path
+
+from photolink import get_application_path, get_config
+from photolink.models import Colors, class_names
+from photolink.utils.function import check_weights_exist, safe_load_image
 
 
 class Local:
@@ -46,6 +48,10 @@ class Local:
             model_path = str(
                 application_path / Path(config.get("YOLOSEG", "LOCAL_PATH"))
             )
+            remote_path = str(config.get("YOLOSEG", "REMOTE_PATH"))
+
+            check_weights_exist(model_path, remote_path)
+
             self.width = int(config.get("YOLOSEG", "WIDTH"))
             self.height = int(config.get("YOLOSEG", "HEIGHT"))
 
@@ -486,15 +492,13 @@ def get_segmentation(
 if __name__ == "__main__":
     # Example usage
     import os
-    from pathlib import Path
     import time
-    import IPython
+    from pathlib import Path
 
     # Define image path
-    img_url = str(
-        Path(r"C:\Users\choph\photomatcher\demo\UCALCF23-C1-AWARDS-00003.jpg")
-    )
+    img_url = str(Path(r"sample/IMG_0066.JPG"))
 
+    os.makedirs("test", exist_ok=True)
     debug_path = os.path.join("test", os.path.basename(img_url))
 
     # Inference
@@ -502,4 +506,3 @@ if __name__ == "__main__":
     box, segment, mask = get_segmentation(img_url, debug=True, debug_path=debug_path)
     time_end = time.time()
     logger.info(f"Segmentation completed in {time_end - time_start:.3f}s")
-    IPython.embed()

@@ -1,11 +1,14 @@
 """FastReID model for extracting embeddings from images."""
 
+from pathlib import Path
+from typing import Union
+
 import cv2
 import numpy as np
 import onnxruntime
-from typing import Union
+
 from photolink import get_application_path, get_config
-from pathlib import Path
+
 
 def preprocess(input: Union[str, np.ndarray], image_width: int, image_height: int):
 
@@ -79,6 +82,7 @@ def get_reid_embedding(input: Union[str, np.ndarray]) -> np.ndarray:
     feat = normalize(feat, axis=1)
     return feat
 
+
 def isolate_instance(
     image: np.ndarray, box: np.ndarray, mask: np.ndarray
 ) -> np.ndarray:
@@ -117,16 +121,17 @@ def isolate_instance(
 
 
 if __name__ == "__main__":
-    from photolink.models.yolo_seg import get_segmentation
-    from loguru import logger
-    import IPython
-    import hdbscan
     import os
-    import pandas as pd
-    from sklearn.cluster import AgglomerativeClustering
     from collections import defaultdict
-    from photolink.utils.function import search_all_images, safe_load_image
 
+    import hdbscan
+    import IPython
+    import pandas as pd
+    from loguru import logger
+    from sklearn.cluster import AgglomerativeClustering
+
+    from photolink.models.yolo_seg import get_segmentation
+    from photolink.utils.function import safe_load_image, search_all_images
 
     # Define paths
     img_url_1 = str(
@@ -139,8 +144,9 @@ if __name__ == "__main__":
     conf = 0.5
     iou = 0.45
 
-
-    source_images = search_all_images(r"C:\Users\choph\philip\FOR PHIL\BCIT\2024-06-26_BCITCS24_C4")
+    source_images = search_all_images(
+        r"C:\Users\choph\philip\FOR PHIL\BCIT\2024-06-26_BCITCS24_C4"
+    )
 
     embeddings_info = []
 
@@ -157,7 +163,7 @@ if __name__ == "__main__":
         logger.info(f"mode detected {len(boxes)} instances on path: {img_path}")
 
         for i, ((*box, conf, cls_), mask) in enumerate(zip(boxes, masks)):
-            
+
             # crop instance, convert it into embedding
             try:
                 cropped_instance = isolate_instance(img, box, mask)
@@ -168,26 +174,29 @@ if __name__ == "__main__":
 
             embedding = get_reid_embedding(cropped_instance)
 
-            embeddings_info.append({
-            'embedding': embedding,
-            'image_path': img_path,
-            'box_index': i,
-            'box': box,
-            'confidence': conf,
-            'class': cls_,
-            'mask': mask
-        })
+            embeddings_info.append(
+                {
+                    "embedding": embedding,
+                    "image_path": img_path,
+                    "box_index": i,
+                    "box": box,
+                    "confidence": conf,
+                    "class": cls_,
+                    "mask": mask,
+                }
+            )
 
     logger.info("Embeddings extracted successfully.")
 
     # Convert embeddings to numpy array for clustering
-    embeddings = np.array([item['embedding'] for item in embeddings_info])
+    embeddings = np.array([item["embedding"] for item in embeddings_info])
     embeddings = np.squeeze(embeddings, axis=1)
 
     # Decide which clustering algorithm to use based on data size
     if len(embeddings) < 20:
         # Use AgglomerativeClustering for small datasets
         from sklearn.cluster import AgglomerativeClustering
+
         cluster_obj = AgglomerativeClustering(n_clusters=None, distance_threshold=0.5)
         labels = cluster_obj.fit_predict(embeddings)
     else:
@@ -197,19 +206,19 @@ if __name__ == "__main__":
 
     # Associate cluster labels back to embeddings_info
     for idx, label in enumerate(labels):
-        embeddings_info[idx]['cluster_label'] = label
+        embeddings_info[idx]["cluster_label"] = label
 
     # Convert to Pandas DataFrame
     embeddings_df = pd.DataFrame(embeddings_info)
 
     # Create a directory to save annotated images
-    output_dir = 'clustered_images'
+    output_dir = "clustered_images"
     os.makedirs(output_dir, exist_ok=True)
 
     # Group embeddings_info by image_path
     image_entries = defaultdict(list)
     for entry in embeddings_info:
-        image_entries[entry['image_path']].append(entry)
+        image_entries[entry["image_path"]].append(entry)
 
     # Now for each image, draw bounding boxes and cluster labels
     for image_path, entries in image_entries.items():
@@ -218,8 +227,8 @@ if __name__ == "__main__":
 
         # For each entry, draw bounding box and cluster label
         for entry in entries:
-            box = entry['box']
-            cluster_label = entry['cluster_label']
+            box = entry["box"]
+            cluster_label = entry["cluster_label"]
             x1, y1, x2, y2 = map(int, box[:4])
 
             # Draw the bounding box
@@ -237,14 +246,23 @@ if __name__ == "__main__":
             # Set the text background rectangle coordinates
             text_offset_x = x1
             text_offset_y = y1 - 10
-            box_coords = ((text_offset_x, text_offset_y - text_height - 5),
-                        (text_offset_x + text_width + 5, text_offset_y + 5))
+            box_coords = (
+                (text_offset_x, text_offset_y - text_height - 5),
+                (text_offset_x + text_width + 5, text_offset_y + 5),
+            )
 
             # Draw rectangle behind text
             cv2.rectangle(img, box_coords[0], box_coords[1], (0, 255, 0), cv2.FILLED)
             # Put the cluster label text above the bounding box
-            cv2.putText(img, text, (text_offset_x, text_offset_y), font,
-                        font_scale, (0, 0, 0), thickness)
+            cv2.putText(
+                img,
+                text,
+                (text_offset_x, text_offset_y),
+                font,
+                font_scale,
+                (0, 0, 0),
+                thickness,
+            )
 
         # Save the annotated image
         output_path = os.path.join(output_dir, os.path.basename(image_path))

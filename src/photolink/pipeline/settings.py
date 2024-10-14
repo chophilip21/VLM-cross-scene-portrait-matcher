@@ -5,16 +5,8 @@ from pathlib import Path
 
 from loguru import logger
 from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtWidgets import (
-    QApplication,
-    QComboBox,
-    QDialog,
-    QFrame,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QVBoxLayout,
-)
+from PySide6.QtWidgets import (QApplication, QComboBox, QDialog, QFrame,
+                               QHBoxLayout, QLabel, QPushButton, QVBoxLayout)
 
 from photolink.pipeline import get_cache_dir, read_settings, save_dump_settings
 from photolink.pipeline.qss import SETTINGS_DESIGN

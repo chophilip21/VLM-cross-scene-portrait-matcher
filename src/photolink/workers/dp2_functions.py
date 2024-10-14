@@ -1,11 +1,13 @@
 """Add lower level dp2 functions to avoid cluttering the main functional modules."""
 
-from photolink import get_application_path, get_config
-from pathlib import Path
 import os
+from pathlib import Path
+
+from loguru import logger
+
+from photolink import get_application_path, get_config
 from photolink.models.yolo_seg import YOLOSeg
 from photolink.utils.function import safe_load_image, search_all_images
-from loguru import logger
 
 
 def run_yolo_seg(image_list: list) -> dict:
