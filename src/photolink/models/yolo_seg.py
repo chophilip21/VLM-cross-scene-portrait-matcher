@@ -9,7 +9,10 @@ from loguru import logger
 from photolink import get_application_path, get_config
 from photolink.models import Colors, class_names
 from photolink.utils.function import check_weights_exist, safe_load_image
-
+import sys
+import coremltools as ct
+import IPython
+from PIL import Image
 
 class Local:
     """Singleton class to manage the ONNX session and related configurations."""
@@ -32,6 +35,7 @@ class Local:
         self.top_n = None
         self.class_names = None
         self.color_palette = None
+        self._model = None
 
     @property
     def session(self):
@@ -45,15 +49,14 @@ class Local:
         if self._session is None:
             application_path = get_application_path()
             config = get_config()
+
             model_path = str(
                 application_path / Path(config.get("YOLOSEG", "LOCAL_PATH"))
             )
             remote_path = str(config.get("YOLOSEG", "REMOTE_PATH"))
 
+    
             check_weights_exist(model_path, remote_path)
-
-            self.width = int(config.get("YOLOSEG", "WIDTH"))
-            self.height = int(config.get("YOLOSEG", "HEIGHT"))
 
             # Start the session
             self._session = ort.InferenceSession(
@@ -65,15 +68,37 @@ class Local:
                 ),
             )
             self._input_name = self.session.get_inputs()[0].name
-            self.conf = float(config.get("YOLOSEG", "CONF"))
-            self.iou = float(config.get("YOLOSEG", "IOU"))
-            self.heuristic_threshold = float(config.get("YOLOSEG", "HEURISTIC"))
-            self.top_n = int(config.get("YOLOSEG", "TOP_N"))
-            self.class_names = class_names
-            self.color_palette = Colors()
+            self.set_metadata(config)
 
         return self._session
 
+    @property
+    def model(self):
+        """Return Coreml model."""
+
+        if self._model is None:
+            application_path = get_application_path()
+            config = get_config()
+            model_path = str(
+                application_path / Path(config.get("YOLOSEG", "LOCAL_PATH_MAC"))
+            )
+            remote_path = str(config.get("YOLOSEG", "REMOTE_PATH_MAC"))
+            check_weights_exist(model_path, remote_path)
+            self._model = ct.models.MLModel(model_path)
+            self.set_metadata(config)
+
+        return self._model
+
+    def set_metadata(self, config):
+        """Get metadata of the model."""
+        self.width = int(config.get("YOLOSEG", "WIDTH"))
+        self.height = int(config.get("YOLOSEG", "HEIGHT"))
+        self.conf = float(config.get("YOLOSEG", "CONF"))
+        self.iou = float(config.get("YOLOSEG", "IOU"))
+        self.heuristic_threshold = float(config.get("YOLOSEG", "HEURISTIC"))
+        self.top_n = int(config.get("YOLOSEG", "TOP_N"))
+        self.class_names = class_names
+        self.color_palette = Colors()
 
 local = Local()  # Singleton instance of Local
 
@@ -149,6 +174,9 @@ def postprocess(
             - masks (np.ndarray): Array of binary masks for each detected object.
     """
     x, protos = preds[0], preds[1]
+
+    if not isinstance(img, np.ndarray):
+        img = np.array(img)
 
     # Transpose dimensions
     x = np.einsum("bcn->bnc", x)
@@ -380,6 +408,7 @@ def draw_and_visualize(im, bboxes, segments, save=True, name=None):
     Returns:
         None
     """
+    
     # Draw rectangles and polygons
     im_canvas = im.copy()
     for (*box, conf, cls_), segment in zip(bboxes, segments):
@@ -442,31 +471,50 @@ def get_segmentation(
             - segments (List[np.ndarray]): List of segmentation contours.
             - masks (np.ndarray): Array of binary masks.
     """
-    if isinstance(input, str):
-        img = safe_load_image(input)
-    elif isinstance(input, np.ndarray):
-        img = input
-    else:
-        raise ValueError(f"Invalid input type: {type(input)}")
 
-    session = local.session  # Lazily initialize the session
+    original_image = safe_load_image(input)
 
-    session.ndtype = (
-        np.half if session.get_inputs()[0].type == "tensor(float16)" else np.single
-    )
+    # windows inference code.
+    if sys.platform == "win32":
 
-    # Preprocess image
-    im, ratio, (pad_w, pad_h) = preprocess(
-        img, local.height, local.width, session.ndtype
-    )
+        logger.info("Running segmentation inference on Windows platform.")
+        session = local.session  # Lazily initialize the session
 
-    # Run inference
-    preds = session.run(None, {session.get_inputs()[0].name: im})
+        session.ndtype = (
+            np.half if session.get_inputs()[0].type == "tensor(float16)" else np.single
+        )
+
+        # Preprocess image
+        im, ratio, (pad_w, pad_h) = preprocess(
+            original_image, local.height, local.width, session.ndtype
+        )
+
+        # Run inference
+        preds = session.run(None, {session.get_inputs()[0].name: im})
+
+    elif sys.platform == "darwin":
+        logger.info("Running segmentation inference on macOS platform.")
+        # mac inference code.
+        model = local.model
+        im, ratio, (pad_w, pad_h) = preprocess(
+            original_image, local.height, local.width, np.int8
+        )
+
+        im = np.squeeze(im).transpose(1, 2, 0) 
+        im = (im * 255).astype(np.uint8)
+        im = Image.fromarray(im)
+        core_ml_result = model.predict({"image": im})
+        preds = []
+
+        # this is the correct order.
+        preds.append(core_ml_result['var_1648'])
+        preds.append(core_ml_result['p'])
+
 
     # Run post-processing
     boxes, segments, masks = postprocess(
         preds,
-        img,
+        original_image,
         ratio,
         pad_w,
         pad_h,
@@ -479,7 +527,7 @@ def get_segmentation(
 
     if debug:
         draw_and_visualize(
-            img,
+            original_image,
             boxes,
             segments,
             save=True,
@@ -490,6 +538,12 @@ def get_segmentation(
 
 
 if __name__ == "__main__":
+    
+    # from ultralytics import YOLO
+    # model = YOLO("yolo11m-seg.pt")
+    # model.export(format="coreml", int8=True)
+    # logger.info("Exported CoreML model")
+
     # Example usage
     import os
     import time
@@ -502,7 +556,5 @@ if __name__ == "__main__":
     debug_path = os.path.join("test", os.path.basename(img_url))
 
     # Inference
-    time_start = time.time()
     box, segment, mask = get_segmentation(img_url, debug=True, debug_path=debug_path)
-    time_end = time.time()
-    logger.info(f"Segmentation completed in {time_end - time_start:.3f}s")
+    logger.info(f"Detected {len(box)} instances in the image.")

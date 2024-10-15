@@ -8,32 +8,7 @@ import numpy as np
 import onnxruntime
 
 from photolink import get_application_path, get_config
-
-
-def preprocess(input: Union[str, np.ndarray], image_width: int, image_height: int):
-
-    if isinstance(input, np.ndarray):
-        original_image = input
-    elif isinstance(input, str):
-        original_image = cv2.imread(input)
-    else:
-        raise ValueError("image_path must be a string or numpy array")
-
-    # the model expects RGB inputs
-    original_image = original_image[:, :, ::-1]
-
-    # Apply pre-processing to image.
-    img = cv2.resize(
-        original_image, (image_width, image_height), interpolation=cv2.INTER_CUBIC
-    )
-    img = img.astype("float32").transpose(2, 0, 1)[np.newaxis]  # (1, 3, h, w)
-    return img
-
-
-def normalize(nparray, order=2, axis=-1):
-    """Normalize a N-D numpy array along the specified axis."""
-    norm_val = np.linalg.norm(nparray, ord=order, axis=axis, keepdims=True)
-    return nparray / (norm_val + np.finfo(np.float32).eps)
+from photolink.utils.function import check_weights_exist
 
 
 class Local:
@@ -59,6 +34,11 @@ class Local:
             model_path = str(
                 application_path / Path(config.get("FASTREID", "LOCAL_PATH"))
             )
+            remote_path = str(config.get("FASTREID", "REMOTE_PATH"))
+
+            # Check if the model weights exist
+            check_weights_exist(model_path, remote_path)
+
             self.width = int(config.get("FASTREID", "WIDTH"))
             self.height = int(config.get("FASTREID", "HEIGHT"))
 
@@ -70,6 +50,31 @@ class Local:
 
 
 local = Local()  # Singleton instance of Local
+
+def preprocess(input: Union[str, np.ndarray], image_width: int, image_height: int):
+
+    if isinstance(input, np.ndarray):
+        original_image = input
+    elif isinstance(input, str):
+        original_image = cv2.imread(input)
+    else:
+        raise ValueError("image_path must be a string or numpy array")
+
+    # the model expects RGB inputs
+    original_image = original_image[:, :, ::-1]
+
+    # Apply pre-processing to image.
+    img = cv2.resize(
+        original_image, (image_width, image_height), interpolation=cv2.INTER_CUBIC
+    )
+    img = img.astype("float32").transpose(2, 0, 1)[np.newaxis]  # (1, 3, h, w)
+    return img
+
+
+def normalize(nparray, order=2, axis=-1):
+    """Normalize a N-D numpy array along the specified axis."""
+    norm_val = np.linalg.norm(nparray, ord=order, axis=axis, keepdims=True)
+    return nparray / (norm_val + np.finfo(np.float32).eps)
 
 
 def get_reid_embedding(input: Union[str, np.ndarray]) -> np.ndarray:
@@ -133,20 +138,10 @@ if __name__ == "__main__":
     from photolink.models.yolo_seg import get_segmentation
     from photolink.utils.function import safe_load_image, search_all_images
 
-    # Define paths
-    img_url_1 = str(
-        Path(r"C:\Users\choph\photomatcher\demo\UCALCF23-C1-AWARDS-00012.jpg")
-    )
-    img_url_2 = str(
-        Path(r"C:\Users\choph\photomatcher\demo\UCALCF23-C1-AWARDS-00003.jpg")
-    )
-
     conf = 0.5
     iou = 0.45
 
-    source_images = search_all_images(
-        r"C:\Users\choph\philip\FOR PHIL\BCIT\2024-06-26_BCITCS24_C4"
-    )
+    source_images = search_all_images("/Users/philipcho/for_phil/bcit_copy")
 
     embeddings_info = []
 

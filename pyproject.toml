@@ -27,6 +27,7 @@ devel = [
     "nmslib-metabrainz",
     "gdown",
     "onnxruntime",
+    "coremltools",
 ]
 
 [tool.hatch.build.targets.wheel]
