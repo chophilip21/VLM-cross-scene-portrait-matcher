@@ -51,6 +51,7 @@ class Local:
 
 local = Local()  # Singleton instance of Local
 
+
 def preprocess(input: Union[str, np.ndarray], image_width: int, image_height: int):
 
     if isinstance(input, np.ndarray):
@@ -130,7 +131,6 @@ if __name__ == "__main__":
     from collections import defaultdict
 
     import hdbscan
-    import IPython
     import pandas as pd
     from loguru import logger
     from sklearn.cluster import AgglomerativeClustering
@@ -204,7 +204,7 @@ if __name__ == "__main__":
         embeddings_info[idx]["cluster_label"] = label
 
     # Convert to Pandas DataFrame
-    embeddings_df = pd.DataFrame(embeddings_info)
+    # embeddings_df = pd.DataFrame(embeddings_info)
 
     # Create a directory to save annotated images
     output_dir = "clustered_images"
@@ -261,5 +261,6 @@ if __name__ == "__main__":
 
         # Save the annotated image
         output_path = os.path.join(output_dir, os.path.basename(image_path))
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         cv2.imwrite(output_path, img)
         logger.info(f"Annotated image saved to {output_path}")

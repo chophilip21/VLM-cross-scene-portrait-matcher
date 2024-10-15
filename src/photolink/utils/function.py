@@ -19,6 +19,7 @@ from PIL import Image, ImageOps
 
 import photolink.utils.enums as enums
 from photolink import get_application_path
+import hashlib
 
 
 def _copy_image_meta(src: Image.Image, dest: Image.Image):
@@ -276,3 +277,8 @@ def check_weights_exist(local_path, remote_path):
     else:
         logger.info(f"Weights found locally for {str(local)}")
         return
+
+
+def path_to_hash(path):
+    """Convert path to hash."""
+    return hashlib.md5(path.encode()).hexdigest()

@@ -11,8 +11,8 @@ from photolink.models import Colors, class_names
 from photolink.utils.function import check_weights_exist, safe_load_image
 import sys
 import coremltools as ct
-import IPython
 from PIL import Image
+
 
 class Local:
     """Singleton class to manage the ONNX session and related configurations."""
@@ -55,7 +55,6 @@ class Local:
             )
             remote_path = str(config.get("YOLOSEG", "REMOTE_PATH"))
 
-    
             check_weights_exist(model_path, remote_path)
 
             # Start the session
@@ -99,6 +98,7 @@ class Local:
         self.top_n = int(config.get("YOLOSEG", "TOP_N"))
         self.class_names = class_names
         self.color_palette = Colors()
+
 
 local = Local()  # Singleton instance of Local
 
@@ -408,7 +408,7 @@ def draw_and_visualize(im, bboxes, segments, save=True, name=None):
     Returns:
         None
     """
-    
+
     # Draw rectangles and polygons
     im_canvas = im.copy()
     for (*box, conf, cls_), segment in zip(bboxes, segments):
@@ -476,8 +476,6 @@ def get_segmentation(
 
     # windows inference code.
     if sys.platform == "win32":
-
-        logger.info("Running segmentation inference on Windows platform.")
         session = local.session  # Lazily initialize the session
 
         session.ndtype = (
@@ -493,23 +491,21 @@ def get_segmentation(
         preds = session.run(None, {session.get_inputs()[0].name: im})
 
     elif sys.platform == "darwin":
-        logger.info("Running segmentation inference on macOS platform.")
         # mac inference code.
         model = local.model
         im, ratio, (pad_w, pad_h) = preprocess(
             original_image, local.height, local.width, np.int8
         )
 
-        im = np.squeeze(im).transpose(1, 2, 0) 
+        im = np.squeeze(im).transpose(1, 2, 0)
         im = (im * 255).astype(np.uint8)
         im = Image.fromarray(im)
         core_ml_result = model.predict({"image": im})
         preds = []
 
         # this is the correct order.
-        preds.append(core_ml_result['var_1648'])
-        preds.append(core_ml_result['p'])
-
+        preds.append(core_ml_result["var_1648"])
+        preds.append(core_ml_result["p"])
 
     # Run post-processing
     boxes, segments, masks = postprocess(
@@ -538,7 +534,7 @@ def get_segmentation(
 
 
 if __name__ == "__main__":
-    
+
     # from ultralytics import YOLO
     # model = YOLO("yolo11m-seg.pt")
     # model.export(format="coreml", int8=True)
