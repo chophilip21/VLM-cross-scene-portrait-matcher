@@ -1,11 +1,14 @@
 """Sanity check functions for the existence of model weights."""
 
-import cv2
-from loguru import logger
-import numpy as np
 import os
-from typing import List, Dict
+from typing import Dict, List
 
+import cv2
+import numpy as np
+from loguru import logger
+import plotly.express as px
+import pandas as pd
+from sklearn.manifold import TSNE
 
 def embeddings_sanity_check(cleaned_embeddings: List[Dict], save_path_dir: str):
     """Sanity check function that visualizes embeddings with cluster labels."""
@@ -60,3 +63,44 @@ def embeddings_sanity_check(cleaned_embeddings: List[Dict], save_path_dir: str):
         save_path = os.path.join(save_path_dir, save_filename)
         cv2.imwrite(save_path, img_masked)
         logger.info(f"Saved debug image: {save_path}")
+
+
+
+
+def visualize_embeddings_tsne_interactive(embeddings_info: List[Dict], save_path: str):
+    """
+    Visualize embeddings using t-SNE interactively and save the plot as an HTML file.
+
+    Args:
+        embeddings_info (list): List of embeddings with cluster labels.
+        save_path (str): Directory to save the t-SNE plot.
+    """
+    # Extract embeddings, labels, and image paths
+    embeddings = np.array([item["embedding"] for item in embeddings_info])
+    embeddings = np.squeeze(embeddings, axis=1)
+    labels = np.array([item.get("cluster_label", -1) for item in embeddings_info])
+    image_paths = [item["image_path"] for item in embeddings_info]
+
+    # Run t-SNE
+    tsne = TSNE(n_components=2, perplexity=30, random_state=42, init='pca')
+    embeddings_2d = tsne.fit_transform(embeddings)
+
+    # Prepare DataFrame for plotting
+    df = pd.DataFrame({
+        'x': embeddings_2d[:, 0],
+        'y': embeddings_2d[:, 1],
+        'label': labels,
+        'image_path': image_paths
+    })
+
+    # Create interactive plot
+    fig = px.scatter(
+        df, x='x', y='y', color='label',
+        hover_data=['image_path'],
+        title='t-SNE Interactive Visualization of Embeddings'
+    )
+
+    # Save interactive plot
+    plot_path = os.path.join(save_path, "tsne_plot_interactive.html")
+    fig.write_html(plot_path)
+    print(f"Interactive t-SNE plot saved to {plot_path}")

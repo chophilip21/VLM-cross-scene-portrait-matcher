@@ -6,6 +6,7 @@ import json
 import lzma
 import os
 import pickle
+import re
 import shutil
 from datetime import datetime
 from io import BytesIO
@@ -19,8 +20,6 @@ from PIL import Image, ImageOps
 
 import photolink.utils.enums as enums
 from photolink import get_application_path
-import hashlib
-import re
 
 
 def _copy_image_meta(src: Image.Image, dest: Image.Image):

@@ -1,17 +1,17 @@
+import sys
 from pathlib import Path
 from typing import Union
 
+import coremltools as ct
 import cv2
 import numpy as np
 import onnxruntime as ort
 from loguru import logger
+from PIL import Image
 
 from photolink import get_application_path, get_config
 from photolink.models import Colors, class_names
 from photolink.utils.function import check_weights_exist, safe_load_image
-import sys
-import coremltools as ct
-from PIL import Image
 
 
 class Local:
