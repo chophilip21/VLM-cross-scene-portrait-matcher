@@ -25,22 +25,25 @@ from photolink.utils.function import safe_load_image, search_all_images
 from photolink.workers.draw import embeddings_sanity_check, visualize_embeddings_tsne_interactive
 from sklearn.metrics import silhouette_score
 
+# set glboal variables
+config = get_config()
+cache_dir = get_cache_dir() / Path(config["FASTREID"]["EMBEDDING_CACHE_DIR"])
+
 def _compute_dup_centroid(
     embeddings_info: List[Dict],
     centroid_cache_path: str,
     max_clusters: int = 10,
     debug: bool = False,
-) -> Tuple[Dict[int, np.ndarray], List[Dict]]:
+) -> Dict[int, np.ndarray]:
     """
-    Compute duplicate centroids using Spectral Clustering on embeddings directly
-    and assign cluster labels.
+    Compute duplicate centroids using Spectral Clustering on embeddings directly.
     """
     # Check if centroid cache exists
     if os.path.exists(centroid_cache_path) and not debug:
         logger.info(f"Loading centroids from cache: {centroid_cache_path}")
         with open(centroid_cache_path, "rb") as f:
             centroids = pickle.load(f)
-        return centroids, embeddings_info  # Return embeddings_info as is
+        return centroids
 
     # Extract embeddings (do not normalize)
     embeddings = np.array([item["embedding"] for item in embeddings_info])
@@ -93,10 +96,6 @@ def _compute_dup_centroid(
         labels = best_labels
         logger.info(f"Best n_clusters according to Silhouette Score: {best_n_clusters} with score {best_score}")
 
-    # Assign cluster labels back to embeddings_info
-    for idx, label in enumerate(labels):
-        embeddings_info[idx]["cluster_label"] = label
-
     # Compute centroids of clusters
     centroids = {}
     unique_labels = np.unique(labels)
@@ -111,72 +110,84 @@ def _compute_dup_centroid(
     with open(centroid_cache_path, "wb") as f:
         pickle.dump(centroids, f)
 
-    return centroids, embeddings_info
+    return centroids
 
 
 def _clean_embeddings(
-    embeddings_info: List[Dict],
+    hash_set: set,
     dup_centroid: Dict[int, np.ndarray],
-    distance_threshold: float = 0.5,  # Adjust based on your data
+    similarity_threshold: float = 0.9,
 ) -> List[Dict]:
     """
-    Clean the embeddings by removing those close to duplicate centroids.
+    Remove duplicate embeddings using the computed centroids and assign cluster labels to final candidates.
 
     Args:
-        embeddings_info (list): List of embeddings with cluster labels.
-        dup_centroid (dict): Dictionary of centroid embeddings of clusters.
-        distance_threshold (float): Threshold for excluding embeddings close to centroids.
+        hash_set (set): Set of paths to cached embeddings (per image).
+        dup_centroid (dict): Dictionary of centroid embeddings of recurring individuals.
+        similarity_threshold (float): Threshold for excluding embeddings similar to centroids.
 
     Returns:
-        list: List of cleaned embedding dictionaries.
+        list: List of cleaned embedding dictionaries, one per image, with assigned cluster labels.
     """
     cleaned_embeddings = []
 
-    centroid_embeddings = list(dup_centroid.values())
-    centroid_embeddings = np.array(centroid_embeddings)
-
-    # Group embeddings by image
+    # Load all embeddings and group them by image path
     embeddings_by_image = {}
-    for embedding_info in embeddings_info:
-        img_path = embedding_info["image_path"]
-        if img_path not in embeddings_by_image:
-            embeddings_by_image[img_path] = []
-        embeddings_by_image[img_path].append(embedding_info)
+    for pickle_cache in hash_set:
+        with open(pickle_cache, "rb") as f:
+            embeddings = pickle.load(f)
+            for embedding_info in embeddings:
+                img_path = embedding_info["image_path"]
+                embeddings_by_image.setdefault(img_path, []).append(embedding_info)
 
-    for img_path, embeddings_list in embeddings_by_image.items():
-        if not embeddings_list:
-            continue
+    centroid_embeddings = list(dup_centroid.values())
+    centroid_labels = list(dup_centroid.keys())
 
+    # For each image, select the best embedding
+    for img_path, embedding_infos in embeddings_by_image.items():
         valid_embeddings = []
-
-        for embedding_info in embeddings_list:
+        for embedding_info in embedding_infos:
+            # Compute cosine similarity with all centroids
             embedding = embedding_info["embedding"]
             embedding = np.squeeze(embedding, axis=0)
+            if len(centroid_embeddings) > 0:
+                similarities = cosine_similarity([embedding], centroid_embeddings)[0]
+                max_sim_idx = np.argmax(similarities)
+                max_sim = similarities[max_sim_idx]
+                assigned_cluster_label = centroid_labels[max_sim_idx]
+            else:
+                max_sim = 0  # No centroids to compare with
+                assigned_cluster_label = -1  # Assign -1 when no centroids
 
-            # Calculate distances to centroids
-            distances = (
-                np.linalg.norm(centroid_embeddings - embedding, axis=1)
-                if len(centroid_embeddings) > 0
-                else [np.inf]
-            )
-            min_distance_to_centroids = min(distances)
+            # Assign cluster label based on similarity
+            if max_sim >= similarity_threshold:
+                # Similar to a centroid (recurring individual)
+                embedding_info["cluster_label"] = assigned_cluster_label
+            else:
+                # Not similar to any centroid
+                embedding_info["cluster_label"] = -1  # Assign -1 for unique individuals
 
-            if min_distance_to_centroids >= distance_threshold:
-                valid_embeddings.append(embedding_info)
+            # Collect all embeddings, regardless of similarity, to select the best one later
+            valid_embeddings.append((embedding_info, max_sim))
 
-        if valid_embeddings:
-            # Select embedding with lowest box_index among valid embeddings
-            selected_embedding_info = min(
-                valid_embeddings, key=lambda x: x["box_index"]
-            )
-            cleaned_embeddings.append(selected_embedding_info)
+        # Select the best embedding per image
+        # Prefer embeddings not similar to centroids (cluster_label == -1)
+        # If multiple embeddings have cluster_label == -1, select one with lowest max_sim (least similar to centroids)
+        # If all embeddings have cluster_label != -1, select one with lowest max_sim (most similar to centroids)
+
+        # First, filter embeddings with cluster_label == -1
+        non_recurring_embeddings = [ve for ve in valid_embeddings if ve[0]["cluster_label"] == -1]
+
+        if non_recurring_embeddings:
+            # Select among embeddings not similar to centroids
+            selected_embedding_info = min(non_recurring_embeddings, key=lambda x: x[1])[0]
         else:
-            # Select embedding with lowest box_index anyway
-            selected_embedding_info = min(embeddings_list, key=lambda x: x["box_index"])
-            cleaned_embeddings.append(selected_embedding_info)
+            # All embeddings are similar to centroids; select the one most similar (lowest max_sim)
+            selected_embedding_info = min(valid_embeddings, key=lambda x: x[1])[0]
+
+        cleaned_embeddings.append(selected_embedding_info)
 
     return cleaned_embeddings
-
 
 def _precompute_embeddings(
     image_path: Union[str, List[str]], debug: bool = False
@@ -188,10 +199,7 @@ def _precompute_embeddings(
         source_images = image_path
 
     # Store all embeddings here
-    config = get_config()
-    cache_dir = get_cache_dir() / Path(config["FASTREID"]["EMBEDDING_CACHE_DIR"])
     cache_dir.mkdir(parents=True, exist_ok=True)
-
     embeddings_info = []
     hash_set = set()
 
@@ -244,20 +252,7 @@ def _precompute_embeddings(
 
             logger.info(f"Saved embeddings to cache: {pickle_cache}")
 
-    # Compute centroids and get updated embeddings_info with cluster labels
-    centroid_path = utils.path_to_hash("".join(source_images)) + ".pkl"
-    centroids_pkl = str(cache_dir / Path(centroid_path))
-    dup_centroid, embeddings_info = _compute_dup_centroid(
-        embeddings_info,
-        centroids_pkl,
-        debug=debug,
-    )
-
-    logger.info(
-        f"Converted images to embeddings and computed centroids. Now cleaning..."
-    )
-
-    return dup_centroid, embeddings_info, hash_set
+    return embeddings_info, hash_set
 
 
 
@@ -268,15 +263,21 @@ def run_dp2_pipeline(source_path: str, target_path: str, debug: bool = True):
     target_images = search_all_images(target_path)
     all_images = source_images + target_images
 
-    # Precompute embeddings and get embeddings_info with cluster labels
-    dup_centroid, embeddings_info, hash_set = _precompute_embeddings(
+    # Precompute embeddings just for source
+    src_embeddings_info, src_hash_set = _precompute_embeddings(
         source_images, debug=debug
     )
 
     # Clean embeddings using the updated embeddings_info
-    cleaned_embeddings = _clean_embeddings(embeddings_info, dup_centroid)
+    src_centroids_pkl_path = str(cache_dir / Path(utils.path_to_hash("".join(source_images)) + ".pkl"))
+    src_dup_centroid = _compute_dup_centroid(
+        src_embeddings_info,
+        src_centroids_pkl_path,
+        debug=debug,
+    )
 
-    logger.info(f"Cleaned embeddings: {len(cleaned_embeddings)}")
+    src_cleaned_embeddings = _clean_embeddings(src_hash_set, src_dup_centroid)
+    logger.info(f"Cleaned embeddings: {len(src_cleaned_embeddings)}")
 
     if debug:
         # Save images for sanity check
@@ -285,11 +286,9 @@ def run_dp2_pipeline(source_path: str, target_path: str, debug: bool = True):
             shutil.rmtree(save_path_dir)
         os.makedirs(save_path_dir, exist_ok=True)
         
-        # save individual images
-        embeddings_sanity_check(cleaned_embeddings, save_path_dir)
-
-        # save tsne plot
-        visualize_embeddings_tsne_interactive(cleaned_embeddings, save_path_dir)
+        # save individual images and tsne
+        embeddings_sanity_check(src_cleaned_embeddings, save_path_dir)
+        visualize_embeddings_tsne_interactive(src_cleaned_embeddings, save_path_dir)
         
 
 

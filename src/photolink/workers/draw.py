@@ -5,10 +5,11 @@ from typing import Dict, List
 
 import cv2
 import numpy as np
-from loguru import logger
-import plotly.express as px
 import pandas as pd
+import plotly.express as px
+from loguru import logger
 from sklearn.manifold import TSNE
+
 
 def embeddings_sanity_check(cleaned_embeddings: List[Dict], save_path_dir: str):
     """Sanity check function that visualizes embeddings with cluster labels."""
