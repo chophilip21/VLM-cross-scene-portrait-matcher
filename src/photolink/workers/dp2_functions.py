@@ -16,54 +16,45 @@ import hdbscan
 import photolink.utils.function as utils
 from collections import Counter
 import IPython
-from typing import Union
+from typing import Union, Tuple, List, Dict
 from photolink.workers.draw import embeddings_sanity_check
+from sklearn.cluster import AgglomerativeClustering
+from sklearn.preprocessing import normalize
+import shutil
 
 
-def _preprocess_embeddings(image_path: Union[str, list]) -> list:
-    """Use yoloworld to detect humans based on precomputed embeddings.
 
-    Iterate over list of images, and return dict of duplicate centroids.
-    """
-
+def _precompute_embeddings(
+    image_path: Union[str, List[str]], debug: bool = False
+) -> Tuple[Dict[int, np.ndarray], List[Dict], set]:
+    """Compute embeddings and duplicate centroids, return centroids, embeddings_info, and hash_set."""
     if isinstance(image_path, str):
         source_images = search_all_images(image_path)
     else:
         source_images = image_path
 
-    # store all he embeddings here.
+    # Store all embeddings here
     config = get_config()
-    cache_dir = get_cache_dir() / Path(config.get("FASTREID", "EMBEDDING_CACHE_DIR"))
-    cache_dir.mkdir(exist_ok=True)
+    cache_dir = get_cache_dir() / Path(config["FASTREID"]["EMBEDDING_CACHE_DIR"])
+    cache_dir.mkdir(parents=True, exist_ok=True)
 
-    # start iterating over the images.
     embeddings_info = []
     hash_set = set()
 
     for idx, img_path in enumerate(source_images):
-
-        # use hash based save and search.
+        # Use hash-based save and search
         path_hash = utils.path_to_hash(img_path)
-        pickle_cache = cache_dir / Path(f"{path_hash}.pkl")
+        pickle_cache = cache_dir / f"{path_hash}.pkl"
         hash_set.add(pickle_cache)
 
-        # if the pickle cache exists, avoid inference by loading.
         if pickle_cache.exists():
-
-            # this will be a list
+            # Load embeddings from cache
             with open(pickle_cache, "rb") as f:
                 embeddings = pickle.load(f)
-
-                if idx % 200 == 0:
-                    logger.info(f"Loading embeddings from cache...")
-
-                for embedding in embeddings:
-                    embeddings_info.append(embedding)
+                embeddings_info.extend(embeddings)
         else:
             try:
                 img = safe_load_image(img_path)
-
-                # TODO, Maybe make this return heuristic scores.
                 boxes, segments, masks = get_segmentation(img_path)
             except Exception as e:
                 logger.error(f"Error processing image: {img_path}, {e}")
@@ -72,168 +63,70 @@ def _preprocess_embeddings(image_path: Union[str, list]) -> list:
             tmp = []
 
             for i, ((*box, conf, cls_), mask) in enumerate(zip(boxes, masks)):
-
-                # crop instance, convert it into embedding
+                # Crop instance and compute embedding
                 try:
                     cropped_instance = isolate_instance(img, box, mask)
+                    embedding = get_reid_embedding(cropped_instance)
                 except Exception as e:
-                    # in actual code, deal with this better.
-                    logger.error(f"Error cropping instance: {e}")
+                    logger.error(f"Error processing instance: {e}")
                     continue
 
-                embedding = get_reid_embedding(cropped_instance)
+                embedding_info = {
+                    "embedding": embedding,
+                    "image_path": img_path,
+                    "box_index": i,
+                    "box": box,
+                    "confidence": conf,
+                    "class": cls_,
+                    "mask": mask,
+                }
 
-                # first append data to embeddings_info
-                embeddings_info.append(
-                    {
-                        "embedding": embedding,
-                        "image_path": img_path,
-                        "box_index": i,
-                        "box": box,
-                        "confidence": conf,
-                        "class": cls_,
-                        "mask": mask,
-                    }
-                )
+                embeddings_info.append(embedding_info)
+                tmp.append(embedding_info)
 
-                # append the same data to tmp just for saving purpose.
-                tmp.append(
-                    {
-                        "embedding": embedding,
-                        "image_path": img_path,
-                        "box_index": i,
-                        "box": box,
-                        "confidence": conf,
-                        "class": cls_,
-                        "mask": mask,
-                    }
-                )
-
-            # dump the embeddings to the cache.
+            # Save embeddings to cache
             with open(pickle_cache, "wb") as f:
                 pickle.dump(tmp, f)
 
             logger.info(f"Saved embeddings to cache: {pickle_cache}")
 
-    # run clustering on the embeddings.
-    centroid_path = utils.path_to_hash(image_path) + ".pkl"
+    # Compute centroids and get updated embeddings_info with cluster labels
+    centroid_path = utils.path_to_hash("".join(source_images)) + ".pkl"
     centroids_pkl = str(cache_dir / Path(centroid_path))
-    dup_centroid = _compute_dup_centroid(embeddings_info, centroids_pkl)
+    dup_centroid, embeddings_info = _compute_dup_centroid(
+        embeddings_info,
+        centroids_pkl,
+        debug=debug,
+    )
 
     logger.info(
-        f"Converted images to embeddings and computed centroids. Now cleaning.."
+        f"Converted images to embeddings and computed centroids. Now cleaning..."
     )
-    cleaned_embeddings = _clean_embeddings(hash_set, dup_centroid)
 
-    return cleaned_embeddings
-
-
-def _clean_embeddings(
-    embedding_file_hashes: set,
-    dup_centroid: dict,
-) -> list:
-    """
-    Clean the embeddings by removing those close to duplicate centroids.
-
-    This function iteratively opens each embedding pickle file, reads the embeddings,
-    compares each embedding against the centroids of significant clusters (duplicates),
-    and selects the embedding that is furthest away from all centroids.
-
-    If a pickle file contains only one embedding, it is selected without comparison.
-    The output is a list of cleaned embeddings, ideally one per image.
-
-    Args:
-        embedding_file_hashes (set): Set of hash strings corresponding to embedding pickle files.
-        dup_centroid (dict): Dictionary mapping cluster labels to centroid embeddings of significant clusters.
-
-    Returns:
-        list: List of cleaned embedding dictionaries.
-    """
-    cleaned_embeddings = []
-
-    # Convert centroids to a list for easier computation
-    centroid_embeddings = list(dup_centroid.values())
-
-    for pickle_cache in embedding_file_hashes:
-        if not os.path.exists(pickle_cache):
-            logger.error(f"Error, embedding file not found: {pickle_cache}")
-            continue
-
-        with open(pickle_cache, "rb") as f:
-            embeddings = pickle.load(f)
-
-        if not embeddings:
-            # No embeddings in this file
-            continue
-
-        if len(embeddings) == 1:
-            # Only one embedding, select it without comparison
-            cleaned_embeddings.append(embeddings[0])
-        else:
-            # Multiple embeddings, select the one furthest from all centroids
-            max_distance = -np.inf
-            selected_embedding_info = None
-
-            for embedding_info in embeddings:
-                embedding = embedding_info["embedding"]
-                # Calculate distances to each centroid
-                distances = (
-                    [
-                        np.linalg.norm(embedding - centroid)
-                        for centroid in centroid_embeddings
-                    ]
-                    if centroid_embeddings
-                    else [0]
-                )
-
-                # Use the minimum distance to any centroid
-                min_distance_to_centroids = min(distances)
-
-                # Select the embedding with the maximum of these minimum distances
-                if min_distance_to_centroids > max_distance:
-                    max_distance = min_distance_to_centroids
-                    selected_embedding_info = embedding_info
-
-            if selected_embedding_info is not None:
-                cleaned_embeddings.append(selected_embedding_info)
-            else:
-                # If no embedding is selected, you may decide to handle this case differently
-                pass  # For now, we do nothing
-
-    return cleaned_embeddings
-
+    return dup_centroid, embeddings_info, hash_set
 
 def _compute_dup_centroid(
-    embeddings_info: list,
+    embeddings_info: List[Dict],
     centroid_cache_path: str,
-    min_cluster_size: int = 2,
-    significance_multiplier: int = 3,
-) -> dict:
-    """Preprocess the embeddings to identify recurring individuals (e.g., professors).
-
-    Clusters the embeddings, identifies significant clusters (individuals appearing in many images),
-    computes the centroids of these clusters, and saves them to the specified cache path.
-
-    Args:
-        embeddings_info (list): List of dictionaries containing embeddings and associated metadata.
-        centroid_cache_path (str): Path to save the centroids of significant clusters.
-
-    Returns:
-        dict: Dictionary mapping cluster labels to centroid embeddings of significant clusters.
-    """
-
+    min_cluster_size: int = 2,  # Adjust based on your data
+    debug: bool = False,
+) -> Tuple[Dict[int, np.ndarray], List[Dict]]:
+    """Compute duplicate centroids using HDBSCAN and assign cluster labels."""
     # Check if centroid cache exists
-    if os.path.exists(centroid_cache_path):
+    if os.path.exists(centroid_cache_path) and not debug:
         logger.info(f"Loading centroids from cache: {centroid_cache_path}")
         with open(centroid_cache_path, "rb") as f:
             centroids = pickle.load(f)
-        return centroids
+        return centroids, embeddings_info  # Return embeddings_info as is
 
-    # Extract embeddings from embeddings_info
+    # Extract and normalize embeddings
     embeddings = np.array([item["embedding"] for item in embeddings_info])
-    embeddings = np.squeeze(embeddings, axis=1)  # Remove extra dimension if present
-    cluster_obj = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size, leaf_size=50)
-    labels = cluster_obj.fit_predict(embeddings)
+    embeddings = np.squeeze(embeddings, axis=1)
+    # embeddings = normalize(embeddings, norm="l2")
+
+    # Apply HDBSCAN
+    clusterer = hdbscan.HDBSCAN(min_cluster_size=5, min_samples=10, metric='euclidean')
+    labels = clusterer.fit_predict(embeddings)
 
     # Assign cluster labels back to embeddings_info
     for idx, label in enumerate(labels):
@@ -241,29 +134,20 @@ def _compute_dup_centroid(
 
     # Count the number of embeddings in each cluster
     cluster_counts = Counter(labels)
-    dup_threshold = min_cluster_size * significance_multiplier
 
     dup_clusters = [
-        label
-        for label, count in cluster_counts.items()
-        if count >= dup_threshold and label != -1  # Exclude noise label (-1)
+        label for label, count in cluster_counts.items() if count >= min_cluster_size and label != -1
     ]
 
     logger.info(
-        f"There are {len(dup_clusters)} significant clusters that has {dup_threshold} + embeddings."
+        f"There are {len(dup_clusters)} significant clusters with {min_cluster_size}+ embeddings."
     )
 
     # Compute centroids of significant clusters
     centroids = {}
     for cluster_label in dup_clusters:
         # Get embeddings belonging to this cluster
-        cluster_embeddings = np.array(
-            [
-                item["embedding"]
-                for item in embeddings_info
-                if item["cluster_label"] == cluster_label
-            ]
-        )
+        cluster_embeddings = embeddings[labels == cluster_label]
         # Compute the centroid (mean embedding)
         centroid = np.mean(cluster_embeddings, axis=0)
         centroids[cluster_label] = centroid
@@ -272,29 +156,98 @@ def _compute_dup_centroid(
     with open(centroid_cache_path, "wb") as f:
         pickle.dump(centroids, f)
 
-    return centroids
+    return centroids, embeddings_info
 
 
-def run_dp2_pipeline(source_path, target_path, debug=True):
+
+def _clean_embeddings(
+    embeddings_info: List[Dict],
+    dup_centroid: Dict[int, np.ndarray],
+    distance_threshold: float = 0.5,
+) -> List[Dict]:
+    """
+    Clean the embeddings by removing those close to duplicate centroids.
+
+    Args:
+        embeddings_info (list): List of embeddings with cluster labels.
+        dup_centroid (dict): Dictionary of centroid embeddings of significant clusters.
+        distance_threshold (float): Threshold for excluding embeddings close to centroids.
+
+    Returns:
+        list: List of cleaned embedding dictionaries.
+    """
+    cleaned_embeddings = []
+
+    centroid_embeddings = list(dup_centroid.values())
+
+    # Group embeddings by image
+    embeddings_by_image = {}
+    for embedding_info in embeddings_info:
+        img_path = embedding_info["image_path"]
+        if img_path not in embeddings_by_image:
+            embeddings_by_image[img_path] = []
+        embeddings_by_image[img_path].append(embedding_info)
+
+    for img_path, embeddings in embeddings_by_image.items():
+        if not embeddings:
+            continue
+
+        valid_embeddings = []
+
+        for embedding_info in embeddings:
+            embedding = embedding_info["embedding"]
+            # Calculate distances to centroids
+            distances = (
+                [
+                    np.linalg.norm(embedding - centroid)
+                    for centroid in centroid_embeddings
+                ]
+                if centroid_embeddings
+                else [np.inf]
+            )
+            min_distance_to_centroids = min(distances)
+
+            if min_distance_to_centroids >= distance_threshold:
+                valid_embeddings.append(embedding_info)
+
+        if valid_embeddings:
+            # Select embedding with lowest box_index among valid embeddings
+            selected_embedding_info = min(
+                valid_embeddings, key=lambda x: x["box_index"]
+            )
+            cleaned_embeddings.append(selected_embedding_info)
+        else:
+            # Select embedding with lowest box_index anyway
+            selected_embedding_info = min(embeddings, key=lambda x: x["box_index"])
+            cleaned_embeddings.append(selected_embedding_info)
+
+    return cleaned_embeddings
+
+
+def run_dp2_pipeline(source_path: str, target_path: str, debug: bool = True):
     """Run the entire DP2 pipeline."""
-
-    # run preprocess first
+    # Run preprocess first
     source_images = search_all_images(source_path)
     target_images = search_all_images(target_path)
     all_images = source_images + target_images
 
-    cleaned_embeddings = _preprocess_embeddings(all_images)
-    logger.info(f"Source images: {len(source_images)} + Target images: {len(target_images)} = {len(all_images)}")
+    # Precompute embeddings and get embeddings_info with cluster labels
+    dup_centroid, embeddings_info, hash_set = _precompute_embeddings(
+        source_images, debug=debug
+    )
+
+    # Clean embeddings using the updated embeddings_info
+    cleaned_embeddings = _clean_embeddings(embeddings_info, dup_centroid)
+
     logger.info(f"Cleaned embeddings: {len(cleaned_embeddings)}")
 
     if debug:
-        # iterate over each path, and draw the mask. And save for sanity check.
-        save_path_dir = './test' # save the images here for sanity check.
+        # Save images for sanity check
+        save_path_dir = "./test"
+        if os.path.exists(save_path_dir):
+            shutil.rmtree(save_path_dir)
         os.makedirs(save_path_dir, exist_ok=True)
         embeddings_sanity_check(cleaned_embeddings, save_path_dir)
-
-    
-    IPython.embed()
 
 
 if __name__ == "__main__":
