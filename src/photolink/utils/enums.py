@@ -45,6 +45,7 @@ class ClusteringAlgorithm(Enum):
     HDBSCAN = "HDBSCAN"
 
 
+# TODO: CR2 removed. Add support for CR2 images if needed.
 IMAGE_EXTENSION = [
     "ase",
     "art",
@@ -53,9 +54,6 @@ IMAGE_EXTENSION = [
     "cd5",
     "cit",
     "cpt",
-    "cr2",
-    "cut",
-    "dds",
     "dib",
     "djvu",
     "egt",

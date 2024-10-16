@@ -20,6 +20,7 @@ from PIL import Image, ImageOps
 import photolink.utils.enums as enums
 from photolink import get_application_path
 import hashlib
+import re
 
 
 def _copy_image_meta(src: Image.Image, dest: Image.Image):
@@ -50,6 +51,11 @@ def safe_load_image(image: Union[bytes, str]) -> np.ndarray:
 
 def search_all_images(path: Path):
     """Recursively search all images in a directory."""
+
+    def extract_number(path):
+        match = re.search(r"(\d+)(?=\.JPG)", path)
+        return int(match.group(0)) if match else 0
+
     images = []
     path_ = path + "/**/*.*"
     files = glob.glob(path_, recursive=True)
@@ -58,6 +64,8 @@ def search_all_images(path: Path):
 
         if file.split(".")[-1].lower() in enums.IMAGE_EXTENSION:
             images.append(file)
+
+    images = sorted(images, key=extract_number)
 
     return images
 
@@ -279,6 +287,18 @@ def check_weights_exist(local_path, remote_path):
         return
 
 
-def path_to_hash(path):
-    """Convert path to hash."""
-    return hashlib.md5(path.encode()).hexdigest()
+def path_to_hash(path: Union[str, list]) -> str:
+    """Convert the path to bytes and generate a SHA-256 hash"""
+
+    if isinstance(path, str):
+        path_bytes = path.encode("utf-8")
+
+    elif isinstance(path, list):
+        path_bytes = "".join(path).encode("utf-8")
+
+    hash_object = hashlib.sha256(path_bytes)
+
+    # Convert the hash to a hexadecimal string
+    path_hash = hash_object.hexdigest()
+
+    return path_hash

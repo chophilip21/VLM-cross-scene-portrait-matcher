@@ -95,3 +95,7 @@ D. Make sure that stack A and B have same number of images this way. If the numb
 - ❌ Work on image retrieval feature. If user throws some query, "Find me a photo of a person standing in front of beatch", use a caption model to convert images into captions, and calculate linguistic similarities. 
 - ❌ Build for both windows and mac. 
 
+
+## TODO: 
+
+Perhaps save the instance box score, so if you are unable to make decisions, use that instead.
