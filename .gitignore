@@ -175,3 +175,5 @@ debug
 fast-reid
 /clustered_images
 /assets
+*.JPG
+*.png

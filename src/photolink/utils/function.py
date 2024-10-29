@@ -30,7 +30,7 @@ def _copy_image_meta(src: Image.Image, dest: Image.Image):
     return dest
 
 
-def safe_load_image(image: Union[bytes, str]) -> np.ndarray:
+def safe_load_image(image: Union[bytes, str], return_numpy=True) -> np.ndarray:
     """Load an image from bytes or a file path, and ensure the orientation is correct."""
     # make sure image is bytes or a valid file path
     if isinstance(image, str):
@@ -45,7 +45,10 @@ def safe_load_image(image: Union[bytes, str]) -> np.ndarray:
         new_pil_image = ImageOps.exif_transpose(pil_image)
         pil_image = _copy_image_meta(pil_image, new_pil_image)
 
-    return np.array(pil_image)
+    if return_numpy:
+        return np.array(pil_image)
+
+    return pil_image
 
 
 def search_all_images(path: Path):
