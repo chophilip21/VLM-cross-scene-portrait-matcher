@@ -121,10 +121,13 @@ if __name__ == "__main__":
 
     from PIL import Image
     from transformers import AutoProcessor, AutoModelForVision2Seq
+    import time
 
     model = AutoModelForVision2Seq.from_pretrained("microsoft/kosmos-2-patch14-224")
     processor = AutoProcessor.from_pretrained("microsoft/kosmos-2-patch14-224")
     print('loaded model and processor')
+    
+    start_time = time.time()
 
     prompt = "<grounding> where is the student?"  # <grounding> is used to prompt the model to generate locations tokens
         
@@ -149,7 +152,8 @@ if __name__ == "__main__":
     print(f"Raw model generation: {processed_text}")
 
     processed_text, entities = processor.post_process_generation(generated_text)
-
+    end_time = time.time()
+    print(f"Time taken: {end_time-start_time}")
     print(f"Cleaned up generated text: {processed_text=}")
 
     print(f"Extracted entities: {entities}")

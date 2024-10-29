@@ -28,6 +28,8 @@ devel = [
     "gdown",
     "onnxruntime",
     "coremltools",
+    "ipywidgets",
+    "openvino",
 ]
 
 [tool.hatch.build.targets.wheel]
