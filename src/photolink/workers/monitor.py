@@ -52,14 +52,14 @@ class ProgressMonitor(threading.Thread):
         # check if there is any weights to be downloaded
         if self.task == enums.Task.DP2_MATCH.name:
             local_path = str(
-                self.application_path / Path(self.config.get("YOLOSEG", "LOCAL_PATH"))
+                self.application_path / Path(self.config.get("YOLOV11", "LOCAL_PATH"))
             )
 
-            remote_path = str(self.config.get("YOLOSEG", "REMOTE_PATH"))
+            remote_path = str(self.config.get("YOLOV11", "REMOTE_PATH"))
 
             if not Path(local_path).exists():
-                logger.info("Downloading weights for yolo seg model.")
-                self.storage_download(remote_path, local_path, "YOLOSEG")
+                logger.info("Downloading weights for yolo model.")
+                self.storage_download(remote_path, local_path, "YOLOV11")
 
         with open(self.log_file, "r") as f:
             while not self.stop_event.is_set():

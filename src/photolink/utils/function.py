@@ -37,7 +37,7 @@ def safe_load_image(image: Union[bytes, str], return_numpy=True) -> np.ndarray:
         with open(image, "rb") as f:
             image = f.read()
     elif not isinstance(image, bytes):
-        raise TypeError("image must be bytes or a file path")
+        raise TypeError(f"image must be bytes or a file path, not {type(image)}")
     pil_image = Image.open(BytesIO(image))
 
     # Make sure the orientation is correct

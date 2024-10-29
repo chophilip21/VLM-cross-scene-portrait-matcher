@@ -1,4 +1,4 @@
-"""Add lower level dp2 functions to avoid cluttering the main functional modules."""
+"""Run yolov11 and kosmos together to make comparison"""
 
 import cv2
 import numpy as np

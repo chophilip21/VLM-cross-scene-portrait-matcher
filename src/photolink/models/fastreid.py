@@ -135,7 +135,7 @@ if __name__ == "__main__":
     from loguru import logger
     from sklearn.cluster import AgglomerativeClustering
 
-    from photolink.models.yolo_seg import get_segmentation
+    from photolink.models.yolov11 import get_segmentation
     from photolink.utils.function import safe_load_image, search_all_images
 
     conf = 0.5
