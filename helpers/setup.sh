@@ -50,6 +50,10 @@ python -m build
 python -m pip install --upgrade pip setuptools wheel
 pip install --upgrade -e .[devel]
 
+# these all could be reduced later on.
+pip install -q "openvino>=2024.0.0" "nncf>=2.11.0" "datasets>=2.20.0"
+pip install -q "transformers>=4.35" Pillow "gradio>=4.19" opencv-python "matplotlib>=3.4"
+pip install -q --extra-index-url https://download.pytorch.org/whl/cpu torch torchvision
 
 # End of script
 echo "Process has ended."
