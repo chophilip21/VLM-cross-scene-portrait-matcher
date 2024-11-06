@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "PhotolinkML"
 version = "0.1.2" # should be dynamic later on
 description = "Photolink application"
-requires-python = ">=3.10,<3.12"
+requires-python = ">=3.10"
 authors = [
     { name = "Philip Cho", email = "chophilip21@gmail.com" },
 ]
@@ -27,7 +27,7 @@ devel = [
     "nmslib-metabrainz",
     "gdown",
     "onnxruntime",
-    "coremltools",
+    "coremltools", # this is for macos
     "ipywidgets",
     "openvino",
 ]

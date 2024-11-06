@@ -177,3 +177,5 @@ fast-reid
 /assets
 *.JPG
 *.png
+OFA
+debug

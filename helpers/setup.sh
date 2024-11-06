@@ -2,13 +2,6 @@
 
 # helpers/setup.sh
 
-# Check if Python 3.11 is installed
-PYTHON_COMMAND=$(command -v python3)
-if [[ -z "$PYTHON_COMMAND" || ! "$("$PYTHON_COMMAND" --version 2>&1)" =~ "Python 3.11" ]]; then
-    echo "Python 3.11 is not installed or not the default python. Please install Python 3.11 or set it as default."
-    exit 1
-fi
-
 # Check if the virtual environment exists
 if [ -d "env" ]; then
     read -p "Virtual environment 'env' already exists. Do you want to recreate it? (yes/no): " yn
@@ -51,9 +44,9 @@ python -m pip install --upgrade pip setuptools wheel
 pip install --upgrade -e .[devel]
 
 # these all could be reduced later on.
-pip install -q "openvino>=2024.0.0" "nncf>=2.11.0" "datasets>=2.20.0"
-pip install -q "transformers>=4.35" Pillow "gradio>=4.19" opencv-python "matplotlib>=3.4"
-pip install -q --extra-index-url https://download.pytorch.org/whl/cpu torch torchvision
+# pip install -q "openvino>=2024.0.0" "nncf>=2.11.0" "datasets>=2.20.0"
+# pip install -q "transformers>=4.35" Pillow "gradio>=4.19" opencv-python "matplotlib>=3.4"
+# pip install -q --extra-index-url https://download.pytorch.org/whl/cpu torch torchvision
 
 # End of script
-echo "Process has ended."
+echo "Process has ended, you are now ready to use the virtual environment."

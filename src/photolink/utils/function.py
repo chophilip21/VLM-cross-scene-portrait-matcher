@@ -55,21 +55,29 @@ def search_all_images(path: Path):
     """Recursively search all images in a directory."""
 
     def extract_number(path):
-        match = re.search(r"(\d+)(?=\.JPG)", path)
+        match = re.search(r"(?i)(\d+)(?=\.jpg)", str(path))  # Case-insensitive
         return int(match.group(0)) if match else 0
 
+    if isinstance(path, str):
+        path = Path(path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"Path not found: {path}")
+
     images = []
-    path_ = path + "/**/*.*"
-    files = glob.glob(path_, recursive=True)
+    files = path.glob("**/*.*")  # Using Path.glob for compatibility
 
     for file in files:
+        
+        extension = file.suffix.lower()[1:]
 
-        if file.split(".")[-1].lower() in enums.IMAGE_EXTENSION:
-            images.append(file)
+        if extension in enums.IMAGE_EXTENSION:
+            images.append(str(file))  # Convert Path to str
 
     images = sorted(images, key=extract_number)
 
     return images
+
 
 
 def search_all_xz_file(path: Path) -> list:

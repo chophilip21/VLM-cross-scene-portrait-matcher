@@ -227,20 +227,28 @@ def heuristics_filter(boxes, im_shape, heuristic_threshold, num_candidates):
     boxes = boxes[sorted_score_indices]
     scores = scores[sorted_score_indices]
 
-    # Filter based on heuristic threshold
-    valid_indices = scores >= heuristic_threshold
-    if np.any(valid_indices):
-        # Select all valid candidates sorted by score
-        filtered_boxes = boxes[valid_indices]
-    else:
-        # No candidates pass the threshold; return the top candidate
-        filtered_boxes = boxes[:1]
+    # Apply dynamic penalty: only include top N if scores are relatively close
+    filtered_boxes = []
+    for i in range(len(boxes)):
+        if i == 0:
+            filtered_boxes.append(boxes[i])
+        else:
+            # Calculate relative score difference from the previous box
+            prev_score = scores[i - 1]
+            current_score = scores[i]
+
+            # Only include if the current score is close enough to the previous score
+            if abs(prev_score - current_score) < 0.15:  # Adjust the threshold as needed
+                filtered_boxes.append(boxes[i])
+            else:
+                break  # Stop adding boxes if the score difference is too high
 
     # If there are more than num_candidates, select the top ones
     if len(filtered_boxes) > num_candidates:
         filtered_boxes = filtered_boxes[:num_candidates]
 
-    return filtered_boxes
+    return np.array(filtered_boxes)
+
 
 
 def draw_and_visualize(im, boxes, save=True, name=None):
@@ -357,13 +365,18 @@ def run_inference(
 if __name__ == "__main__":
     import os
     from pathlib import Path
+    from photolink.utils.function import search_all_images
 
-    # Define image path
-    img_url = str(Path(r"sample/BCITCS24-C4P1-0345.JPG"))
+    images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
+    print(f"Found {len(images)} images.")
 
-    os.makedirs("test", exist_ok=True)
-    debug_path = os.path.join("test", os.path.basename(img_url))
+    for img in images:
+        img_url = str(img)
 
-    # Inference
-    boxes = run_inference(img_url, debug=True, debug_path=debug_path)
-    logger.info(f"Detected {len(boxes)} instances in the image.")
+        os.makedirs("test", exist_ok=True)
+        debug_path = os.path.join("test", os.path.basename(img_url))
+        print(f"Processing {img_url}...")
+
+        # Inference
+        boxes = run_inference(img_url, debug=True, debug_path=debug_path)
+        logger.info(f"Detected {len(boxes)} instances in the image.")
