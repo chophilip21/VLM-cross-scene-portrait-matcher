@@ -313,7 +313,13 @@ def run_inference(
     input: Union[str, np.ndarray], debug=False, debug_path=None
 ) -> np.ndarray:
     """Perform inference on the input image."""
-    original_image = safe_load_image(input)
+
+    if isinstance(input, str):
+        original_image = safe_load_image(input)
+    elif isinstance(input, np.ndarray):
+        original_image = input
+    else:
+        raise ValueError(f"Input must be a string or numpy array, not {type(input)}")
 
     # Windows inference code
     if sys.platform == "win32":
@@ -371,6 +377,7 @@ if __name__ == "__main__":
     from pathlib import Path
 
     from photolink.utils.function import search_all_images
+    import IPython
 
     images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
     print(f"Found {len(images)} images.")
@@ -385,3 +392,4 @@ if __name__ == "__main__":
         # Inference
         boxes = run_inference(img_url, debug=True, debug_path=debug_path)
         logger.info(f"Detected {len(boxes)} instances in the image.")
+        IPython.embed()

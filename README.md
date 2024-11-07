@@ -77,6 +77,9 @@ make windows
 - ❌ Add face-reidentification based on masks and apply culling feature to DP2 match. Complete the dp2 feature. 
 - ❌ Use openvino for faster inference. Think about batch export instead of multiprocessing.
 
+
+- Implement DS logic like imagebundle
+
 ![dp2](assets/img/roadmap.png)
 
 **How would embeddings work?**
@@ -97,4 +100,31 @@ D. Make sure that stack A and B have same number of images this way. If the numb
 
 ## TODO: 
 
-Perhaps save the instance box score, so if you are unable to make decisions, use that instead.
+okay, so we have all the missing puzzle pieces, as we have fastreid.py, scrfd.py, sface.py, yolov11.py. Now we we are ready to solve actual problem of convocation scene. Here is the summary: 
+
+You need to accurately identify a specific graduating student across a set of photos from on-stage and off-stage scenes during a graduation ceremony. The goal is to ensure high accuracy in identifying the student while avoiding confusion with professors or other students.
+
+Key Challenges
+Similar Attire: Students and professors are dressed similarly, making body-based re-identification challenging.
+Accuracy Needs:
+Kosmos-2 achieves 95% accuracy, but you need 100% to correctly match the student across on-stage and off-stage images.
+CPU-only Constraints: Kosmos-2 is too computationally expensive for CPU-only usage.
+Model Integration:
+You have multiple models to integrate:
+YOLOv11: Detects people.
+SCRFD: Detects faces.
+Fast-ReID: Extracts body embeddings.
+SFace: Extracts face embeddings.
+Need to combine embeddings from Fast-ReID and SFace for a stronger representation.
+Proposed Solution
+Hybrid Embeddings:
+Fuse body (Fast-ReID) and face (SFace) embeddings to improve robustness.
+Helps distinguish individuals in similar attire and reduces false positives.
+Clustering and Matching:
+Use clustering to identify and remove recurring individuals (e.g., professors) across images.
+Accurate clustering and filtering ensures only the specific student is consistently identified across different sets of photos.
+This approach will help achieve high accuracy, maintain computational efficiency, and ensure correct identification of the graduating student throughout all images
+
+
+
+

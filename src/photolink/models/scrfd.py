@@ -1,6 +1,6 @@
 """Modules for Face detection using SCRFD."""
 
-import os
+from typing import Union
 from pathlib import Path
 
 import cv2
@@ -161,17 +161,28 @@ class SCRFD:
         return img
 
     def run_face_detection(
-        self, image_path: str, conf_threshold: float, nms_threshold: float
+        self,
+        image_path: Union[str, np.ndarray],
+        conf_threshold: float,
+        nms_threshold: float,
     ) -> dict:
         """Run face detection on the image using SCRFD."""
 
         face_table = {"resize_ratio": 1.0}
 
-        try:
-            image = safe_load_image(image_path)
-        except Exception as e:
-            logger.error(f"Error reading image {image_path}. Error: {e}")
-            face_table["error"] = f"Error reading image {image_path}. Error: {e}"
+        if isinstance(image_path, str):
+            try:
+                image = safe_load_image(image_path)
+            except Exception as e:
+                logger.error(f"Error reading image {image_path}. Error: {e}")
+                face_table["error"] = f"Error reading image {image_path}. Error: {e}"
+                return face_table
+        elif isinstance(image_path, np.ndarray):
+            image = image_path
+
+        else:
+            logger.error(f"Invalid image type {type(image_path)}")
+            face_table["error"] = f"Invalid image type {type(image_path)}"
             return face_table
 
         # Preprocess the image according to SCRFD requirements
