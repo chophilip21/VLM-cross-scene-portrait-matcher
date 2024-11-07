@@ -75,7 +75,6 @@ make windows
 - ✅ Test building the package using Nuitka and Inno setup for deployment on Windows. 
 - ✅ Create `DP2 match` feature. Drop `yolo-world`, since the result is subpar. Use `yolo11-seg`, use heuristics to capture most likely targets in the center. Get extracted mask of the candidate using semgentation masks.  
 - ❌ Add face-reidentification based on masks and apply culling feature to DP2 match. Complete the dp2 feature. 
-- ❌ Improve yunet with resize retry logic. 
 - ❌ Use openvino for faster inference. Think about batch export instead of multiprocessing.
 
 ![dp2](assets/img/roadmap.png)

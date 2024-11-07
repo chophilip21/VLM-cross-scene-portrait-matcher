@@ -13,14 +13,10 @@ import nmslib
 import numpy as np
 from loguru import logger
 
+import photolink.models.scrfd as scrfd
 import photolink.models.sface as sface
-import photolink.models.yunet as yunet
 import photolink.utils.enums as enums
 import photolink.utils.function as function
-
-# Global variables for pre-loaded models
-YUNET_MODEL = yunet.load_model()
-SFACE_MODEL = sface.load_model()
 
 
 def _run_ml_model(
@@ -41,8 +37,7 @@ def _run_ml_model(
         return (image_path, image_hash)
 
     # Use the pre-loaded global models
-    global YUNET_MODEL, SFACE_MODEL
-    detection_result = YUNET_MODEL.run_face_detection(image_path)
+    detection_result = scrfd.run_inference(image_path)
     failed_image = fail_path / Path(os.path.basename(image_path))
 
     if "error" in detection_result:
@@ -66,7 +61,7 @@ def _run_ml_model(
 
     # bb = [x, y, w, h, landmarks]
     faces = sorted(faces, key=lambda face: face[2] * face[3], reverse=True)[:keep_top_n]
-    embedding_dict = SFACE_MODEL.run_embedding_conversion(image, faces)
+    embedding_dict = sface.get_embedding(image, faces)
 
     # add image path to the dictionary.
     embedding_dict["image_path"] = image_path

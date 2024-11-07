@@ -13,6 +13,7 @@ from photolink import get_application_path, get_config
 from photolink.models import Colors, class_names
 from photolink.utils.function import check_weights_exist, safe_load_image
 
+
 class Local:
     """Singleton class to manage the ONNX session and related configurations."""
 
@@ -103,7 +104,9 @@ def preprocess(img, model_height, model_width, ndtype):
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
     # Resize image
-    img_resized = cv2.resize(img, (model_width, model_height), interpolation=cv2.INTER_LINEAR)
+    img_resized = cv2.resize(
+        img, (model_width, model_height), interpolation=cv2.INTER_LINEAR
+    )
     img_resized = img_resized.astype(ndtype) / 255.0
 
     # Transpose image to CHW format
@@ -164,9 +167,7 @@ def postprocess(
             class_ids.append(class_id)
 
     # Apply Non-Maximum Suppression (NMS)
-    indices = cv2.dnn.NMSBoxes(
-        boxes, scores, conf_threshold, iou_threshold
-    )
+    indices = cv2.dnn.NMSBoxes(boxes, scores, conf_threshold, iou_threshold)
     filtered_boxes = []
     filtered_scores = []
     filtered_class_ids = []
@@ -215,7 +216,9 @@ def heuristics_filter(boxes, im_shape, heuristic_threshold, num_candidates):
         dist_from_center = np.linalg.norm(box_center - img_center)
 
         # Normalize distance penalty correctly
-        dist_penalty = 1 - (dist_from_center / max_dist)  # Normalize distance penalty to [0,1]
+        dist_penalty = 1 - (
+            dist_from_center / max_dist
+        )  # Normalize distance penalty to [0,1]
 
         score = 0.5 * dist_penalty + 0.5 * size_penalty  # Weighted combination
         scores.append(score)
@@ -248,7 +251,6 @@ def heuristics_filter(boxes, im_shape, heuristic_threshold, num_candidates):
         filtered_boxes = filtered_boxes[:num_candidates]
 
     return np.array(filtered_boxes)
-
 
 
 def draw_and_visualize(im, boxes, save=True, name=None):
@@ -318,7 +320,9 @@ def run_inference(
         session = local.session  # Lazily initialize the session
 
         ndtype = (
-            np.float16 if session.get_inputs()[0].type == "tensor(float16)" else np.float32
+            np.float16
+            if session.get_inputs()[0].type == "tensor(float16)"
+            else np.float32
         )
 
         # Preprocess image
@@ -365,6 +369,7 @@ def run_inference(
 if __name__ == "__main__":
     import os
     from pathlib import Path
+
     from photolink.utils.function import search_all_images
 
     images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())

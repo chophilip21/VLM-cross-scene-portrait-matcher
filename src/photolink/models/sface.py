@@ -1,12 +1,37 @@
 """Modules for Face recognition using Sface."""
 
-import os
 from pathlib import Path
 
 import cv2 as cv
 import numpy as np
 
-from photolink import get_application_path
+from photolink import get_application_path, get_config
+
+
+class Local:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(Local, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        self._model = None
+
+    @property
+    def model(self):
+        if self._model is None:
+            application_path = get_application_path()
+            config = get_config()
+            model_path = application_path / Path(config["SFACE"]["SFACE_PATH"])
+
+            if not model_path.exists():
+                raise ValueError(f"Model path {model_path} does not exist.")
+
+            self._model = Sface(modelPath=model_path)
+
+        return self._model
 
 
 class Sface:
@@ -73,18 +98,8 @@ class Sface:
         return result
 
 
-def load_model():
-    """Load the model."""
+local = Local()
 
-    if os.getenv("SFACE_PATH") is None:
-        raise ValueError("Please set the SFACENET_PATH in the environment variable.")
 
-    project_root = get_application_path()
-    model_path = project_root / Path(os.getenv("SFACE_PATH"))
-
-    if not model_path.exists():
-        raise ValueError(f"Model path {model_path} does not exist.")
-
-    model = Sface(modelPath=model_path)
-
-    return model
+def get_embedding(image, faces):
+    return local.model.run_embedding_conversion(image, faces)

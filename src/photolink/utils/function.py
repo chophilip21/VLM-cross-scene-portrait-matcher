@@ -68,7 +68,7 @@ def search_all_images(path: Path):
     files = path.glob("**/*.*")  # Using Path.glob for compatibility
 
     for file in files:
-        
+
         extension = file.suffix.lower()[1:]
 
         if extension in enums.IMAGE_EXTENSION:
@@ -77,7 +77,6 @@ def search_all_images(path: Path):
     images = sorted(images, key=extract_number)
 
     return images
-
 
 
 def search_all_xz_file(path: Path) -> list:

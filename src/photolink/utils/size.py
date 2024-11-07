@@ -1,6 +1,7 @@
 """Quick script to get the size of a Python library"""
-from pathlib import Path
+
 import argparse
+from pathlib import Path
 
 
 def get_library_size(package_name):
@@ -13,8 +14,8 @@ def get_library_size(package_name):
         return None
 
     # Calculate the size
-    total_size = sum(f.stat().st_size for f in package_path.rglob('*'))
-    return total_size / (1024 ** 2)  # Convert bytes to MB
+    total_size = sum(f.stat().st_size for f in package_path.rglob("*"))
+    return total_size / (1024**2)  # Convert bytes to MB
 
 
 def main():
