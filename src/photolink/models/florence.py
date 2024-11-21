@@ -31,18 +31,15 @@ class Local:
     
     def __init__(self):
         self._model = None
+        self._processor = None
+        self.application_path = get_application_path()
+        self.config = get_config()
+        self.model_path = str(self.application_path / Path(self.config.get("FLORENCE", "LOCAL")))
 
     @property
     def model(self):
         """Lazyily initialize the model."""
         if self._model is None:
-            application_path = get_application_path()
-            config = get_config()
-
-            model_path = str(
-                application_path / Path(config.get("FLORENCE", "LOCAL"))
-            )
-
             if sys.platform == "darwin":
                 remote_path = str(config.get("FLORENCE", "REMOTE_MAC"))
 
@@ -53,13 +50,19 @@ class Local:
                 raise ValueError(f"Unsupported platform : {sys.platform}")
 
                 # Check if the model weights exist
-            check_weights_exist(model_path, remote_path)
+            check_weights_exist(self.model_path, remote_path)
 
             device = device_widget()
             logger.info(f"Openvino log for device : {device.value}")
+            self._model = OVFlorence2Model(model_path, device.value)
 
-            model = OVFlorence2Model(model_path, device.value)
+        return self._model
 
+    @property
+    def processor(self):
+        if self._processor is None:
+            self._processor = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
+        return self._processor
 
 
 class OVEncoder:

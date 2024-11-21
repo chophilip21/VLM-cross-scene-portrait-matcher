@@ -29,8 +29,6 @@ devel = [
     "onnxruntime",
     "coremltools", # this is for macos
     "ipywidgets",
-    "openvino",
-    "transformers",
 ]
 
 [tool.hatch.build.targets.wheel]

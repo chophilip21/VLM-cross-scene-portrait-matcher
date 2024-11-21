@@ -179,3 +179,4 @@ fast-reid
 *.png
 OFA
 debug
+pytorch

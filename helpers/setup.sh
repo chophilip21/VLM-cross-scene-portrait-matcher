@@ -37,16 +37,49 @@ else
     echo "Virtual environment activated successfully."
 fi
 
-# Run make commands
-pip install build
+# Install required dependencies for building PyTorch
+pip install ninja setuptools cmake pyyaml build typing_extensions
+
+# Clone PyTorch repository
+if [ ! -d "pytorch" ]; then
+    git clone --recursive https://github.com/pytorch/pytorch.git
+    echo "Cloned PyTorch repository."
+else
+    echo "PyTorch repository already exists. Updating..."
+    cd pytorch && git submodule sync && git submodule update --init --recursive && cd ..
+fi
+
+cd pytorch
+
+# Check operating system and configure the build
+if [[ "$OS_TYPE" == "Darwin" ]]; then
+    # MacOS build configuration
+    pip install torch
+elif [[ "$OS_TYPE" == "MINGW"* || "$OS_TYPE" == "CYGWIN"* || "$OS_TYPE" == "MSYS_NT"* ]]; then
+    # Windows build configuration
+    export USE_CUDA=0
+    export USE_DISTRIBUTED=0
+    export USE_MKLDNN=0
+    export BUILD_TEST=0
+    export USE_NCCL=0
+    export USE_QNNPACK=0
+    export USE_TENSORPIPE=0
+    export MAX_JOBS=4
+    export USE_OPENMP=0
+    python setup.py clean
+    python setup.py install
+else
+    echo "Unsupported OS: $OS_TYPE"
+    exit 1
+fi
+
+cd ..
+
 python -m build
 python -m pip install --upgrade pip setuptools wheel
 pip install --upgrade -e .[devel]
-
-# these all could be reduced later on.
-# pip install -q "openvino>=2024.0.0" "nncf>=2.11.0" "datasets>=2.20.0"
-# pip install -q "transformers>=4.35" Pillow "gradio>=4.19" opencv-python "matplotlib>=3.4"
-# pip install -q --extra-index-url https://download.pytorch.org/whl/cpu torch torchvision
+pip install openvino transformers
 
 # End of script
+echo "PyTorch has been built and installed in the virtual environment."
 echo "Process has ended, you are now ready to use the virtual environment."
