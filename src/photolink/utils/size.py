@@ -20,7 +20,7 @@ def get_library_size(package_name):
 
 def main():
     parser = argparse.ArgumentParser(description="Get the size of a Python library")
-    parser.add_argument("library", type=str, help="The name of the library to check")
+    parser.add_argument("--library", type=str, help="The name of the library to check")
     args = parser.parse_args()
 
     size = get_library_size(args.library)

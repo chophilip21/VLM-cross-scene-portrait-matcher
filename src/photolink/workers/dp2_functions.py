@@ -17,12 +17,13 @@ import photolink.models.scrfd as scrfd
 import photolink.models.sface as sface
 from photolink.pipeline import get_cache_dir
 from photolink.utils.function import safe_load_image, search_all_images
-import IPython
 import cv2
 from sklearn.cluster import DBSCAN
 import numpy as np
 from collections import Counter
 import hdbscan
+from sklearn.cluster import MeanShift
+
 
 # set glboal variables
 config = get_config()
@@ -131,11 +132,10 @@ def _cluster_clean_embeddings(embeddings_info: List[Dict]) -> List[Dict]:
 
     combined_embeddings = np.array(combined_embeddings)
 
-
-    clustering = DBSCAN(eps=0.05, min_samples=3, metric='cosine').fit(combined_embeddings)
-    labels = clustering.labels_
-    # clusterer = hdbscan.HDBSCAN(min_cluster_size=3, metric='jaccard')
-    # labels = clusterer.fit_predict(combined_embeddings)
+    # clustering = DBSCAN(eps=0.2, min_samples=3, metric='cosine').fit(combined_embeddings)
+    # labels = clustering.labels_
+    clusterer = hdbscan.HDBSCAN(min_cluster_size=4, metric='euclidean')
+    labels = clusterer.fit_predict(combined_embeddings)
 
     # Identify the biggest cluster (excluding noise points with label -1)
     label_counts = Counter(labels[labels != -1])
@@ -203,6 +203,8 @@ def validate_embeddings(embeddings_info: List[Dict]) -> Tuple[List[Dict], List[D
     failed_embeddings = []
     for data in embeddings_info:
         num_bboxes = len(data['bbox'])
+
+        # TODO: Call Kosmos here, and then update the data on uncertain ones. 
         if num_bboxes != 1:
             logger.warning(f"Data entry {data['image_path']} has {num_bboxes} bounding boxes, expected 1.")
             failed_embeddings.append(data)
