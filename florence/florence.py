@@ -51,10 +51,8 @@ if __name__ == "__main__":
     model_id = model_selector.value
     model_path = Path(model_id.split("/")[-1])
 
-    IPython.embed()
-
-    # convert_florence2(model_id, model_path)
-    # print('conversion success...')
+    convert_florence2(model_id, model_path)
+    print('conversion success...')
     device = device_widget()
     print(f"Device : {device.value}")
 
@@ -62,18 +60,19 @@ if __name__ == "__main__":
     print("FP32 openvino model loaded...")
 
 
-    # try quantization
-    to_quantize = quantization_widget()
+    processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
+
+    print('test')
 
 
-
-    # processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
-    # image_path = "/Users/philipcho/photomatcher/sample/BCITCS24-C4P1-0004.JPG"
-    # image = safe_load_image(image_path, return_numpy=False)
-    # prompt = "<CAPTION_TO_PHRASE_GROUNDING>The main graduating student"
+    image_path = "/Users/philipcho/photomatcher/sample/BCITCS24-C4P1-0004.JPG"
+    image = safe_load_image(image_path, return_numpy=False)
+    prompt = "<CAPTION_TO_PHRASE_GROUNDING>The main graduating student"
 
     # start = time.time()
-    # inputs = processor(text=prompt, images=image, return_tensors="pt")
+    inputs = processor(text=prompt, images=image, return_tensors="pt")
+    IPython.embed()
+
     # generated_ids = model.generate(
     #     input_ids=inputs["input_ids"],
     #     pixel_values=inputs["pixel_values"],

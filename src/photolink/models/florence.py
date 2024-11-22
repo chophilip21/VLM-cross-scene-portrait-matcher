@@ -1,6 +1,6 @@
 """Florence model."""
 from photolink import get_application_path, get_config
-import pathlib as Path
+from pathlib import Path
 from photolink.utils.function import check_weights_exist
 import sys
 import openvino as ov
@@ -8,6 +8,11 @@ import ipywidgets as widgets
 from loguru import logger
 import numpy as np
 from transformers import AutoProcessor, AutoConfig, AutoModelForCausalLM, GenerationMixin, GenerationConfig
+import torch
+from typing import Optional, Tuple, List, Union
+from transformers.modeling_outputs import Seq2SeqLMOutput, BaseModelOutput
+import IPython
+
 
 
 IMAGE_EMBEDDING_NAME = "image_embedding.xml"
@@ -32,19 +37,21 @@ class Local:
     def __init__(self):
         self._model = None
         self._processor = None
+        self._input = None
         self.application_path = get_application_path()
         self.config = get_config()
-        self.model_path = str(self.application_path / Path(self.config.get("FLORENCE", "LOCAL")))
+        self.prompt = self.config.get("FLORENCE", "STUDENT_PROMPT")
+        self.model_path = Path(str(self.application_path / Path(self.config.get("FLORENCE", "LOCAL"))))
 
     @property
     def model(self):
         """Lazyily initialize the model."""
         if self._model is None:
             if sys.platform == "darwin":
-                remote_path = str(config.get("FLORENCE", "REMOTE_MAC"))
+                remote_path = str(self.config.get("FLORENCE", "REMOTE_MAC"))
 
             elif sys.platform == "win32":
-                remote_path = str(config.get("FLORENCE", "REMOTE_WIN"))
+                remote_path = str(self.config.get("FLORENCE", "REMOTE_WIN"))
 
             else:
                 raise ValueError(f"Unsupported platform : {sys.platform}")
@@ -54,7 +61,7 @@ class Local:
 
             device = device_widget()
             logger.info(f"Openvino log for device : {device.value}")
-            self._model = OVFlorence2Model(model_path, device.value)
+            self._model = OVFlorence2Model(self.model_path, device.value)
 
         return self._model
 
@@ -375,9 +382,6 @@ class OVFlorence2LangModel(GenerationMixin):
         }
 
 
-
-
-
 def device_widget(default="AUTO", exclude=None, added=None, description="Device:"):
     """Create a device selection widget."""
     core = ov.Core()
@@ -402,3 +406,72 @@ def device_widget(default="AUTO", exclude=None, added=None, description="Device:
         disabled=False,
     )
     return device
+
+
+local = Local()
+
+
+def run_inference(image)-> dict:
+    """Run inference for Florence model"""
+
+    inputs = local.processor(text=local.prompt, images=image, return_tensors="pt")
+
+    generated_ids = local.model.generate(
+        input_ids=inputs["input_ids"],
+        pixel_values=inputs["pixel_values"],
+        max_new_tokens=1024,
+        do_sample=False,
+        num_beams=3,
+        output_scores=True,
+    )
+
+    generated_text = local.processor.batch_decode(generated_ids, skip_special_tokens=False)[0]
+    parsed_answer = local.processor.post_process_generation(
+        generated_text, task="<OD>", image_size=(image.width, image.height)
+    )
+
+    return parsed_answer
+
+
+if __name__ == "__main__":
+    from photolink.utils.function import safe_load_image
+    import time
+    from photolink.utils.function import search_all_images
+    import os
+    from PIL import Image, ImageDraw
+    import copy
+
+    images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
+    print(f"Found {len(images)} images.")
+
+    total_time = 0
+
+    for img in images:
+        img_url = str(img)
+
+        os.makedirs("test", exist_ok=True)
+        debug_path = os.path.join("test", os.path.basename(img_url))
+        print(f"Processing {img_url}...")
+
+        # Load the image
+        image = safe_load_image(img_url, return_numpy=False)
+
+        start_time = time.time()
+        boxes = run_inference(image)
+        end_time = time.time()
+        total_time += end_time - start_time
+        print('Time taken:', end_time - start_time)
+
+        # Create a drawing context
+        draw = ImageDraw.Draw(image)
+
+        # Draw the bounding boxes and labels
+        for bbox, label in zip(boxes['<OD>']['bboxes'], boxes['<OD>']['labels']):
+            x_min, y_min, x_max, y_max = bbox
+            draw.rectangle([x_min, y_min, x_max, y_max], outline='red', width=2)
+            draw.text((x_min, y_min - 10), label, fill='red')
+
+        # Save the image with bounding boxes
+        image.save(debug_path)
+
+    print('Average time per image:', total_time / len(images))
