@@ -1,5 +1,3 @@
-import configparser
-import copy
 import glob
 import hashlib
 import json
@@ -14,41 +12,10 @@ from pathlib import Path
 from typing import Union
 
 import gdown
-import numpy as np
 from loguru import logger
-from PIL import Image, ImageOps
 
 import photolink.utils.enums as enums
 from photolink import get_application_path
-
-
-def _copy_image_meta(src: Image.Image, dest: Image.Image):
-    preserve_metadata_keys = ["info", "icc_profile", "exif", "dpi", "applist", "format"]
-    for key in preserve_metadata_keys:
-        if hasattr(src, key):
-            setattr(dest, key, copy.deepcopy(getattr(src, key)))
-    return dest
-
-
-def safe_load_image(image: Union[bytes, str], return_numpy=True) -> np.ndarray:
-    """Load an image from bytes or a file path, and ensure the orientation is correct."""
-    # make sure image is bytes or a valid file path
-    if isinstance(image, str):
-        with open(image, "rb") as f:
-            image = f.read()
-    elif not isinstance(image, bytes):
-        raise TypeError(f"image must be bytes or a file path, not {type(image)}")
-    pil_image = Image.open(BytesIO(image))
-
-    # Make sure the orientation is correct
-    if hasattr(pil_image, "_getexif") and pil_image._getexif() is not None:
-        new_pil_image = ImageOps.exif_transpose(pil_image)
-        pil_image = _copy_image_meta(pil_image, new_pil_image)
-
-    if return_numpy:
-        return np.array(pil_image)
-
-    return pil_image
 
 
 def search_all_images(path: Path):
@@ -90,20 +57,6 @@ def search_all_xz_file(path: Path) -> list:
             embeddings.append(file)
 
     return embeddings
-
-
-def config_to_env(config: configparser.ConfigParser, section: str):
-    """Set some of the config variables as env variables."""
-
-    if section not in config.sections():
-        raise ValueError(f"Section {section} not found in the config file.")
-
-    for section in config.sections():
-        for key, value in config.items(section):
-            key = key.upper()
-            os.environ[key] = value
-
-    return True
 
 
 def compress_save(data: dict, file: str):

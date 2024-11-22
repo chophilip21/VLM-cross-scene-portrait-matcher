@@ -9,7 +9,7 @@ from loguru import logger
 from onnxruntime import InferenceSession
 
 from photolink import get_application_path, get_config
-from photolink.utils.function import safe_load_image
+from photolink.utils.image_loader import ImageLoader
 
 
 class Local:
@@ -162,7 +162,7 @@ class SCRFD:
 
     def run_face_detection(
         self,
-        image_path: Union[str, np.ndarray],
+        image_loader: ImageLoader,
         conf_threshold: float,
         nms_threshold: float,
     ) -> dict:
@@ -170,20 +170,7 @@ class SCRFD:
 
         face_table = {"resize_ratio": 1.0}
 
-        if isinstance(image_path, str):
-            try:
-                image = safe_load_image(image_path)
-            except Exception as e:
-                logger.error(f"Error reading image {image_path}. Error: {e}")
-                face_table["error"] = f"Error reading image {image_path}. Error: {e}"
-                return face_table
-        elif isinstance(image_path, np.ndarray):
-            image = image_path
-
-        else:
-            logger.error(f"Invalid image type {type(image_path)}")
-            face_table["error"] = f"Invalid image type {type(image_path)}"
-            return face_table
+        image = np.array(image_loader.get_downsample())
 
         # Preprocess the image according to SCRFD requirements
         try:
@@ -207,8 +194,8 @@ class SCRFD:
                 det_img  # Include the resized and padded image if needed
             )
         except Exception as e:
-            logger.error(f"Error preprocessing image {image_path}. Error: {e}")
-            face_table["error"] = f"Error preprocessing image {image_path}. Error: {e}"
+            logger.error(f"Error preprocessing face detection. Error: {e}")
+            face_table["error"] = f"Error preprocessing face detection. Error: {e}"
             return face_table
 
         # Inference results saved to dict.
@@ -224,9 +211,9 @@ class SCRFD:
             # Extract bounding boxes [x1, y1, x2, y2]
             face_table["faces"] = dets[:, :4]
         except Exception as e:
-            logger.error(f"Error running inference on image {image_path}. Error: {e}")
+            logger.error(f"Error running inference on image face detection. Error: {e}")
             face_table["error"] = (
-                f"Error running inference on image {image_path}. Error: {e}"
+                f"Error running inference on image face detection. Error: {e}"
             )
 
         return face_table
@@ -235,39 +222,18 @@ class SCRFD:
 local = Local()
 
 
-def run_inference(image_path: str) -> dict:
+def run_inference(image_loader: ImageLoader) -> dict:
     """Run face detection on the image using SCRFD.
 
     Faces is a list where each face is represented as [x1, y1, x2, y2].
     """
     return local.model.run_face_detection(
-        image_path, local.confidence_threshold, local.nms_threshold
+        image_loader, local.confidence_threshold, local.nms_threshold
     )
-
 
 if __name__ == "__main__":
     print("Starting SCRFD face detection...")
-    test_result = run_inference("sample/BCITCS24-C4P1-0008.JPG")
-    import IPython
 
-    import photolink.models.sface as sface
-
-    # Sanity check drawing
-    if "faces" in test_result:
-        image_with_detections = safe_load_image("sample/BCITCS24-C4P1-0008.JPG")
-        faces = test_result["faces"]
-
-        IPython.embed()
-
-        # (112, 122, 3) for each face. Faces and embeddings are aligned.
-        embedding = sface.get_embedding(image_with_detections, faces)
-
-        for face in faces:
-            x1, y1, x2, y2 = map(int, face)
-            cv2.rectangle(image_with_detections, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        # Save the image with detections
-        image_with_detections = cv2.cvtColor(image_with_detections, cv2.COLOR_RGB2BGR)
-        cv2.imwrite("output.jpg", image_with_detections)
-        print("Detection results saved to output.jpg")
-    else:
-        print("No faces detected.")
+    im_loader = ImageLoader("sample/BCITCS24-C4P1-0008.JPG")
+    test_result = run_inference(im_loader)
+    print(test_result)

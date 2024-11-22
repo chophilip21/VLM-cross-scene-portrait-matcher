@@ -32,11 +32,6 @@ def run():
         logger_path, format="{time}:{level}:{message}", level="INFO", enqueue=True
     )
 
-    try:
-        config_to_env(config_data, "MODEL")
-    except Exception as e:
-        logger.error(f"Error: {e} in reading config file to env variable. Check again.")
-        sys.exit(1)
 
     app = QApplication(sys.argv)
 

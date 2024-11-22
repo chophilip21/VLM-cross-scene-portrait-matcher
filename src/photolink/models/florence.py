@@ -11,7 +11,7 @@ from transformers import AutoProcessor, AutoConfig, AutoModelForCausalLM, Genera
 import torch
 from typing import Optional, Tuple, List, Union
 from transformers.modeling_outputs import Seq2SeqLMOutput, BaseModelOutput
-import IPython
+from photolink.utils.image_loader import ImageLoader
 
 
 
@@ -411,9 +411,10 @@ def device_widget(default="AUTO", exclude=None, added=None, description="Device:
 local = Local()
 
 
-def run_inference(image)-> dict:
+def run_inference(image_loader: ImageLoader)-> dict:
     """Run inference for Florence model"""
 
+    image = image_loader.get_downsample()
     inputs = local.processor(text=local.prompt, images=image, return_tensors="pt")
 
     generated_ids = local.model.generate(
@@ -434,7 +435,6 @@ def run_inference(image)-> dict:
 
 
 if __name__ == "__main__":
-    from photolink.utils.function import safe_load_image
     import time
     from photolink.utils.function import search_all_images
     import os
@@ -454,15 +454,16 @@ if __name__ == "__main__":
         print(f"Processing {img_url}...")
 
         # Load the image
-        image = safe_load_image(img_url, return_numpy=False)
+        image_loader = ImageLoader(img_url)
 
         start_time = time.time()
-        boxes = run_inference(image)
+        boxes = run_inference(image_loader)
         end_time = time.time()
         total_time += end_time - start_time
         print('Time taken:', end_time - start_time)
 
         # Create a drawing context
+        image = image_loader.get_downsample()
         draw = ImageDraw.Draw(image)
 
         # Draw the bounding boxes and labels

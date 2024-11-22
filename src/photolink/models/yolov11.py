@@ -11,7 +11,9 @@ from PIL import Image
 
 from photolink import get_application_path, get_config
 from photolink.models import Colors, class_names
-from photolink.utils.function import check_weights_exist, safe_load_image
+from photolink.utils.function import check_weights_exist
+from photolink.utils.image_loader import ImageLoader
+import IPython
 
 
 class Local:
@@ -310,16 +312,11 @@ def draw_and_visualize(im, boxes, save=True, name=None):
 
 
 def run_inference(
-    input: Union[str, np.ndarray], debug=False, debug_path=None
+    input: ImageLoader, debug=False, debug_path=None
 ) -> np.ndarray:
     """Perform inference on the input image."""
 
-    if isinstance(input, str):
-        original_image = safe_load_image(input)
-    elif isinstance(input, np.ndarray):
-        original_image = input
-    else:
-        raise ValueError(f"Input must be a string or numpy array, not {type(input)}")
+    downsampled_image = np.array(input.get_downsample()) # Get the downsampled image
 
     # Windows inference code
     if sys.platform == "win32":
@@ -332,7 +329,7 @@ def run_inference(
         )
 
         # Preprocess image
-        im = preprocess(original_image, local.height, local.width, ndtype)
+        im = preprocess(downsampled_image, local.height, local.width, ndtype)
 
         # Run inference
         preds = session.run(None, {session.get_inputs()[0].name: im})
@@ -340,7 +337,7 @@ def run_inference(
     elif sys.platform == "darwin":
         # Mac inference code
         model = local.model
-        im = preprocess(original_image, local.height, local.width, np.float32)
+        im = preprocess(downsampled_image, local.height, local.width, np.float32)
 
         im_input = np.squeeze(im).transpose(1, 2, 0)
         im_input = (im_input * 255).astype(np.uint8)
@@ -354,7 +351,7 @@ def run_inference(
     # Run post-processing
     boxes = postprocess(
         preds,
-        original_image.shape,
+        downsampled_image.shape,
         local.conf,
         local.iou,
         local.heuristic_threshold,
@@ -363,7 +360,7 @@ def run_inference(
 
     if debug:
         draw_and_visualize(
-            original_image,
+            downsampled_image,
             boxes,
             save=True,
             name=debug_path,
@@ -385,11 +382,13 @@ if __name__ == "__main__":
     for img in images:
         img_url = str(img)
 
+        image_loader = ImageLoader(img_url)
+
         os.makedirs("test", exist_ok=True)
         debug_path = os.path.join("test", os.path.basename(img_url))
         print(f"Processing {img_url}...")
 
         # Inference
-        boxes = run_inference(img_url, debug=True, debug_path=debug_path)
+        boxes = run_inference(image_loader, debug=True, debug_path=debug_path)
         logger.info(f"Detected {len(boxes)} instances in the image.")
         IPython.embed()

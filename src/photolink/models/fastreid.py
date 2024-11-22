@@ -125,14 +125,3 @@ def isolate_instance(
 
     return isolated_instance
 
-
-if __name__ == "__main__":
-    import os
-    from collections import defaultdict
-
-    import hdbscan
-    import pandas as pd
-    from loguru import logger
-    from sklearn.cluster import AgglomerativeClustering
-
-    from photolink.utils.function import safe_load_image, search_all_images
