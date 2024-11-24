@@ -170,7 +170,7 @@ class SCRFD:
 
         face_table = {"resize_ratio": 1.0}
 
-        image = np.array(image_loader.get_downsample())
+        image = np.array(image_loader.get_downsampled_image())
 
         # Preprocess the image according to SCRFD requirements
         try:

@@ -316,7 +316,10 @@ def run_inference(
 ) -> np.ndarray:
     """Perform inference on the input image."""
 
-    downsampled_image = np.array(input.get_downsample()) # Get the downsampled image
+    if not isinstance(input, ImageLoader):
+        raise TypeError("Input must be an instance of ImageLoader.")
+
+    downsampled_image = np.array(input.get_downsampled_image()) # Get the downsampled image
 
     # Windows inference code
     if sys.platform == "win32":

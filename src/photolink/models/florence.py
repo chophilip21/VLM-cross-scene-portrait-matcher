@@ -414,7 +414,7 @@ local = Local()
 def run_inference(image_loader: ImageLoader)-> dict:
     """Run inference for Florence model"""
 
-    image = image_loader.get_downsample()
+    image = image_loader.get_downsampled_image()
     inputs = local.processor(text=local.prompt, images=image, return_tensors="pt")
 
     generated_ids = local.model.generate(
@@ -463,7 +463,7 @@ if __name__ == "__main__":
         print('Time taken:', end_time - start_time)
 
         # Create a drawing context
-        image = image_loader.get_downsample()
+        image = image_loader.get_downsampled_image()
         draw = ImageDraw.Draw(image)
 
         # Draw the bounding boxes and labels

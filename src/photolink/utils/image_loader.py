@@ -66,12 +66,12 @@ class ImageLoader:
         """
         return self._original_image.copy()
 
-    def get_downsample(self) -> Image.Image:
+    def get_downsampled_image(self) -> Image.Image:
         """
         Downsample the image to the specified size while maintaining aspect ratio.
         """
         if self._downsampled_image is not None:
-            return copy.deepcopy(self._downsampled_image)
+            return self._downsampled_image
 
         original_width, original_height = self._original_image.size
 
