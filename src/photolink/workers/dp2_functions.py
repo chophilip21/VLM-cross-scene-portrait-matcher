@@ -52,7 +52,7 @@ def debug_save_image(img, bounding_box, save_name):
 
 import numpy as np
 
-def screen_bb_by_iou(yolo_preds: np.ndarray, florence_bboxes: list, min_iou: float = 0.5) -> np.ndarray:
+def screen_bb_by_iou(yolo_preds: np.ndarray, florence_bboxes: list) -> np.ndarray:
     """
     Selects the Yolo prediction bounding box that has the highest IoU with the Florence-2 prediction.
 
@@ -102,14 +102,15 @@ def screen_bb_by_iou(yolo_preds: np.ndarray, florence_bboxes: list, min_iou: flo
     for yolo_pred in yolo_preds:
         yolo_bbox = yolo_pred[:4]  # [x1, y1, x2, y2]
         iou = compute_iou(yolo_bbox, florence_bboxes)
+        # IPython.embed()
 
         if iou > best_iou:
             best_iou = iou
             best_yolo_pred = yolo_pred
 
     # Check if the best IoU meets the minimum threshold
-    if best_iou < min_iou:
-        raise ValueError(f"No Yolo prediction meets the minimum IoU threshold of {min_iou}.")
+    # if best_iou < min_iou:
+    #     raise ValueError(f"No Yolo prediction meets the minimum IoU threshold of {min_iou}.")
 
     return best_yolo_pred
 
@@ -153,8 +154,6 @@ def compute_iou(box1, box2):
     # Compute the IoU
     iou = intersection_area / float(box1_area + box2_area - intersection_area)
     return iou
-
-
 
 
 
@@ -210,7 +209,7 @@ def _precompute_embeddings(
                     f"Error running yolo inference {img_path}: {e}", pickle_cache
                 )
                 continue
-
+            
             # case 1. The length of bounding box is 0
             if len(bounding_boxes) == 0:
                 logger.warning(f"No bounding box detected in image {img_path}, skipping.")
@@ -234,6 +233,7 @@ def _precompute_embeddings(
                     florence_bboxes = florence_bboxes[0]
 
                 best_prediction = screen_bb_by_iou(bounding_boxes, florence_bboxes)
+
 
             # Proceed with embeding calculation
             x1, y1, x2, y2, conf, cls_id = best_prediction
@@ -294,14 +294,14 @@ def run(
         source_images, debug
     )
     
-    IPython.embed()
 
 
 if __name__ == "__main__":
     print("Start to run the code")
 
     # on stage images
-    source_images = search_all_images(Path("~/for_phil/bcit_copy/a").expanduser())
+    # source_images = search_all_images(Path("~/for_phil/bcit_copy/a").expanduser())
+    source_images = search_all_images(Path("/Users/philipcho/photomatcher/failure").expanduser())
 
     # off stage images
     reference_images = search_all_images(Path("~/for_phil/bcit_copy/b").expanduser())

@@ -116,8 +116,6 @@ def preprocess(img, model_height, model_width, ndtype):
     img_transposed = np.expand_dims(img_transposed, axis=0)  # Add batch dimension
 
     return img_transposed
-
-
 def postprocess(
     output,
     img_shape,
@@ -143,6 +141,12 @@ def postprocess(
     x_factor = img_width / local.width
     y_factor = img_height / local.height
 
+    # Determine the class ID for 'person'
+    try:
+        person_class_id = local.class_names.index('person')
+    except ValueError:
+        raise ValueError("'person' class not found in class names.")
+
     # Iterate over each detection
     for i in range(outputs.shape[0]):
         # Extract the class scores from the current detection
@@ -153,6 +157,10 @@ def postprocess(
         if max_score >= conf_threshold:
             # Get the class ID with the highest score
             class_id = np.argmax(class_scores)
+
+            # Filter out non-person detections
+            if class_id != person_class_id:
+                continue  # Skip this detection if it's not a person
 
             # Extract bounding box coordinates
             x, y, w, h = outputs[i, 0], outputs[i, 1], outputs[i, 2], outputs[i, 3]
@@ -169,12 +177,15 @@ def postprocess(
             class_ids.append(class_id)
 
     # Apply Non-Maximum Suppression (NMS)
-    indices = cv2.dnn.NMSBoxes(boxes, scores, conf_threshold, iou_threshold)
+    if len(boxes) > 0:
+        indices = cv2.dnn.NMSBoxes(boxes, scores, conf_threshold, iou_threshold)
+        indices = indices.flatten() if len(indices) > 0 else []
+    else:
+        indices = []
+
     filtered_boxes = []
     filtered_scores = []
     filtered_class_ids = []
-
-    indices = indices.flatten() if len(indices) > 0 else []
 
     for i in indices:
         filtered_boxes.append(boxes[i])
@@ -188,6 +199,8 @@ def postprocess(
 
     # Heuristic filtering
     if len(filtered_boxes) > 0:
+        # Stack the boxes, scores, and class IDs together
+        # Shape: (num_boxes, 6) -> [x1, y1, x2, y2, score, class_id]
         filtered_boxes = np.c_[filtered_boxes, filtered_scores, filtered_class_ids]
         filtered_boxes = heuristics_filter(
             filtered_boxes, img_shape, heuristic_threshold, num_candidates
@@ -195,64 +208,59 @@ def postprocess(
 
     return filtered_boxes
 
-
 def heuristics_filter(boxes, im_shape, heuristic_threshold, num_candidates):
-    """Filter boxes using heuristic scores based on size and distance from image center."""
+    """Refined heuristic filter using size, distance, and confidence scores."""
     img_center = np.array([im_shape[1] / 2, im_shape[0] / 2])
+
+    # Extract confidence scores from boxes
+    confidences = boxes[:, 4]
 
     # Calculate the size of each bounding box
     box_sizes = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
-
-    # Calculate heuristic scores (normalized between 0 and 1)
     max_size = np.max(box_sizes) if len(box_sizes) > 0 else 1.0
-    max_dist = np.linalg.norm(np.array([im_shape[1] / 2, im_shape[0] / 2]))
+    size_penalties = box_sizes / max_size  # Normalize to [0,1]
 
-    scores = []
-    for i in range(len(boxes)):
-        box_center = np.array(
-            [(boxes[i, 0] + boxes[i, 2]) / 2, (boxes[i, 1] + boxes[i, 3]) / 2]
-        )
-        size_penalty = (
-            box_sizes[i] / max_size if max_size > 0 else 0
-        )  # Avoid division by zero
-        dist_from_center = np.linalg.norm(box_center - img_center)
+    # Calculate distances from image center
+    box_centers = np.column_stack(((boxes[:, 0] + boxes[:, 2]) / 2, (boxes[:, 1] + boxes[:, 3]) / 2))
+    dist_from_center = np.linalg.norm(box_centers - img_center, axis=1)
+    max_dist = np.max(dist_from_center) if len(dist_from_center) > 0 else 1.0
+    dist_penalties = 1 - (dist_from_center / max_dist)  # Normalize to [0,1]
 
-        # Normalize distance penalty correctly
-        dist_penalty = 1 - (
-            dist_from_center / max_dist
-        )  # Normalize distance penalty to [0,1]
+    # Normalize confidence scores to [0,1]
+    max_conf = np.max(confidences) if len(confidences) > 0 else 1.0
+    conf_penalties = confidences / max_conf
 
-        score = 0.5 * dist_penalty + 0.5 * size_penalty  # Weighted combination
-        scores.append(score)
+    # Compute combined scores with adjusted weights
+    size_weight = 0.5
+    dist_weight = 0.3
+    conf_weight = 0.2
 
-    scores = np.array(scores)
+    scores = (size_weight * size_penalties) + \
+             (dist_weight * dist_penalties) + \
+             (conf_weight * conf_penalties)
 
     # Sort boxes based on scores in descending order
-    sorted_score_indices = np.argsort(-scores)
-    boxes = boxes[sorted_score_indices]
-    scores = scores[sorted_score_indices]
+    sorted_indices = np.argsort(-scores)
+    boxes = boxes[sorted_indices]
+    scores = scores[sorted_indices]
 
-    # Apply dynamic penalty: only include top N if scores are relatively close
-    filtered_boxes = []
-    for i in range(len(boxes)):
-        if i == 0:
+    # Apply threshold on relative score difference
+    filtered_boxes = [boxes[0]]
+    for i in range(1, len(boxes)):
+        prev_score = scores[i - 1]
+        current_score = scores[i]
+        relative_diff = abs(prev_score - current_score) / prev_score if prev_score != 0 else 0
+
+        if relative_diff < heuristic_threshold:
             filtered_boxes.append(boxes[i])
         else:
-            # Calculate relative score difference from the previous box
-            prev_score = scores[i - 1]
-            current_score = scores[i]
+            break  # Stop adding boxes if the score difference is too high
 
-            # Only include if the current score is close enough to the previous score
-            if abs(prev_score - current_score) < 0.15:  # Adjust the threshold as needed
-                filtered_boxes.append(boxes[i])
-            else:
-                break  # Stop adding boxes if the score difference is too high
-
-    # If there are more than num_candidates, select the top ones
-    if len(filtered_boxes) > num_candidates:
-        filtered_boxes = filtered_boxes[:num_candidates]
+    # Limit to num_candidates
+    filtered_boxes = filtered_boxes[:num_candidates]
 
     return np.array(filtered_boxes)
+
 
 
 def draw_and_visualize(im, boxes, save=True, name=None):
@@ -351,7 +359,7 @@ def run_inference(
         # Use the correct output key
         preds.append(core_ml_result["var_1230"])
 
-    # Run post-processing
+    # TODO: This is not sorting things properly by heuristic score. Score is off. 
     boxes = postprocess(
         preds,
         downsampled_image.shape,
@@ -394,4 +402,3 @@ if __name__ == "__main__":
         # Inference
         boxes = run_inference(image_loader, debug=True, debug_path=debug_path)
         logger.info(f"Detected {len(boxes)} instances in the image.")
-        IPython.embed()

@@ -12,7 +12,7 @@ import torch
 from typing import Optional, Tuple, List, Union
 from transformers.modeling_outputs import Seq2SeqLMOutput, BaseModelOutput
 from photolink.utils.image_loader import ImageLoader
-
+import IPython
 
 
 IMAGE_EMBEDDING_NAME = "image_embedding.xml"
@@ -417,19 +417,22 @@ def run_inference(image_loader: ImageLoader)-> dict:
     image = image_loader.get_downsampled_image()
     inputs = local.processor(text=local.prompt, images=image, return_tensors="pt")
 
-    generated_ids = local.model.generate(
+    generated_output = local.model.generate(
         input_ids=inputs["input_ids"],
         pixel_values=inputs["pixel_values"],
         max_new_tokens=1024,
         do_sample=False,
         num_beams=3,
         output_scores=True,
+        return_dict_in_generate=True
     )
 
-    generated_text = local.processor.batch_decode(generated_ids, skip_special_tokens=False)[0]
+    generated_text = local.processor.batch_decode(generated_output.sequences, skip_special_tokens=False)[0]
     parsed_answer = local.processor.post_process_generation(
         generated_text, task="<OD>", image_size=(image.width, image.height)
     )
+
+    parsed_answer['confidence'] = generated_output.sequences_scores
 
     return parsed_answer
 
@@ -441,7 +444,10 @@ if __name__ == "__main__":
     from PIL import Image, ImageDraw
     import copy
 
-    images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
+    # images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
+    # images = search_all_images(Path("/Users/philipcho/photomatcher/sample").expanduser())
+    images = search_all_images(Path("~/for_phil/bcit_copy/a").expanduser())
+
     print(f"Found {len(images)} images.")
 
     total_time = 0
@@ -449,18 +455,13 @@ if __name__ == "__main__":
     for img in images:
         img_url = str(img)
 
-        os.makedirs("test", exist_ok=True)
-        debug_path = os.path.join("test", os.path.basename(img_url))
-        print(f"Processing {img_url}...")
+        os.makedirs("test/florence", exist_ok=True)
+        debug_path = os.path.join("test/florence", os.path.basename(img_url))
 
         # Load the image
         image_loader = ImageLoader(img_url)
 
-        start_time = time.time()
         boxes = run_inference(image_loader)
-        end_time = time.time()
-        total_time += end_time - start_time
-        print('Time taken:', end_time - start_time)
 
         # Create a drawing context
         image = image_loader.get_downsampled_image()
