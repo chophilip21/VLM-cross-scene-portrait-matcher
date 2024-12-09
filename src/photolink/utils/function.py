@@ -227,7 +227,7 @@ def get_relevant_embeddings(embeddings_path: Path, job_key: str) -> list:
     return relevant_embedding_list
 
 
-def check_weights_exist(local_path, remote_path):
+def check_weights_exist(local_path, remote_path, is_folder=False):
     """Check if weights exist locally, if not download from remote path. Ensure path compatibility b/w linux and windows."""
     application_path = get_application_path()
     local = os.path.join(application_path, str(local_path))
@@ -236,9 +236,13 @@ def check_weights_exist(local_path, remote_path):
         logger.info(
             f"Weights for {str(local_path)} not found. Downloading from {str(remote_path)}"
         )
+        
 
         try:
-            gdown.download(str(remote_path), str(local), quiet=False, fuzzy=True)
+            if is_folder:
+                gdown.download_folder(url=str(remote_path), output=str(local), quiet=False, remaining_ok=True)
+            else:
+                gdown.download(str(remote_path), str(local), quiet=False, fuzzy=True)
             logger.info(f"Weights downloaded successfully for model : {str(local)}")
 
         except Exception as e:

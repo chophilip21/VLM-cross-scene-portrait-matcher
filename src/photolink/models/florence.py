@@ -43,31 +43,33 @@ class Local:
         self.prompt = self.config.get("FLORENCE", "STUDENT_PROMPT")
         self.model_path = Path(str(self.application_path / Path(self.config.get("FLORENCE", "LOCAL"))))
 
+           
+    def check_weights(self):
+        if sys.platform == "darwin":
+            remote_path = str(self.config.get("FLORENCE", "REMOTE_MAC"))
+
+        elif sys.platform == "win32":
+            remote_path = str(self.config.get("FLORENCE", "REMOTE_WIN"))
+
+        else:
+            raise ValueError(f"Unsupported platform : {sys.platform}")
+    
+        # Check if the model weights exist
+        check_weights_exist(self.model_path, remote_path, is_folder=True)
+
     @property
     def model(self):
         """Lazyily initialize the model."""
         if self._model is None:
-            if sys.platform == "darwin":
-                remote_path = str(self.config.get("FLORENCE", "REMOTE_MAC"))
-
-            elif sys.platform == "win32":
-                remote_path = str(self.config.get("FLORENCE", "REMOTE_WIN"))
-
-            else:
-                raise ValueError(f"Unsupported platform : {sys.platform}")
-
-                # Check if the model weights exist
-            check_weights_exist(self.model_path, remote_path)
-
             device = device_widget()
             logger.info(f"Openvino log for device : {device.value}")
             self._model = OVFlorence2Model(self.model_path, device.value)
-
         return self._model
 
     @property
     def processor(self):
         if self._processor is None:
+            self.check_weights()
             self._processor = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
         return self._processor
 
@@ -415,6 +417,7 @@ def run_inference(image_loader: ImageLoader)-> dict:
     """Run inference for Florence model"""
 
     image = image_loader.get_downsampled_image()
+
     inputs = local.processor(text=local.prompt, images=image, return_tensors="pt")
 
     generated_output = local.model.generate(
@@ -446,7 +449,7 @@ if __name__ == "__main__":
 
     # images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
     # images = search_all_images(Path("/Users/philipcho/photomatcher/sample").expanduser())
-    images = search_all_images(Path("/Users/philipcho/photomatcher/failure").expanduser())
+    images = search_all_images(Path(r"C:\Users\choph\philip\FOR PHIL\BCIT\2024-06-26_BCITCS24_C4\BCITCS24_C4P1\SELECTS").expanduser())
 
     print(f"Found {len(images)} images.")
 
@@ -462,19 +465,19 @@ if __name__ == "__main__":
         image_loader = ImageLoader(img_url)
 
         boxes = run_inference(image_loader)
-        IPython.embed()
+    #     IPython.embed()
 
-        # Create a drawing context
-        image = image_loader.get_downsampled_image()
-        draw = ImageDraw.Draw(image)
+    #     # Create a drawing context
+    #     image = image_loader.get_downsampled_image()
+    #     draw = ImageDraw.Draw(image)
 
-        # Draw the bounding boxes and labels
-        for bbox, label in zip(boxes['<OD>']['bboxes'], boxes['<OD>']['labels']):
-            x_min, y_min, x_max, y_max = bbox
-            draw.rectangle([x_min, y_min, x_max, y_max], outline='red', width=2)
-            draw.text((x_min, y_min - 10), label, fill='red')
+    #     # Draw the bounding boxes and labels
+    #     for bbox, label in zip(boxes['<OD>']['bboxes'], boxes['<OD>']['labels']):
+    #         x_min, y_min, x_max, y_max = bbox
+    #         draw.rectangle([x_min, y_min, x_max, y_max], outline='red', width=2)
+    #         draw.text((x_min, y_min - 10), label, fill='red')
 
-        # Save the image with bounding boxes
-        image.save(debug_path)
+    #     # Save the image with bounding boxes
+    #     image.save(debug_path)
 
-    print('Average time per image:', total_time / len(images))
+    # print('Average time per image:', total_time / len(images))
