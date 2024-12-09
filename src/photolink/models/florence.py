@@ -446,7 +446,7 @@ if __name__ == "__main__":
 
     # images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
     # images = search_all_images(Path("/Users/philipcho/photomatcher/sample").expanduser())
-    images = search_all_images(Path("~/for_phil/bcit_copy/a").expanduser())
+    images = search_all_images(Path("/Users/philipcho/photomatcher/failure").expanduser())
 
     print(f"Found {len(images)} images.")
 
@@ -462,6 +462,7 @@ if __name__ == "__main__":
         image_loader = ImageLoader(img_url)
 
         boxes = run_inference(image_loader)
+        IPython.embed()
 
         # Create a drawing context
         image = image_loader.get_downsampled_image()

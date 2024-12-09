@@ -50,8 +50,6 @@ def debug_save_image(img, bounding_box, save_name):
     cv2.imwrite(save_name, image)
 
 
-import numpy as np
-
 def screen_bb_by_iou(yolo_preds: np.ndarray, florence_bboxes: list) -> np.ndarray:
     """
     Selects the Yolo prediction bounding box that has the highest IoU with the Florence-2 prediction.
@@ -265,7 +263,7 @@ def _precompute_embeddings(
             # if debug, save image for debugging
             if debug:
                 debug_path = os.path.join('test', os.path.basename(img_path))
-                debug_save_image(img, best_prediction, debug_path)
+                debug_save_image(img, florence_bboxes, debug_path)
 
         # Save data to cache
         with open(pickle_cache, "wb") as f:
