@@ -64,19 +64,22 @@ class Local:
             if sys.platform == "darwin":
                 remote_path = str(self.config.get("FLORENCE", "REMOTE_MAC"))
 
-            elif sys.platform == "win32":
-                remote_path = str(self.config.get("FLORENCE", "REMOTE_WIN"))
+        elif sys.platform == "win32":
+            remote_path = str(self.config.get("FLORENCE", "REMOTE_WIN"))
 
-            else:
-                raise ValueError(f"Unsupported platform : {sys.platform}")
+        else:
+            raise ValueError(f"Unsupported platform : {sys.platform}")
+    
+        # Check if the model weights exist
+        check_weights_exist(self.model_path, remote_path, is_folder=True)
 
-                # Check if the model weights exist
-            check_weights_exist(self.model_path, remote_path)
-
+    @property
+    def model(self):
+        """Lazyily initialize the model."""
+        if self._model is None:
             device = device_widget()
             logger.info(f"Openvino log for device : {device.value}")
             self._model = OVFlorence2Model(self.model_path, device.value)
-
         return self._model
 
     @property
@@ -498,6 +501,7 @@ def run_inference(image_loader: ImageLoader) -> dict:
     """Run inference for Florence model"""
 
     image = image_loader.get_downsampled_image()
+
     inputs = local.processor(text=local.prompt, images=image, return_tensors="pt")
 
     generated_output = local.model.generate(
@@ -549,11 +553,11 @@ if __name__ == "__main__":
         image_loader = ImageLoader(img_url)
 
         boxes = run_inference(image_loader)
-        IPython.embed()
+    #     IPython.embed()
 
-        # Create a drawing context
-        image = image_loader.get_downsampled_image()
-        draw = ImageDraw.Draw(image)
+    #     # Create a drawing context
+    #     image = image_loader.get_downsampled_image()
+    #     draw = ImageDraw.Draw(image)
 
         # Draw the bounding boxes and labels
         for bbox, label in zip(boxes["<OD>"]["bboxes"], boxes["<OD>"]["labels"]):
@@ -561,7 +565,7 @@ if __name__ == "__main__":
             draw.rectangle([x_min, y_min, x_max, y_max], outline="red", width=2)
             draw.text((x_min, y_min - 10), label, fill="red")
 
-        # Save the image with bounding boxes
-        image.save(debug_path)
+    #     # Save the image with bounding boxes
+    #     image.save(debug_path)
 
     print("Average time per image:", total_time / len(images))
