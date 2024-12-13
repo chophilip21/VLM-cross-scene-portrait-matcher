@@ -231,6 +231,7 @@ def run_inference(image_loader: ImageLoader) -> dict:
         image_loader, local.confidence_threshold, local.nms_threshold
     )
 
+
 if __name__ == "__main__":
     print("Starting SCRFD face detection...")
 

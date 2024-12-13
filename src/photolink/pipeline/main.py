@@ -32,7 +32,6 @@ def run():
         logger_path, format="{time}:{level}:{message}", level="INFO", enqueue=True
     )
 
-
     app = QApplication(sys.argv)
 
     # import needs to happen after env variable set.

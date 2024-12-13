@@ -11,9 +11,8 @@ from PIL import Image
 
 from photolink import get_application_path, get_config
 from photolink.models import Colors, class_names
-from photolink.utils.function import check_weights_exist
+from photolink.utils.download import check_weights_exist
 from photolink.utils.image_loader import ImageLoader
-import IPython
 
 
 class Local:
@@ -46,6 +45,7 @@ class Local:
             application_path = get_application_path()
             config = get_config()
 
+            # TODO: Change this to support both Windows and Mac
             model_path = str(
                 application_path / Path(config.get("YOLOV11", "LOCAL_PATH"))
             )
@@ -77,7 +77,7 @@ class Local:
                 application_path / Path(config.get("YOLOV11", "LOCAL_PATH_MAC"))
             )
             remote_path = str(config.get("YOLOV11", "REMOTE_PATH_MAC"))
-            check_weights_exist(model_path, remote_path)
+            check_weights_exist(model_path, remote_path, is_folder=True)
             self._model = ct.models.MLModel(model_path)
             self.set_metadata(config)
 
@@ -116,6 +116,8 @@ def preprocess(img, model_height, model_width, ndtype):
     img_transposed = np.expand_dims(img_transposed, axis=0)  # Add batch dimension
 
     return img_transposed
+
+
 def postprocess(
     output,
     img_shape,
@@ -143,7 +145,7 @@ def postprocess(
 
     # Determine the class ID for 'person'
     try:
-        person_class_id = local.class_names.index('person')
+        person_class_id = local.class_names.index("person")
     except ValueError:
         raise ValueError("'person' class not found in class names.")
 
@@ -208,6 +210,7 @@ def postprocess(
 
     return filtered_boxes
 
+
 def heuristics_filter(boxes, im_shape, heuristic_threshold, num_candidates):
     """Refined heuristic filter using size, distance, and confidence scores."""
     img_center = np.array([im_shape[1] / 2, im_shape[0] / 2])
@@ -221,7 +224,9 @@ def heuristics_filter(boxes, im_shape, heuristic_threshold, num_candidates):
     size_penalties = box_sizes / max_size  # Normalize to [0,1]
 
     # Calculate distances from image center
-    box_centers = np.column_stack(((boxes[:, 0] + boxes[:, 2]) / 2, (boxes[:, 1] + boxes[:, 3]) / 2))
+    box_centers = np.column_stack(
+        ((boxes[:, 0] + boxes[:, 2]) / 2, (boxes[:, 1] + boxes[:, 3]) / 2)
+    )
     dist_from_center = np.linalg.norm(box_centers - img_center, axis=1)
     max_dist = np.max(dist_from_center) if len(dist_from_center) > 0 else 1.0
     dist_penalties = 1 - (dist_from_center / max_dist)  # Normalize to [0,1]
@@ -235,9 +240,11 @@ def heuristics_filter(boxes, im_shape, heuristic_threshold, num_candidates):
     dist_weight = 0.3
     conf_weight = 0.2
 
-    scores = (size_weight * size_penalties) + \
-             (dist_weight * dist_penalties) + \
-             (conf_weight * conf_penalties)
+    scores = (
+        (size_weight * size_penalties)
+        + (dist_weight * dist_penalties)
+        + (conf_weight * conf_penalties)
+    )
 
     # Sort boxes based on scores in descending order
     sorted_indices = np.argsort(-scores)
@@ -249,7 +256,9 @@ def heuristics_filter(boxes, im_shape, heuristic_threshold, num_candidates):
     for i in range(1, len(boxes)):
         prev_score = scores[i - 1]
         current_score = scores[i]
-        relative_diff = abs(prev_score - current_score) / prev_score if prev_score != 0 else 0
+        relative_diff = (
+            abs(prev_score - current_score) / prev_score if prev_score != 0 else 0
+        )
 
         if relative_diff < heuristic_threshold:
             filtered_boxes.append(boxes[i])
@@ -260,7 +269,6 @@ def heuristics_filter(boxes, im_shape, heuristic_threshold, num_candidates):
     filtered_boxes = filtered_boxes[:num_candidates]
 
     return np.array(filtered_boxes)
-
 
 
 def draw_and_visualize(im, boxes, save=True, name=None):
@@ -319,15 +327,15 @@ def draw_and_visualize(im, boxes, save=True, name=None):
             cv2.imwrite("test/demo.jpg", im_canvas)
 
 
-def run_inference(
-    input: ImageLoader, debug=False, debug_path=None
-) -> np.ndarray:
+def run_inference(input: ImageLoader, debug=False, debug_path=None) -> np.ndarray:
     """Perform inference on the input image."""
 
     if not isinstance(input, ImageLoader):
         raise TypeError("Input must be an instance of ImageLoader.")
 
-    downsampled_image = np.array(input.get_downsampled_image()) # Get the downsampled image
+    downsampled_image = np.array(
+        input.get_downsampled_image()
+    )  # Get the downsampled image
 
     # Windows inference code
     if sys.platform == "win32":
@@ -359,7 +367,7 @@ def run_inference(
         # Use the correct output key
         preds.append(core_ml_result["var_1230"])
 
-    # TODO: This is not sorting things properly by heuristic score. Score is off. 
+    # TODO: This is not sorting things properly by heuristic score. Score is off.
     boxes = postprocess(
         preds,
         downsampled_image.shape,
@@ -390,7 +398,7 @@ if __name__ == "__main__":
     images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
     print(f"Found {len(images)} images.")
 
-    for img in images:
+    for img in images[0:1]:
         img_url = str(img)
 
         image_loader = ImageLoader(img_url)

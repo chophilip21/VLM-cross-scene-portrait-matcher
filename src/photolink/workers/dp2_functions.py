@@ -40,7 +40,7 @@ def early_termination(error, pickle_cache):
 def debug_save_image(img, bounding_box, save_name):
     """Save image for debugging."""
     image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    
+
     bb = list(map(int, bounding_box))[:4]
 
     x1, y1, x2, y2 = bb
@@ -59,7 +59,7 @@ def screen_bb_by_iou(yolo_preds: np.ndarray, florence_bboxes: list) -> np.ndarra
     yolo_preds : np.ndarray
         An array of shape (N, 6) containing N Yolo predictions. Each prediction consists of:
         [x1, y1, x2, y2, confidence, class].
-    florence_bboxes : list 
+    florence_bboxes : list
     min_iou : float, optional
         The minimum IoU threshold required to accept a Yolo prediction.
         Defaults to 0.5.
@@ -90,7 +90,9 @@ def screen_bb_by_iou(yolo_preds: np.ndarray, florence_bboxes: list) -> np.ndarra
 
     # Extract Florence bounding boxes
     if len(florence_bboxes) != 4:
-        raise ValueError("Florence prediction must contain exactly one bounding box of  x1, y1, x2, y2.")
+        raise ValueError(
+            "Florence prediction must contain exactly one bounding box of  x1, y1, x2, y2."
+        )
 
     # Initialize variables to track the best IoU and corresponding Yolo prediction
     best_iou = 0
@@ -111,6 +113,7 @@ def screen_bb_by_iou(yolo_preds: np.ndarray, florence_bboxes: list) -> np.ndarra
     #     raise ValueError(f"No Yolo prediction meets the minimum IoU threshold of {min_iou}.")
 
     return best_yolo_pred
+
 
 def compute_iou(box1, box2):
     """
@@ -154,7 +157,6 @@ def compute_iou(box1, box2):
     return iou
 
 
-
 def _precompute_embeddings(
     image_paths: List[str], debug: bool = False
 ) -> Tuple[List[Dict], set]:
@@ -176,7 +178,7 @@ def _precompute_embeddings(
         hash_set.add(pickle_cache)
 
         if not isinstance(img_path, str):
-            raise ValueError("Image path must be a string. kill immediately.")        
+            raise ValueError("Image path must be a string. kill immediately.")
 
         # If the file already exists, load the embeddings
         if pickle_cache.exists():
@@ -207,10 +209,12 @@ def _precompute_embeddings(
                     f"Error running yolo inference {img_path}: {e}", pickle_cache
                 )
                 continue
-            
+
             # case 1. The length of bounding box is 0
             if len(bounding_boxes) == 0:
-                logger.warning(f"No bounding box detected in image {img_path}, skipping.")
+                logger.warning(
+                    f"No bounding box detected in image {img_path}, skipping."
+                )
                 continue
 
             # case 2. The length of bounding box is exactly 1. Means this is the right person.
@@ -220,18 +224,17 @@ def _precompute_embeddings(
             else:
                 # case 3. Most cases will fall here. You need to verify with Florence.
                 florence_result = florence.run_inference(image_loader)
-                florence_bboxes = florence_result.get('<OD>', {}).get('bboxes', [])
+                florence_bboxes = florence_result.get("<OD>", {}).get("bboxes", [])
 
                 # raise warning if florence result is more than one.
                 if len(florence_bboxes) != 1:
                     logger.warning(
                         f"More than one bounding box detected in image {img_path}, Choosing first one."
                     )
-                    
+
                     florence_bboxes = florence_bboxes[0]
 
                 best_prediction = screen_bb_by_iou(bounding_boxes, florence_bboxes)
-
 
             # Proceed with embeding calculation
             x1, y1, x2, y2, conf, cls_id = best_prediction
@@ -262,7 +265,7 @@ def _precompute_embeddings(
 
             # if debug, save image for debugging
             if debug:
-                debug_path = os.path.join('test', os.path.basename(img_path))
+                debug_path = os.path.join("test", os.path.basename(img_path))
                 debug_save_image(img, florence_bboxes, debug_path)
 
         # Save data to cache
@@ -281,17 +284,14 @@ def run(
     if debug:
         logger.info("Removing cache directory because debug is true.")
         shutil.rmtree(cache_dir, ignore_errors=True)
-        shutil.rmtree('test', ignore_errors=True)
-        os.makedirs('test', exist_ok=True)
+        shutil.rmtree("test", ignore_errors=True)
+        os.makedirs("test", exist_ok=True)
 
     if not isinstance(source_images, list) or not isinstance(reference_images, list):
         raise ValueError("Input images must be a list of strings.")
 
     # Compute embeddings for source images
-    source_embeddings_info = _precompute_embeddings(
-        source_images, debug
-    )
-    
+    source_embeddings_info = _precompute_embeddings(source_images, debug)
 
 
 if __name__ == "__main__":
@@ -299,7 +299,9 @@ if __name__ == "__main__":
 
     # on stage images
     # source_images = search_all_images(Path("~/for_phil/bcit_copy/a").expanduser())
-    source_images = search_all_images(Path("/Users/philipcho/photomatcher/failure").expanduser())
+    source_images = search_all_images(
+        Path("/Users/philipcho/photomatcher/failure").expanduser()
+    )
 
     # off stage images
     reference_images = search_all_images(Path("~/for_phil/bcit_copy/b").expanduser())

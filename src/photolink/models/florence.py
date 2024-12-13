@@ -1,4 +1,5 @@
 """Florence model."""
+
 from photolink import get_application_path, get_config
 from pathlib import Path
 from photolink.utils.function import check_weights_exist
@@ -7,7 +8,13 @@ import openvino as ov
 import ipywidgets as widgets
 from loguru import logger
 import numpy as np
-from transformers import AutoProcessor, AutoConfig, AutoModelForCausalLM, GenerationMixin, GenerationConfig
+from transformers import (
+    AutoProcessor,
+    AutoConfig,
+    AutoModelForCausalLM,
+    GenerationMixin,
+    GenerationConfig,
+)
 import torch
 from typing import Optional, Tuple, List, Union
 from transformers.modeling_outputs import Seq2SeqLMOutput, BaseModelOutput
@@ -23,7 +30,12 @@ DECODER_WITH_PAST_NAME = "decoder_with_past.xml"
 
 core = ov.Core()
 
-model_ids = ["microsoft/Florence-2-base-ft", "microsoft/Florence-2-base", "microsoft/Florence-2-large-ft", "microsoft/Florence-2-large"]
+model_ids = [
+    "microsoft/Florence-2-base-ft",
+    "microsoft/Florence-2-base",
+    "microsoft/Florence-2-large-ft",
+    "microsoft/Florence-2-large",
+]
 
 
 class Local:
@@ -33,7 +45,7 @@ class Local:
         if not cls._instance:
             cls._instance = super(Local, cls).__new__(cls)
         return cls._instance
-    
+
     def __init__(self):
         self._model = None
         self._processor = None
@@ -41,7 +53,9 @@ class Local:
         self.application_path = get_application_path()
         self.config = get_config()
         self.prompt = self.config.get("FLORENCE", "STUDENT_PROMPT")
-        self.model_path = Path(str(self.application_path / Path(self.config.get("FLORENCE", "LOCAL"))))
+        self.model_path = Path(
+            str(self.application_path / Path(self.config.get("FLORENCE", "LOCAL")))
+        )
 
     @property
     def model(self):
@@ -68,7 +82,9 @@ class Local:
     @property
     def processor(self):
         if self._processor is None:
-            self._processor = AutoProcessor.from_pretrained(self.model_path, trust_remote_code=True)
+            self._processor = AutoProcessor.from_pretrained(
+                self.model_path, trust_remote_code=True
+            )
         return self._processor
 
 
@@ -84,10 +100,17 @@ class OVEncoder:
     def __init__(self, model_dir, parent_model, device, ov_config):
         self.model = core.read_model(model_dir / ENCODER_NAME)
         self._device = device
-        self.input_embedding = core.compile_model(model_dir / TEXT_EMBEDING_NAME, device, ov_config)
+        self.input_embedding = core.compile_model(
+            model_dir / TEXT_EMBEDING_NAME, device, ov_config
+        )
         self.parent_model = parent_model
-        self.input_names = {key.get_any_name(): idx for idx, key in enumerate(self.model.inputs)}
-        self.input_dtypes = {key.get_any_name(): key.get_element_type().get_type_name() for key in self.model.inputs}
+        self.input_names = {
+            key.get_any_name(): idx for idx, key in enumerate(self.model.inputs)
+        }
+        self.input_dtypes = {
+            key.get_any_name(): key.get_element_type().get_type_name()
+            for key in self.model.inputs
+        }
         self.main_input_name = "input_ids"
         compiled_model = core.compile_model(self.model, self._device, ov_config)
         self.request = compiled_model.create_infer_request()
@@ -116,10 +139,16 @@ class OVEncoder:
         inputs = {"inputs_embeds": inputs_embeds}
 
         if attention_mask is None:
-            attention_mask = np.ones((inputs_embeds.shape[0], inputs_embeds.shape[1]), dtype=int)
+            attention_mask = np.ones(
+                (inputs_embeds.shape[0], inputs_embeds.shape[1]), dtype=int
+            )
         inputs["attention_mask"] = attention_mask
         # Run inference
-        last_hidden_state = torch.from_numpy(self.request.infer(inputs, share_inputs=True, share_outputs=True)["last_hidden_state"]).to(self.device)
+        last_hidden_state = torch.from_numpy(
+            self.request.infer(inputs, share_inputs=True, share_outputs=True)[
+                "last_hidden_state"
+            ]
+        ).to(self.device)
 
         return BaseModelOutput(last_hidden_state=last_hidden_state)
 
@@ -142,12 +171,26 @@ class OVDecoder:
         self.model = core.read_model(model_path)
         self._device = device
         self.parent_model = parent_model
-        self.input_names = {key.get_any_name(): idx for idx, key in enumerate(self.model.inputs)}
-        self.input_dtypes = {key.get_any_name(): key.get_element_type().get_type_name() for key in self.model.inputs}
-        self.key_value_input_names = [key for key in self.input_names if "key_value" in key]
-        self.output_names = {key.get_any_name(): idx for idx, key in enumerate(self.model.outputs)}
-        self.output_dtypes = {key.get_any_name(): key.get_element_type().get_type_name() for key in self.model.outputs}
-        self.key_value_output_names = [key for key in self.output_names if "key_values" in key or "present" in key]
+        self.input_names = {
+            key.get_any_name(): idx for idx, key in enumerate(self.model.inputs)
+        }
+        self.input_dtypes = {
+            key.get_any_name(): key.get_element_type().get_type_name()
+            for key in self.model.inputs
+        }
+        self.key_value_input_names = [
+            key for key in self.input_names if "key_value" in key
+        ]
+        self.output_names = {
+            key.get_any_name(): idx for idx, key in enumerate(self.model.outputs)
+        }
+        self.output_dtypes = {
+            key.get_any_name(): key.get_element_type().get_type_name()
+            for key in self.model.outputs
+        }
+        self.key_value_output_names = [
+            key for key in self.output_names if "key_values" in key or "present" in key
+        ]
 
         if len(self.key_value_input_names) > 0:
             self.use_past = True
@@ -180,12 +223,18 @@ class OVDecoder:
 
         if past_key_values is not None:
             # Flatten the past_key_values
-            past_key_values = tuple(past_key_value for pkv_per_layer in past_key_values for past_key_value in pkv_per_layer)
+            past_key_values = tuple(
+                past_key_value
+                for pkv_per_layer in past_key_values
+                for past_key_value in pkv_per_layer
+            )
 
             # Add the past_key_values to the decoder inputs
             inputs = dict(zip(self.key_value_input_names, past_key_values))
 
-        inputs["decoder_input_ids"] = input_ids  # self.parent_model.encoder.input_embedding(input_ids)[0]
+        inputs["decoder_input_ids"] = (
+            input_ids  # self.parent_model.encoder.input_embedding(input_ids)[0]
+        )
         inputs["encoder_hidden_states"] = encoder_hidden_states
 
         # Add the encoder_attention_mask inputs when needed
@@ -194,21 +243,30 @@ class OVDecoder:
         # Run inference
         self.request.start_async(inputs, share_inputs=True)
         self.request.wait()
-        logits = torch.from_numpy(self.request.get_tensor("logits").data).to(self.device)
+        logits = torch.from_numpy(self.request.get_tensor("logits").data).to(
+            self.device
+        )
 
         # Tuple of length equal to : number of layer * number of past_key_value per decoder layer (2 corresponds to the
         # self-attention layer and 2 to the cross-attention layer)
-        out_past_key_values = tuple(self.request.get_tensor(key).data for key in list(self.key_value_output_names))
+        out_past_key_values = tuple(
+            self.request.get_tensor(key).data
+            for key in list(self.key_value_output_names)
+        )
         # print(len(out_past_key_values))
         # Tuple of tuple of length `n_layers`, with each tuple of length equal to:
         # * 4 for the decoder without cache (k/v of self-attention + k/v of cross-attention)
         # * 2 for the decoder with cache (k/v of self-attention as cross-attention cache is constant)
         if self.use_past is False:
-            out_past_key_values = tuple(out_past_key_values[i : i + 4] for i in range(0, len(out_past_key_values), 4))
+            out_past_key_values = tuple(
+                out_past_key_values[i : i + 4]
+                for i in range(0, len(out_past_key_values), 4)
+            )
         else:
             # grab the cross attention key/values from the inputs
             out_past_key_values = tuple(
-                out_past_key_values[i : i + self.num_pkv] + past_key_values[2 * i + 2 : 2 * i + 2 + self.num_pkv]
+                out_past_key_values[i : i + self.num_pkv]
+                + past_key_values[2 * i + 2 : 2 * i + 2 + self.num_pkv]
                 for i in range(0, len(out_past_key_values), self.num_pkv)
             )
         return Seq2SeqLMOutput(logits=logits, past_key_values=out_past_key_values)
@@ -222,9 +280,15 @@ class OVFlorence2Model:
         model_dir = Path(model_dir)
         ov_config = ov_config or {}
         self.config = AutoConfig.from_pretrained(model_dir, trust_remote_code=True)
-        self.image_embedding = core.compile_model(model_dir / IMAGE_EMBEDDING_NAME, device, ov_config)
-        self.text_embedding = core.compile_model(model_dir / TEXT_EMBEDING_NAME, device, ov_config)
-        self.language_model = OVFlorence2LangModel(model_dir, self.config.text_config, device, ov_config)
+        self.image_embedding = core.compile_model(
+            model_dir / IMAGE_EMBEDDING_NAME, device, ov_config
+        )
+        self.text_embedding = core.compile_model(
+            model_dir / TEXT_EMBEDING_NAME, device, ov_config
+        )
+        self.language_model = OVFlorence2LangModel(
+            model_dir, self.config.text_config, device, ov_config
+        )
 
     def generate(self, input_ids, inputs_embeds=None, pixel_values=None, **kwargs):
         if inputs_embeds is None:
@@ -234,8 +298,14 @@ class OVFlorence2Model:
             # 2. Merge text and images
             if pixel_values is not None:
                 image_features = self._encode_image(pixel_values)
-                inputs_embeds, attention_mask = self._merge_input_ids_with_image_features(image_features, inputs_embeds)
-        return self.language_model.generate(input_ids=None, inputs_embeds=torch.from_numpy(inputs_embeds), **kwargs)
+                inputs_embeds, attention_mask = (
+                    self._merge_input_ids_with_image_features(
+                        image_features, inputs_embeds
+                    )
+                )
+        return self.language_model.generate(
+            input_ids=None, inputs_embeds=torch.from_numpy(inputs_embeds), **kwargs
+        )
 
     def get_input_embeddings(self, input_ids):
         return self.language_model.get_input_embeddings(input_ids)
@@ -260,7 +330,9 @@ class OVFlorence2Model:
 
         # concat [image embeds, task prefix embeds]
         inputs_embeds = np.concatenate([image_features, task_prefix_embeds], axis=1)
-        attention_mask = np.concatenate([image_attention_mask, task_prefix_attention_mask], axis=1)
+        attention_mask = np.concatenate(
+            [image_attention_mask, task_prefix_attention_mask], axis=1
+        )
 
         return inputs_embeds, attention_mask
 
@@ -271,7 +343,9 @@ class OVFlorence2LangModel(GenerationMixin):
         self.generation_config = GenerationConfig.from_model_config(config)
         self.encoder = OVEncoder(model_dir, self, device, ov_config)
         self.decoder = OVDecoder(model_dir / DECODER_NAME, self, device, ov_config)
-        self.decoder_with_past = OVDecoder(model_dir / DECODER_WITH_PAST_NAME, self, device, ov_config)
+        self.decoder_with_past = OVDecoder(
+            model_dir / DECODER_WITH_PAST_NAME, self, device, ov_config
+        )
         self.base_model_prefix = "openvino_model"
         self.main_input_name = "input_ids"
         self._supports_cache_class = False
@@ -303,7 +377,11 @@ class OVFlorence2LangModel(GenerationMixin):
         **kwargs,
     ):
         if encoder_outputs is None:
-            encoder_outputs = self.encoder(input_ids=input_ids, attention_mask=attention_mask, inputs_embeds=inputs_embeds)
+            encoder_outputs = self.encoder(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                inputs_embeds=inputs_embeds,
+            )
 
         # Decode
         if past_key_values is None or self.decoder_with_past is None:
@@ -324,14 +402,19 @@ class OVFlorence2LangModel(GenerationMixin):
             )
             logits = decoder_outputs[0]
 
-        return Seq2SeqLMOutput(logits=logits, past_key_values=decoder_outputs.past_key_values)
+        return Seq2SeqLMOutput(
+            logits=logits, past_key_values=decoder_outputs.past_key_values
+        )
 
     @staticmethod
     def _reorder_cache(past_key_values, beam_idx):
         reordered_past = ()
         for layer_past in past_key_values:
             # Cached cross_attention states don't have to be reordered -> they are always the same
-            reordered_past += (tuple(np.take(past_state, beam_idx, 0) for past_state in layer_past[:2]) + layer_past[2:],)
+            reordered_past += (
+                tuple(np.take(past_state, beam_idx, 0) for past_state in layer_past[:2])
+                + layer_past[2:],
+            )
         return reordered_past
 
     @property
@@ -411,7 +494,7 @@ def device_widget(default="AUTO", exclude=None, added=None, description="Device:
 local = Local()
 
 
-def run_inference(image_loader: ImageLoader)-> dict:
+def run_inference(image_loader: ImageLoader) -> dict:
     """Run inference for Florence model"""
 
     image = image_loader.get_downsampled_image()
@@ -424,15 +507,17 @@ def run_inference(image_loader: ImageLoader)-> dict:
         do_sample=False,
         num_beams=3,
         output_scores=True,
-        return_dict_in_generate=True
+        return_dict_in_generate=True,
     )
 
-    generated_text = local.processor.batch_decode(generated_output.sequences, skip_special_tokens=False)[0]
+    generated_text = local.processor.batch_decode(
+        generated_output.sequences, skip_special_tokens=False
+    )[0]
     parsed_answer = local.processor.post_process_generation(
         generated_text, task="<OD>", image_size=(image.width, image.height)
     )
 
-    parsed_answer['confidence'] = generated_output.sequences_scores
+    parsed_answer["confidence"] = generated_output.sequences_scores
 
     return parsed_answer
 
@@ -446,7 +531,9 @@ if __name__ == "__main__":
 
     # images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
     # images = search_all_images(Path("/Users/philipcho/photomatcher/sample").expanduser())
-    images = search_all_images(Path("/Users/philipcho/photomatcher/failure").expanduser())
+    images = search_all_images(
+        Path("/Users/philipcho/photomatcher/failure").expanduser()
+    )
 
     print(f"Found {len(images)} images.")
 
@@ -469,12 +556,12 @@ if __name__ == "__main__":
         draw = ImageDraw.Draw(image)
 
         # Draw the bounding boxes and labels
-        for bbox, label in zip(boxes['<OD>']['bboxes'], boxes['<OD>']['labels']):
+        for bbox, label in zip(boxes["<OD>"]["bboxes"], boxes["<OD>"]["labels"]):
             x_min, y_min, x_max, y_max = bbox
-            draw.rectangle([x_min, y_min, x_max, y_max], outline='red', width=2)
-            draw.text((x_min, y_min - 10), label, fill='red')
+            draw.rectangle([x_min, y_min, x_max, y_max], outline="red", width=2)
+            draw.text((x_min, y_min - 10), label, fill="red")
 
         # Save the image with bounding boxes
         image.save(debug_path)
 
-    print('Average time per image:', total_time / len(images))
+    print("Average time per image:", total_time / len(images))

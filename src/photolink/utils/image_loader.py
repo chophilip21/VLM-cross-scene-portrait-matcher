@@ -8,6 +8,7 @@ from photolink import get_config
 from pathlib import Path
 import copy
 
+
 class ImageLoader:
     def __init__(self, image_path: str):
         """
@@ -19,18 +20,24 @@ class ImageLoader:
         self._scale_x = 1.0
         self._scale_y = 1.0
 
-        # should be based on config size of yolo model. 
+        # should be based on config size of yolo model.
         config = get_config()
         ds_width = int(config.get("YOLOV11", "WIDTH"))
         ds_height = int(config.get("YOLOV11", "HEIGHT"))
         self.downsample_size = (ds_width, ds_height)
 
-
     def _copy_image_meta(self, src: Image.Image, dest: Image.Image):
         """
         Copy metadata from the source image to the destination image.
         """
-        preserve_metadata_keys = ["info", "icc_profile", "exif", "dpi", "applist", "format"]
+        preserve_metadata_keys = [
+            "info",
+            "icc_profile",
+            "exif",
+            "dpi",
+            "applist",
+            "format",
+        ]
         for key in preserve_metadata_keys:
             if hasattr(src, key):
                 setattr(dest, key, copy.deepcopy(getattr(src, key)))
@@ -42,7 +49,7 @@ class ImageLoader:
         """
         # Ensure image is bytes or a valid file path
         if isinstance(image, str):
-            
+
             if not Path(image).exists():
                 raise FileNotFoundError(f"Image file not found: {image}")
 
@@ -91,8 +98,12 @@ class ImageLoader:
         self._scale_y = original_height / new_height
 
         # Downsample the image
-        downsampled_image = self._original_image.resize((new_width, new_height), Image.LANCZOS)
-        downsampled_image = self._copy_image_meta(self._original_image, downsampled_image)
+        downsampled_image = self._original_image.resize(
+            (new_width, new_height), Image.LANCZOS
+        )
+        downsampled_image = self._copy_image_meta(
+            self._original_image, downsampled_image
+        )
 
         self._downsampled_image = downsampled_image
 

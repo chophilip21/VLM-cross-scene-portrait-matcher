@@ -8,7 +8,7 @@ import numpy as np
 import onnxruntime
 
 from photolink import get_application_path, get_config
-from photolink.utils.function import check_weights_exist
+from photolink.utils.download import check_weights_exist
 
 
 class Local:
@@ -124,4 +124,3 @@ def isolate_instance(
     isolated_instance = cv2.bitwise_and(cropped_image, cropped_image, mask=binary_mask)
 
     return isolated_instance
-

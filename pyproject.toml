@@ -25,7 +25,6 @@ devel = [
     "isort",
     "google-api-python-client",
     "nmslib-metabrainz",
-    "gdown",
     "onnxruntime",
     "coremltools", # this is for macos
     "ipywidgets",

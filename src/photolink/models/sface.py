@@ -6,6 +6,7 @@ import cv2 as cv
 import numpy as np
 
 from photolink import get_application_path, get_config
+from photolink.utils.download import check_weights_exist
 
 
 class Local:
@@ -24,12 +25,11 @@ class Local:
         if self._model is None:
             application_path = get_application_path()
             config = get_config()
-            model_path = application_path / Path(config["SFACE"]["SFACE_PATH"])
 
-            if not model_path.exists():
-                raise ValueError(f"Model path {model_path} does not exist.")
-
-            self._model = Sface(modelPath=model_path)
+            local_path = application_path / Path(config["SFACE"]["LOCAL_PATH"])
+            remote_path = config["SFACE"]["REMOTE_PATH"]
+            check_weights_exist(local_path, remote_path)
+            self._model = Sface(modelPath=local_path)
 
         return self._model
 
