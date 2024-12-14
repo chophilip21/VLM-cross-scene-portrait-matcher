@@ -1,4 +1,4 @@
-""""Add lower level dp2 functions to avoid cluttering the main functional modules."""
+"""Add lower level dp2 functions to avoid cluttering the main functional modules."""
 
 import os
 import pickle
@@ -41,10 +41,11 @@ def debug_save_image(img, bounding_box, save_name):
     """Save image for debugging."""
     image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    bb = list(map(int, bounding_box))[:4]
+    bb = [int(x) for x in bounding_box[0]]
 
     x1, y1, x2, y2 = bb
     # Draw a rectangle with a red color and thickness of 2
+
     cv2.rectangle(image, (x1, y1), (x2, y2), color=(0, 0, 255), thickness=2)
 
     cv2.imwrite(save_name, image)
@@ -60,9 +61,6 @@ def screen_bb_by_iou(yolo_preds: np.ndarray, florence_bboxes: list) -> np.ndarra
         An array of shape (N, 6) containing N Yolo predictions. Each prediction consists of:
         [x1, y1, x2, y2, confidence, class].
     florence_bboxes : list
-    min_iou : float, optional
-        The minimum IoU threshold required to accept a Yolo prediction.
-        Defaults to 0.5.
 
     Returns:
     --------
@@ -74,12 +72,6 @@ def screen_bb_by_iou(yolo_preds: np.ndarray, florence_bboxes: list) -> np.ndarra
     ValueError
         If the Yolo predictions array has less than two predictions.
         If the Florence-2 prediction contains more than one bounding box.
-        If the highest IoU is below the specified min_iou threshold.
-
-    Notes:
-    ------
-    - The IoU (Intersection over Union) is computed between each Yolo bounding box and the single Florence-2 bounding box.
-    - The function ensures that the Florence-2 prediction contains exactly one bounding box.
     """
     # Ensure Yolo predictions have more than one prediction
     if yolo_preds.shape[0] < 2:
@@ -102,15 +94,10 @@ def screen_bb_by_iou(yolo_preds: np.ndarray, florence_bboxes: list) -> np.ndarra
     for yolo_pred in yolo_preds:
         yolo_bbox = yolo_pred[:4]  # [x1, y1, x2, y2]
         iou = compute_iou(yolo_bbox, florence_bboxes)
-        # IPython.embed()
 
         if iou > best_iou:
             best_iou = iou
             best_yolo_pred = yolo_pred
-
-    # Check if the best IoU meets the minimum threshold
-    # if best_iou < min_iou:
-    #     raise ValueError(f"No Yolo prediction meets the minimum IoU threshold of {min_iou}.")
 
     return best_yolo_pred
 
@@ -210,33 +197,37 @@ def _precompute_embeddings(
                 )
                 continue
 
-            # case 1. The length of bounding box is 0
+            # case 1. The length of bounding box is 0, do not change logic
             if len(bounding_boxes) == 0:
                 logger.warning(
                     f"No bounding box detected in image {img_path}, skipping."
                 )
                 continue
 
-            # case 2. The length of bounding box is exactly 1. Means this is the right person.
+            # case 2. The length of bounding box is exactly 1, do not change logic
             elif len(bounding_boxes) == 1:
                 best_prediction = bounding_boxes[0]
 
             else:
-                # case 3. Most cases will fall here. You need to verify with Florence.
+                # case 3. Multiple bounding boxes detected: run Florence and confirm with IOU
                 florence_result = florence.run_inference(image_loader)
                 florence_bboxes = florence_result.get("<OD>", {}).get("bboxes", [])
 
-                # raise warning if florence result is more than one.
+                # If multiple bboxes from Florence, choose the first one (no change in logic)
                 if len(florence_bboxes) != 1:
-                    logger.warning(
-                        f"More than one bounding box detected in image {img_path}, Choosing first one."
+                    raise ValueError(
+                        f"Florence prediction must contain exactly one bounding box. It detected {len(florence_bboxes)} bounding boxes."
                     )
 
-                    florence_bboxes = florence_bboxes[0]
-
                 best_prediction = screen_bb_by_iou(bounding_boxes, florence_bboxes)
+                # If no match found, crash
+                
+                if best_prediction is None:
+                    raise ValueError(
+                        "No matching bounding box found from YOLO for Florence bounding box."
+                    )
 
-            # Proceed with embeding calculation
+            # Proceed with embedding calculation
             x1, y1, x2, y2, conf, cls_id = best_prediction
             x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
 
@@ -300,7 +291,7 @@ if __name__ == "__main__":
     # on stage images
     # source_images = search_all_images(Path("~/for_phil/bcit_copy/a").expanduser())
     source_images = search_all_images(
-        Path("/Users/philipcho/photomatcher/failure").expanduser()
+        Path("~/for_phil/bcit_copy/a").expanduser()
     )
 
     # off stage images

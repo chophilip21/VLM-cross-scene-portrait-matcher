@@ -552,17 +552,20 @@ if __name__ == "__main__":
         image_loader = ImageLoader(img_url)
 
         boxes = run_inference(image_loader)
+
+        print(boxes)
+
     #     IPython.embed()
 
     #     # Create a drawing context
     #     image = image_loader.get_downsampled_image()
     #     draw = ImageDraw.Draw(image)
 
-        # Draw the bounding boxes and labels
-        for bbox, label in zip(boxes["<OD>"]["bboxes"], boxes["<OD>"]["labels"]):
-            x_min, y_min, x_max, y_max = bbox
-            draw.rectangle([x_min, y_min, x_max, y_max], outline="red", width=2)
-            draw.text((x_min, y_min - 10), label, fill="red")
+    # # Draw the bounding boxes and labels
+    # for bbox, label in zip(boxes["<OD>"]["bboxes"], boxes["<OD>"]["labels"]):
+    #     x_min, y_min, x_max, y_max = bbox
+    #     draw.rectangle([x_min, y_min, x_max, y_max], outline="red", width=2)
+    #     draw.text((x_min, y_min - 10), label, fill="red")
 
     #     # Save the image with bounding boxes
     #     image.save(debug_path)

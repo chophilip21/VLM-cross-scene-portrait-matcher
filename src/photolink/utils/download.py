@@ -59,19 +59,18 @@ def check_weights_exist(local_path, remote_path):
         logger.info(
             f"Weights for {str(local_path)} not found. Downloading from {str(remote_path)}"
         )
-      
+
         files_in_repo = local.file_list
         folder_to_download = str(remote_path)
         local_base = os.path.basename(local_path)
 
-
         # treat these differentlty.
-        if '.mlpackage' in local_base or len(local_base.split('.')) == 1:
+        if ".mlpackage" in local_base or len(local_base.split(".")) == 1:
             save_loc = os.path.dirname(local_path)
 
-        # most cases it will be just single file. 
-        elif len(os.path.basename(local_path).split('.') ) == 2:
-            save_loc = os.path.join(os.path.dirname(local_path), '../')
+        # most cases it will be just single file.
+        elif len(os.path.basename(local_path).split(".")) == 2:
+            save_loc = os.path.join(os.path.dirname(local_path), "../")
 
         else:
             logger.error(f"Invalid local path : {str(local_path)}")
@@ -81,7 +80,7 @@ def check_weights_exist(local_path, remote_path):
         if save_loc is None:
             logger.error(f"Invalid local path : {str(local_path)}")
             raise ValueError(f"Invalid local path : {str(local_path)}")
-        
+
         try:
             files_to_download = [
                 file for file in files_in_repo if folder_to_download in file
@@ -103,7 +102,14 @@ def check_weights_exist(local_path, remote_path):
 
         except Exception as e:
             # TODO: Raise proper error to the client.
-            logger.error(f"Error downloading weights for {str(local_path)} model : {e}")
+            logger.error(
+                f"Error downloading weights for {str(local_path)} model : {e}. Removing because failed download."
+            )
+
+            # delete the entire folder.
+            import shutil
+
+            shutil.rmtree(local_path)
             return
     else:
         logger.info(f"Weights found locally for {str(local_path)}")
