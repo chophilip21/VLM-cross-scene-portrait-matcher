@@ -77,7 +77,7 @@ class Local:
                 application_path / Path(config.get("YOLOV11", "LOCAL_PATH_MAC"))
             )
             remote_path = str(config.get("YOLOV11", "REMOTE_PATH_MAC"))
-            check_weights_exist(model_path, remote_path, is_folder=True)
+            check_weights_exist(model_path, remote_path)
             self._model = ct.models.MLModel(model_path)
             self.set_metadata(config)
 

@@ -49,26 +49,40 @@ class Local:
 local = Local()  # Singleton instance of Local
 
 
-def check_weights_exist(local_path, remote_path, is_folder=False):
+def check_weights_exist(local_path, remote_path):
     """Check if weights exist locally, if not download from remote path. Ensure path compatibility b/w linux and windows."""
     application_path = get_application_path()
     local_path = os.path.join(application_path, str(local_path))
+    save_loc = None
 
-    if not os.path.exists(local_path) or len(os.listdir(local_path)) == 0:
+    if not os.path.exists(local_path):
         logger.info(
             f"Weights for {str(local_path)} not found. Downloading from {str(remote_path)}"
         )
+      
+        files_in_repo = local.file_list
+        folder_to_download = str(remote_path)
+        local_base = os.path.basename(local_path)
 
+
+        # treat these differentlty.
+        if '.mlpackage' in local_base or len(local_base.split('.')) == 1:
+            save_loc = os.path.dirname(local_path)
+
+        # most cases it will be just single file. 
+        elif len(os.path.basename(local_path).split('.') ) == 2:
+            save_loc = os.path.join(os.path.dirname(local_path), '../')
+
+        else:
+            logger.error(f"Invalid local path : {str(local_path)}")
+            raise ValueError(f"Invalid local path : {str(local_path)}")
+
+        # Check again.
+        if save_loc is None:
+            logger.error(f"Invalid local path : {str(local_path)}")
+            raise ValueError(f"Invalid local path : {str(local_path)}")
+        
         try:
-
-            if is_folder:
-                os.makedirs(local_path, exist_ok=True)
-            else:
-                os.makedirs(os.path.dirname(local_path), exist_ok=True)
-
-            files_in_repo = local.file_list
-            folder_to_download = str(remote_path)
-            local_dir = os.path.dirname(local_path)
             files_to_download = [
                 file for file in files_in_repo if folder_to_download in file
             ]
@@ -79,7 +93,7 @@ def check_weights_exist(local_path, remote_path, is_folder=False):
                     repo_id=local.get_repo_id(),
                     filename=file_name,
                     use_auth_token=local.get_token(),
-                    local_dir=local_dir,
+                    local_dir=save_loc,
                     force_download=True,
                 )
 
@@ -88,6 +102,7 @@ def check_weights_exist(local_path, remote_path, is_folder=False):
             )
 
         except Exception as e:
+            # TODO: Raise proper error to the client.
             logger.error(f"Error downloading weights for {str(local_path)} model : {e}")
             return
     else:

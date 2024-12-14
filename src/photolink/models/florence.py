@@ -2,7 +2,7 @@
 
 from photolink import get_application_path, get_config
 from pathlib import Path
-from photolink.utils.function import check_weights_exist
+from photolink.utils.download import check_weights_exist
 import sys
 import openvino as ov
 import ipywidgets as widgets
@@ -53,38 +53,37 @@ class Local:
         self.application_path = get_application_path()
         self.config = get_config()
         self.prompt = self.config.get("FLORENCE", "STUDENT_PROMPT")
-        self.model_path = Path(
-            str(self.application_path / Path(self.config.get("FLORENCE", "LOCAL")))
-        )
+        self.model_path = None
 
     @property
     def model(self):
         """Lazyily initialize the model."""
         if self._model is None:
-            if sys.platform == "darwin":
-                remote_path = str(self.config.get("FLORENCE", "REMOTE_MAC"))
-
-        elif sys.platform == "win32":
-            remote_path = str(self.config.get("FLORENCE", "REMOTE_WIN"))
-
-        else:
-            raise ValueError(f"Unsupported platform : {sys.platform}")
-    
-        # Check if the model weights exist
-        check_weights_exist(self.model_path, remote_path, is_folder=True)
-
-    @property
-    def model(self):
-        """Lazyily initialize the model."""
-        if self._model is None:
+            # Check if the model weights exist
             device = device_widget()
             logger.info(f"Openvino log for device : {device.value}")
             self._model = OVFlorence2Model(self.model_path, device.value)
+
         return self._model
 
     @property
     def processor(self):
+        """This actually gets executed first."""
         if self._processor is None:
+
+            if sys.platform == "darwin":
+                remote_path = str(self.config.get("FLORENCE", "REMOTE_MAC"))
+                self.model_path = str(self.config.get("FLORENCE", "LOCAL_MAC"))
+
+            elif sys.platform == "win32":
+                remote_path = str(self.config.get("FLORENCE", "REMOTE_WIN"))
+                self.model_path = str(self.config.get("FLORENCE", "LOCAL_WIN"))
+
+            else:
+                raise ValueError(f"Unsupported platform : {sys.platform}")
+
+            check_weights_exist(self.model_path, remote_path)
+
             self._processor = AutoProcessor.from_pretrained(
                 self.model_path, trust_remote_code=True
             )

@@ -10,6 +10,7 @@ from onnxruntime import InferenceSession
 
 from photolink import get_application_path, get_config
 from photolink.utils.image_loader import ImageLoader
+from photolink.utils.download import check_weights_exist
 
 
 class Local:
@@ -32,11 +33,9 @@ class Local:
             config = get_config()
             self.confidence_threshold = float(config["SCRFD"]["SCRFD_CONF_THRESHOLD"])
             self.nms_threshold = float(config["SCRFD"]["SCRFD_NMS_THRESHOLD"])
-
-            model_path = application_path / Path(config["SCRFD"]["SCRFD_PATH"])
-
-            if not model_path.exists():
-                raise ValueError(f"Model path {model_path} does not exist.")
+            model_path = application_path / Path(config["SCRFD"]["LOCAL_PATH"])
+            remote_path = str(config["SCRFD"]["REMOTE_PATH"])
+            check_weights_exist(model_path, remote_path)
 
             self._model = SCRFD(str(model_path))
 
