@@ -37,7 +37,7 @@ def _run_ml_model(
         return (image_path, image_hash)
 
     # Use the pre-loaded global models
-    detection_result = scrfd.run_inference(image_path)
+    detection_result = scrfd.run_scrfd_inference(image_path)
     failed_image = fail_path / Path(os.path.basename(image_path))
 
     if "error" in detection_result:
@@ -61,7 +61,7 @@ def _run_ml_model(
 
     # bb = [x, y, w, h, landmarks]
     faces = sorted(faces, key=lambda face: face[2] * face[3], reverse=True)[:keep_top_n]
-    embedding_dict = sface.get_embedding(image, faces)
+    embedding_dict = sface.get_sface_embedding(image, faces)
 
     # add image path to the dictionary.
     embedding_dict["image_path"] = image_path

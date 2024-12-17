@@ -11,6 +11,7 @@ from onnxruntime import InferenceSession
 from photolink import get_application_path, get_config
 from photolink.utils.image_loader import ImageLoader
 from photolink.utils.download import check_weights_exist
+from photolink.models.exceptions import NoFaceDetectedError
 
 
 class Local:
@@ -161,59 +162,81 @@ class SCRFD:
 
     def run_face_detection(
         self,
-        image_loader: ImageLoader,
+        image_loader: Union[ImageLoader, np.ndarray],
         conf_threshold: float,
         nms_threshold: float,
     ) -> dict:
-        """Run face detection on the image using SCRFD."""
+        """Perform face detection on an image using the SCRFD model.
+
+        Parameters:
+        -----------
+        image_loader : Union[ImageLoader, np.ndarray]
+            The image to process, either as an `ImageLoader` instance or a NumPy array.
+        conf_threshold : float
+            Confidence threshold for filtering detections.
+        nms_threshold : float
+            Non-Maximum Suppression (NMS) threshold for filtering overlapping bounding boxes.
+
+        Returns:
+        --------
+        dict
+            A dictionary containing:
+            - 'resize_ratio': The scaling factor applied during preprocessing.
+            - 'image': The resized and padded image used for inference (optional).
+            - 'faces': Array of detected face bounding boxes [x1, y1, x2, y2] (optional).
+            - 'error': Description of any errors encountered (optional).
+
+        Raises:
+        -------
+        ValueError
+            If the input image_loader is neither an ImageLoader instance nor a NumPy array.
+
+        NoFaceDetectedError
+            If no faces are detected in the image.
+        """
 
         face_table = {"resize_ratio": 1.0}
 
-        image = np.array(image_loader.get_downsampled_image())
+        if isinstance(image_loader, np.ndarray):
+            image = image_loader
+        elif isinstance(image_loader, ImageLoader):
+            image = np.array(image_loader.get_downsampled_image())
+
+        else:
+            raise ValueError(
+                "Image loader must be an instance of ImageLoader or np.ndarray."
+            )
 
         # Preprocess the image according to SCRFD requirements
-        try:
-            img_height, img_width = image.shape[:2]
-            input_height, input_width = self.input_shape[2], self.input_shape[3]
 
-            # Calculate scale factor while keeping aspect ratio
-            scale = min(input_width / img_width, input_height / img_height)
-            new_width = int(img_width * scale)
-            new_height = int(img_height * scale)
-            face_table["resize_ratio"] = 1 / scale  # To scale back coordinates later
+        img_height, img_width = image.shape[:2]
+        input_height, input_width = self.input_shape[2], self.input_shape[3]
 
-            # Resize the image
-            resized_img = cv2.resize(image, (new_width, new_height))
+        # Calculate scale factor while keeping aspect ratio
+        scale = min(input_width / img_width, input_height / img_height)
+        new_width = int(img_width * scale)
+        new_height = int(img_height * scale)
+        face_table["resize_ratio"] = 1 / scale  # To scale back coordinates later
 
-            # Create a new image and paste the resized image into it
-            det_img = np.zeros((input_height, input_width, 3), dtype=np.uint8)
-            det_img[0:new_height, 0:new_width, :] = resized_img
+        # Resize the image
+        resized_img = cv2.resize(image, (new_width, new_height))
 
-            face_table["image"] = (
-                det_img  # Include the resized and padded image if needed
-            )
-        except Exception as e:
-            logger.error(f"Error preprocessing face detection. Error: {e}")
-            face_table["error"] = f"Error preprocessing face detection. Error: {e}"
-            return face_table
+        # Create a new image and paste the resized image into it
+        det_img = np.zeros((input_height, input_width, 3), dtype=np.uint8)
+        det_img[0:new_height, 0:new_width, :] = resized_img
 
-        # Inference results saved to dict.
-        try:
-            dets = self.infer(det_img, conf_threshold, nms_threshold)
+        face_table["image"] = det_img  # Include the resized and padded image if needed
 
-            # No face detected. Just return without 'faces' key.
-            if dets.size == 0:
-                return face_table
+        dets = self.infer(det_img, conf_threshold, nms_threshold)
 
-            # Adjust bounding boxes back to original image scale
-            dets[:, :4] /= scale
-            # Extract bounding boxes [x1, y1, x2, y2]
-            face_table["faces"] = dets[:, :4]
-        except Exception as e:
-            logger.error(f"Error running inference on image face detection. Error: {e}")
-            face_table["error"] = (
-                f"Error running inference on image face detection. Error: {e}"
-            )
+        # No face detected. Just return without 'faces' key.
+        if dets.size == 0:
+            raise NoFaceDetectedError("No faces detected.")
+
+        # Adjust bounding boxes back to original image scale
+        dets[:, :4] /= scale
+        # Extract bounding boxes [x1, y1, x2, y2]
+        face_table["faces"] = dets[:, :4]
 
         return face_table
 
@@ -221,7 +244,7 @@ class SCRFD:
 local = Local()
 
 
-def run_inference(image_loader: ImageLoader) -> dict:
+def run_scrfd_inference(image_loader: Union[ImageLoader, np.ndarray]) -> dict:
     """Run face detection on the image using SCRFD.
 
     Faces is a list where each face is represented as [x1, y1, x2, y2].
@@ -235,5 +258,5 @@ if __name__ == "__main__":
     print("Starting SCRFD face detection...")
 
     im_loader = ImageLoader("sample/BCITCS24-C4P1-0008.JPG")
-    test_result = run_inference(im_loader)
+    test_result = run_scrfd_inference(im_loader)
     print(test_result)

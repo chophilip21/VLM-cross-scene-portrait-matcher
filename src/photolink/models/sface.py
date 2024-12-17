@@ -29,6 +29,7 @@ class Local:
             local_path = application_path / Path(config["SFACE"]["LOCAL_PATH"])
             remote_path = config["SFACE"]["REMOTE_PATH"]
             check_weights_exist(local_path, remote_path)
+            
             self._model = Sface(modelPath=local_path)
 
         return self._model
@@ -53,7 +54,7 @@ class Sface:
     def name(self):
         return self.__class__.__name__
 
-    def align_crop_face(self, image, face) -> np.ndarray:
+    def _align_crop_face(self, image, face) -> np.ndarray:
         """Crop the face from the image to fit size (112, 112, 3) using the face bounding box."""
 
         if not isinstance(image, np.ndarray):
@@ -64,7 +65,7 @@ class Sface:
 
         return self._model.alignCrop(image, face)
 
-    def get_feat_from_aligned_face(self, aligned_face: np.ndarray):
+    def _get_feat_from_aligned_face(self, aligned_face: np.ndarray):
         """Convert aligned face to feature vector, output is (1, 128)"""
 
         if not isinstance(aligned_face, np.ndarray):
@@ -75,8 +76,10 @@ class Sface:
 
         return self._model.feature(aligned_face)
 
-    def run_embedding_conversion(self, image: np.ndarray, faces: list) -> dict:
-        """Run the embeddings conversion on all the faces, return list of embeddings per face."""
+    def _run_embedding_conversion(self, image: np.ndarray, faces: list) -> dict:
+        """Run the embeddings conversion on all the faces, return list of embeddings per face. 
+        
+        Image is required for aligning the faces properly."""
 
         result = {}
         embeddings_block = np.zeros((len(faces), 128))
@@ -85,9 +88,11 @@ class Sface:
         # run face recognition on all faces.
         for i, face in enumerate(faces):
             try:
-                aligned_face = self.align_crop_face(image, face)
+                aligned_face = self._align_crop_face(image, face)
                 result["faces"].append(aligned_face)
-                feat_embedding = self.get_feat_from_aligned_face(aligned_face).squeeze()
+                feat_embedding = self._get_feat_from_aligned_face(
+                    aligned_face
+                ).squeeze()
                 embeddings_block[i] = feat_embedding
 
             except Exception as e:
@@ -101,5 +106,49 @@ class Sface:
 local = Local()
 
 
-def get_embedding(image, faces):
-    return local.model.run_embedding_conversion(image, faces)
+def get_sface_embedding(image: np.ndarray, faces: list) -> dict:
+    """Generate SFace embeddings for detected faces in an image.
+
+    This function uses the SFace model to compute feature embeddings for a list of faces
+    detected in an image. Each face is aligned and cropped based on the provided bounding boxes
+    before embedding extraction.
+
+    Parameters:
+    -----------
+    image : np.ndarray
+        The input image as a NumPy array. It is required for aligning the faces.
+    faces : list
+        A list of face bounding boxes, where each bounding box is represented as 
+        [x1, y1, x2, y2] in pixel coordinates.
+
+    Returns:
+    --------
+    dict
+        A dictionary containing:
+        - 'faces': List of aligned face crops as NumPy arrays.
+        - 'embeddings': NumPy array of shape (N, 128), where N is the number of faces,
+          representing the embeddings for each face.
+        - 'error': Exception details if an error occurs during processing (optional).
+
+    Raises:
+    -------
+    ValueError
+        If the input `image` is not a NumPy array or if `faces` is not a list of bounding boxes.
+    """
+
+    return local.model._run_embedding_conversion(image, faces)
+
+
+if __name__ == "__main__":
+    print('sface')
+    from photolink.utils.image_loader import ImageLoader
+    from photolink.models.scrfd import run_scrfd_inference
+    import IPython
+
+    im_loader = ImageLoader("sample/BCITCS24-C4P1-0008.JPG")
+    bb = run_scrfd_inference(im_loader)
+
+    # run sface
+    test_result = get_sface_embedding(bb['image'], bb['faces'])
+    
+    IPython.embed()

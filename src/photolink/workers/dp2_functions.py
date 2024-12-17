@@ -183,7 +183,7 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
             data = {}
             data["image_path"] = img_path
             data["bbox"] = []
-            data["reid_embedding"] = None
+            data["face_embedding"] = None
 
             try:
                 image_loader = ImageLoader(img_path)
@@ -202,14 +202,14 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
                 )
                 continue
 
-            # case 1. The length of bounding box is 0. We need to skip this case. 
+            # case 1. The length of bounding box is 0. We need to skip this case.
             if len(bounding_boxes) == 0:
                 logger.warning(
                     f"No bounding box detected in image {img_path}, skipping."
                 )
                 continue
 
-            # case 2. The length of bounding box is exactly 1, do not run florence. 
+            # case 2. The length of bounding box is exactly 1, do not run florence.
             elif len(bounding_boxes) == 1:
                 best_prediction = bounding_boxes[0]
 
@@ -250,14 +250,21 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
             #         pickle_cache,
             #     )
             #     continue
+            try:
 
-            # run face detection using scrfd and embedding using sface
+                face_table = scrfd.run_scrfd_inference(cropped_instance)
+                face_embedding = sface.get_sface_embedding(
+                    face_table["image"], face_table["faces"]
+                )
 
+            except Exception as e:
+                print('debugging!!!')
+                IPython.embed()
 
 
             # Append data
             data["bbox"] = best_prediction
-            data["reid_embedding"] = reid_embedding
+            data["face_embedding"] = face_embedding["embeddings"]
 
             # After processing all bounding boxes, store data
             embeddings_info[path_hash] = data
@@ -280,10 +287,10 @@ def _combine_embeddings(source_info, reference_info):
     combined_embeddings = []
     metadata = []  # To track origin and additional data
     for key, value in source_info.items():
-        combined_embeddings.append(value["reid_embedding"])
+        combined_embeddings.append(value["face_embedding"])
         metadata.append({"hash": key, "origin": "source", **value})
     for key, value in reference_info.items():
-        combined_embeddings.append(value["reid_embedding"])
+        combined_embeddings.append(value["face_embedding"])
         metadata.append({"hash": key, "origin": "reference", **value})
     return np.array(combined_embeddings), metadata
 
@@ -316,6 +323,7 @@ def _map_communities_to_metadata(communities, graph):
         results.append(group)
     return results
 
+
 def run_dp2_pipeline(
     source_path: str, reference_path: str, debug: bool = False
 ) -> Tuple[Dict[int, np.ndarray], List[Dict]]:
@@ -339,19 +347,21 @@ def run_dp2_pipeline(
         source_embeddings_info, reference_embeddings_info
     )
 
-    logger.info("Computed embeddings for source and reference images. Now building similarity graph.")
-    similarity_graph = _build_similarity_graph(combined_embeddings, metadata, threshold=0.99)
+    logger.info(
+        "Computed embeddings for source and reference images. Now building similarity graph."
+    )
+    similarity_graph = _build_similarity_graph(
+        combined_embeddings, metadata, threshold=0.99
+    )
     communities = louvain_communities(similarity_graph, weight="weight")
     grouped_metadata = _map_communities_to_metadata(communities, similarity_graph)
 
-
     # Output results
     for i, group in enumerate(grouped_metadata):
-        print('---' * 20)
+        print("---" * 20)
         print(f"Community {i+1}:")
         for node in group:
             print(f"  Origin: {node['origin']}, Image Path: {node['image_path']}")
-
 
     IPython.embed()
 
