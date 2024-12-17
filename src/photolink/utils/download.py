@@ -4,7 +4,6 @@ from photolink import get_application_path, get_config
 from huggingface_hub import hf_hub_download, list_repo_files
 import os
 from loguru import logger
-import IPython
 
 
 class Local:

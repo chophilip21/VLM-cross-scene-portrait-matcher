@@ -4,7 +4,7 @@ import os
 import pickle
 import shutil
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple, Union, Set
 
 import numpy as np
 from loguru import logger
@@ -22,14 +22,16 @@ from photolink.utils.image_loader import ImageLoader
 import cv2
 import IPython
 import copy
-
+import networkx as nx
+from sklearn.metrics.pairwise import cosine_similarity
+from networkx.algorithms.community import louvain_communities
 
 # set glboal variables
 config = get_config()
 cache_dir = get_cache_dir() / Path(config["FASTREID"]["EMBEDDING_CACHE_DIR"])
 
 
-def early_termination(error, pickle_cache):
+def _early_termination(error, pickle_cache):
     """Handle error and dump to pickle cache."""
     with open(pickle_cache, "wb") as f:
         data = {}
@@ -37,7 +39,7 @@ def early_termination(error, pickle_cache):
         pickle.dump(data, f)
 
 
-def debug_save_image(img, bounding_box, save_name):
+def _debug_save_image(img, bounding_box, save_name):
     """Save image for debugging."""
     image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -51,7 +53,7 @@ def debug_save_image(img, bounding_box, save_name):
     cv2.imwrite(save_name, image)
 
 
-def screen_bb_by_iou(yolo_preds: np.ndarray, florence_bboxes: list) -> np.ndarray:
+def _screen_bb_by_iou(yolo_preds: np.ndarray, florence_bboxes: list) -> np.ndarray:
     """
     Selects the Yolo prediction bounding box that has the highest IoU with the Florence-2 prediction.
 
@@ -144,25 +146,28 @@ def compute_iou(box1, box2):
     return iou
 
 
-def _precompute_embeddings(
-    image_paths: List[str], debug: bool = False
-) -> Tuple[List[Dict], set]:
-    """Compute embeddings and return embeddings_info, and hash_set.
-
-    Iterate over hash computed image paths, and store embeddings in cache_dir.
+def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
     """
-    # Store all embeddings here
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    embeddings_info = []
-    hash_set = set()
+    Computes and caches embeddings for a list of image paths.
 
-    logger.info(f"Computing embeddings for {len(image_paths)} images.")
+    Parameters:
+    -----------
+    image_paths : List[str]
+        List of image file paths to process.
+    debug : bool, optional
+        If True, saves debug images with bounding boxes. Defaults to False.
+
+    Returns:
+    --------
+    Dict : Dict mapping image hashes to embedding information.
+    """
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    embeddings_info = {}
 
     for idx, img_path in enumerate(image_paths):
         # Use hash-based save and search to avoid overwriting similar image names
         path_hash = utils.path_to_hash(img_path)
         pickle_cache = cache_dir / f"{path_hash}.pkl"
-        hash_set.add(pickle_cache)
 
         if not isinstance(img_path, str):
             raise ValueError("Image path must be a string. kill immediately.")
@@ -171,12 +176,12 @@ def _precompute_embeddings(
         if pickle_cache.exists():
             with open(pickle_cache, "rb") as f:
                 data = pickle.load(f)
-                embeddings_info.append(data)
+                embeddings_info[path_hash] = data
+
         else:
             # Initialize data dictionary
             data = {}
             data["image_path"] = img_path
-            data["hash"] = path_hash
             data["bbox"] = []
             data["reid_embedding"] = None
 
@@ -184,7 +189,7 @@ def _precompute_embeddings(
                 image_loader = ImageLoader(img_path)
             except Exception as e:
                 logger.error(f"Error loading image {img_path}, {idx}th image: {e}")
-                early_termination(f"Error loading image {img_path}: {e}", pickle_cache)
+                _early_termination(f"Error loading image {img_path}: {e}", pickle_cache)
                 continue
 
             try:
@@ -192,19 +197,19 @@ def _precompute_embeddings(
                 bounding_boxes = yolo.run_inference(image_loader)
             except Exception as e:
                 logger.error(f"Error running yolo inference {img_path}: {e}")
-                early_termination(
+                _early_termination(
                     f"Error running yolo inference {img_path}: {e}", pickle_cache
                 )
                 continue
 
-            # case 1. The length of bounding box is 0, do not change logic
+            # case 1. The length of bounding box is 0. We need to skip this case. 
             if len(bounding_boxes) == 0:
                 logger.warning(
                     f"No bounding box detected in image {img_path}, skipping."
                 )
                 continue
 
-            # case 2. The length of bounding box is exactly 1, do not change logic
+            # case 2. The length of bounding box is exactly 1, do not run florence. 
             elif len(bounding_boxes) == 1:
                 best_prediction = bounding_boxes[0]
 
@@ -219,9 +224,9 @@ def _precompute_embeddings(
                         f"Florence prediction must contain exactly one bounding box. It detected {len(florence_bboxes)} bounding boxes."
                     )
 
-                best_prediction = screen_bb_by_iou(bounding_boxes, florence_bboxes)
+                best_prediction = _screen_bb_by_iou(bounding_boxes, florence_bboxes)
                 # If no match found, crash
-                
+
                 if best_prediction is None:
                     raise ValueError(
                         "No matching bounding box found from YOLO for Florence bounding box."
@@ -235,39 +240,84 @@ def _precompute_embeddings(
             img = np.array(image_loader.get_downsampled_image())
             cropped_instance = copy.deepcopy(img)[y1:y2, x1:x2]
 
-            # Get reid embedding
-            try:
-                reid_embedding = reid.get_reid_embedding(cropped_instance).squeeze()
-            except Exception as e:
-                logger.error(f"Error getting ReID embedding for {img_path}: {e}")
-                early_termination(
-                    f"Error getting ReID embedding for {img_path}: {e}",
-                    pickle_cache,
-                )
-                continue
+            # # Get reid embedding
+            # try:
+            #     reid_embedding = reid.get_reid_embedding(cropped_instance).squeeze()
+            # except Exception as e:
+            #     logger.error(f"Error getting ReID embedding for {img_path}: {e}")
+            #     _early_termination(
+            #         f"Error getting ReID embedding for {img_path}: {e}",
+            #         pickle_cache,
+            #     )
+            #     continue
+
+            # run face detection using scrfd and embedding using sface
+
+
 
             # Append data
             data["bbox"] = best_prediction
             data["reid_embedding"] = reid_embedding
 
             # After processing all bounding boxes, store data
-            embeddings_info.append(data)
+            embeddings_info[path_hash] = data
             logger.info(f"Processed {idx+1}/{len(image_paths)} images.")
 
             # if debug, save image for debugging
             if debug:
                 debug_path = os.path.join("test", os.path.basename(img_path))
-                debug_save_image(img, florence_bboxes, debug_path)
+                _debug_save_image(img, florence_bboxes, debug_path)
 
-        # Save data to cache
+        # Save data to cache for each image.
         with open(pickle_cache, "wb") as f:
             pickle.dump(data, f)
 
     return embeddings_info
 
 
-def run(
-    source_images: List[str], reference_images: List[str], debug: bool = False
+def _combine_embeddings(source_info, reference_info):
+    """Combine source and reference embeddings into a unified dataset."""
+    combined_embeddings = []
+    metadata = []  # To track origin and additional data
+    for key, value in source_info.items():
+        combined_embeddings.append(value["reid_embedding"])
+        metadata.append({"hash": key, "origin": "source", **value})
+    for key, value in reference_info.items():
+        combined_embeddings.append(value["reid_embedding"])
+        metadata.append({"hash": key, "origin": "reference", **value})
+    return np.array(combined_embeddings), metadata
+
+
+def _build_similarity_graph(embeddings, metadata, threshold=0.8):
+    """Build a similarity graph for embeddings."""
+    graph = nx.Graph()
+    similarities = cosine_similarity(embeddings)
+
+    # Add nodes with metadata
+    for i, data in enumerate(metadata):
+        graph.add_node(i, **data)
+
+    # Add edges based on similarity threshold
+    for i in range(len(embeddings)):
+        for j in range(i + 1, len(embeddings)):
+            if similarities[i, j] >= threshold:
+                graph.add_edge(i, j, weight=similarities[i, j])
+
+    return graph
+
+
+def _map_communities_to_metadata(communities, graph):
+    """Map detected communities to their corresponding metadata."""
+    results = []
+    for community in communities:
+        group = []
+        for node in community:
+            group.append(graph.nodes[node])  # Extract node metadata
+        results.append(group)
+    return results
+
+def run_dp2_pipeline(
+    source_path: str, reference_path: str, debug: bool = False
 ) -> Tuple[Dict[int, np.ndarray], List[Dict]]:
     """Run the pipeline for the given images."""
 
@@ -278,24 +328,36 @@ def run(
         shutil.rmtree("test", ignore_errors=True)
         os.makedirs("test", exist_ok=True)
 
-    if not isinstance(source_images, list) or not isinstance(reference_images, list):
-        raise ValueError("Input images must be a list of strings.")
+    source_images = search_all_images(Path(source_path).expanduser())
+    reference_images = search_all_images(Path(reference_path).expanduser())
 
     # Compute embeddings for source images
     source_embeddings_info = _precompute_embeddings(source_images, debug)
+    reference_embeddings_info = _precompute_embeddings(reference_images, debug)
+
+    combined_embeddings, metadata = _combine_embeddings(
+        source_embeddings_info, reference_embeddings_info
+    )
+
+    logger.info("Computed embeddings for source and reference images. Now building similarity graph.")
+    similarity_graph = _build_similarity_graph(combined_embeddings, metadata, threshold=0.99)
+    communities = louvain_communities(similarity_graph, weight="weight")
+    grouped_metadata = _map_communities_to_metadata(communities, similarity_graph)
+
+
+    # Output results
+    for i, group in enumerate(grouped_metadata):
+        print('---' * 20)
+        print(f"Community {i+1}:")
+        for node in group:
+            print(f"  Origin: {node['origin']}, Image Path: {node['image_path']}")
+
+
+    IPython.embed()
 
 
 if __name__ == "__main__":
     print("Start to run the code")
-
-    # on stage images
-    # source_images = search_all_images(Path("~/for_phil/bcit_copy/a").expanduser())
-    source_images = search_all_images(
-        Path("~/for_phil/bcit_copy/a").expanduser()
-    )
-
-    # off stage images
-    reference_images = search_all_images(Path("~/for_phil/bcit_copy/b").expanduser())
-
-    # run pipeline
-    run(source_images, reference_images, debug=True)
+    source_images = "~/for_phil/bcit_copy/a"
+    reference_images = "~/for_phil/bcit_copy/b"
+    run_dp2_pipeline(source_images, reference_images, debug=False)
