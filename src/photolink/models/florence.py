@@ -467,7 +467,7 @@ class OVFlorence2LangModel(GenerationMixin):
         }
 
 
-def device_widget(default="AUTO", exclude=None, added=None, description="Device:"):
+def device_widget(default="CPU", exclude=None, added=None, description="Device:"):
     """Create a device selection widget."""
     core = ov.Core()
 
@@ -511,6 +511,7 @@ def run_inference(image_loader: ImageLoader) -> dict:
         num_beams=3,
         output_scores=True,
         return_dict_in_generate=True,
+        synced_gpus=False,
     )
 
     generated_text = local.processor.batch_decode(
@@ -535,7 +536,7 @@ if __name__ == "__main__":
     # images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
     # images = search_all_images(Path("/Users/philipcho/photomatcher/sample").expanduser())
     images = search_all_images(
-        Path("/Users/philipcho/photomatcher/failure").expanduser()
+        Path(r"C:\Users\choph\photomatcher\dataset\subset\stage").expanduser()
     )
 
     print(f"Found {len(images)} images.")
