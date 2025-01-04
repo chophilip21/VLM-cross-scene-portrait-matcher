@@ -7,6 +7,7 @@ import numpy as np
 
 from photolink import get_application_path, get_config
 from photolink.utils.download import check_weights_exist
+import math
 
 
 class Local:
@@ -106,20 +107,24 @@ class Sface:
 local = Local()
 
 
-def get_sface_embedding(image: np.ndarray, faces: list) -> dict:
-    """Generate SFace embeddings for detected faces in an image.
+def _x_dist(face_box, center_x):
+    x1, y1, x2, y2 = face_box
+    box_center_x = (x1 + x2) / 2.0
+    return abs(box_center_x - center_x)
 
-    This function uses the SFace model to compute feature embeddings for a list of faces
-    detected in an image. Each face is aligned and cropped based on the provided bounding boxes
-    before embedding extraction.
+def get_sface_embedding(image: np.ndarray, faces: np.ndarray, heuristic_filter=False) -> dict:
+    """Generate SFace embeddings for detected faces in an image.
 
     Parameters:
     -----------
     image : np.ndarray
         The input image as a NumPy array. It is required for aligning the faces.
-    faces : list
-        A list of face bounding boxes, where each bounding box is represented as
+    faces : np.ndarray
+        An array of face bounding boxes, where each bounding box is represented as
         [x1, y1, x2, y2] in pixel coordinates.
+
+    heuristic_filter : bool, optional
+        Whether to only return embeddings for the single "best" face.
 
     Returns:
     --------
@@ -129,12 +134,37 @@ def get_sface_embedding(image: np.ndarray, faces: list) -> dict:
         - 'embeddings': NumPy array of shape (N, 128), where N is the number of faces,
           representing the embeddings for each face.
         - 'error': Exception details if an error occurs during processing (optional).
-
-    Raises:
-    -------
-    ValueError
-        If the input `image` is not a NumPy array or if `faces` is not a list of bounding boxes.
     """
+    
+    # decide if heuristic filter should be applied when multiple faces are detected
+    if len(faces) > 1 and heuristic_filter:
+
+        # what matters is the width (x-axis)
+        _, img_width = image.shape[:2]
+        center_x = img_width / 2.0
+
+        sorted_by_xdist = sorted(faces, key=lambda box: _x_dist(box, center_x))
+        closest_box = sorted_by_xdist[0]
+        closest_area = (closest_box[2] - closest_box[0]) * (closest_box[3] - closest_box[1])
+
+        """"
+        We care about box in the middle of x-axis the most.
+        But just in case, if the closest box is too small, we will check if there's any box that is significantly bigger and could be a better candidate.
+        """
+        bigger_candidates = []
+        for box in sorted_by_xdist[1:]:
+            x1, y1, x2, y2 = box
+            area = (x2 - x1) * (y2 - y1)
+            if area >= 1.5 * closest_area:
+                bigger_candidates.append((box, area))
+
+        if not bigger_candidates:
+            # Nothing is significantly bigger, use closest_box
+            faces = np.array([closest_box], dtype=np.float32)
+        else:
+            # Pick the single largest among bigger_candidates
+            best_box, best_area = max(bigger_candidates, key=lambda item: item[1])
+            faces = np.array([best_box], dtype=np.float32)
 
     return local.model._run_embedding_conversion(image, faces)
 

@@ -39,7 +39,17 @@ def _debug_save_image(img, bounding_box, save_name):
     """Save image for debugging."""
     image = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    bb = [int(x) for x in bounding_box[0]]
+    if bounding_box is None:
+        cv2.imwrite(save_name, image)
+        return
+    if isinstance(bounding_box, np.ndarray):
+        bounding_box = bounding_box.tolist()
+
+    # the output of coreml and onnx is a bit different
+    if len(bounding_box) == 6:
+        bb = [int(x) for x in bounding_box[:4]] # is flat list
+    else:    
+        bb = [int(x) for x in bounding_box[0]] # is nested list
 
     x1, y1, x2, y2 = bb
     # Draw a rectangle with a red color and thickness of 2
@@ -236,27 +246,29 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
             img = np.array(image_loader.get_downsampled_image())
             cropped_instance = copy.deepcopy(img)[y1:y2, x1:x2]
 
-            try:
-                face_table = scrfd.run_scrfd_inference(cropped_instance)
-                face_embedding = sface.get_sface_embedding(
-                    face_table["image"], face_table["faces"]
-                )
-                # Append data
-                data["bbox"] = best_prediction
-                data["face_embedding"] = face_embedding["embeddings"]
-            except Exception as e:
-                logger.warning(f"No face detected in image {img_path}, returning None.")
-                data["bbox"] = None
-                data["face_embedding"] = None
+            # run face detection and embedding conversion
+            face_table = scrfd.run_scrfd_inference(cropped_instance)
+
+            face_embedding = sface.get_sface_embedding(
+                cropped_instance, face_table["faces"], heuristic_filter=True
+            )
+
+            if face_embedding is None:
+                logger.warning(f"No face embedding generated for {img_path}, skipping.")
+                continue
+
+            # Append data
+            data["bbox"] = best_prediction
+            data["face_embedding"] = face_embedding["embeddings"]
 
             # After processing all bounding boxes, store data
             embeddings_info[path_hash] = data
             logger.info(f"Processed {idx+1}/{len(image_paths)} images.")
 
-            # if debug, save image for debugging
+            # for debug mode, confirm things are correct.
             if debug:
                 debug_path = os.path.join("test", os.path.basename(img_path))
-                _debug_save_image(img, florence_bboxes, debug_path)
+                _debug_save_image(cropped_instance, face_table["faces"], debug_path)
 
         # Save data to cache for each image.
         with open(pickle_cache, "wb") as f:
@@ -293,4 +305,4 @@ if __name__ == "__main__":
     print("Start to run the code")
     source_images = r"C:\Users\choph\photomatcher\dataset\subset\stage"
     reference_images = r"C:\Users\choph\photomatcher\dataset\subset\off"
-    run_dp2_pipeline(source_images, reference_images, debug=False)
+    run_dp2_pipeline(source_images, reference_images, debug=True)
