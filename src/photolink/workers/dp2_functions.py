@@ -11,7 +11,6 @@ from loguru import logger
 
 import photolink.utils.function as utils
 from photolink import get_config
-import photolink.models.fastreid as reid
 import photolink.models.yolov11 as yolo
 import photolink.models.scrfd as scrfd
 import photolink.models.sface as sface
@@ -22,9 +21,6 @@ from photolink.utils.image_loader import ImageLoader
 import cv2
 import IPython
 import copy
-import networkx as nx
-from sklearn.metrics.pairwise import cosine_similarity
-from networkx.algorithms.community import louvain_communities
 
 # set glboal variables
 config = get_config()
@@ -240,31 +236,18 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
             img = np.array(image_loader.get_downsampled_image())
             cropped_instance = copy.deepcopy(img)[y1:y2, x1:x2]
 
-            # # Get reid embedding
-            # try:
-            #     reid_embedding = reid.get_reid_embedding(cropped_instance).squeeze()
-            # except Exception as e:
-            #     logger.error(f"Error getting ReID embedding for {img_path}: {e}")
-            #     _early_termination(
-            #         f"Error getting ReID embedding for {img_path}: {e}",
-            #         pickle_cache,
-            #     )
-            #     continue
             try:
-
                 face_table = scrfd.run_scrfd_inference(cropped_instance)
                 face_embedding = sface.get_sface_embedding(
                     face_table["image"], face_table["faces"]
                 )
-
+                # Append data
+                data["bbox"] = best_prediction
+                data["face_embedding"] = face_embedding["embeddings"]
             except Exception as e:
-                print('debugging!!!')
-                IPython.embed()
-
-
-            # Append data
-            data["bbox"] = best_prediction
-            data["face_embedding"] = face_embedding["embeddings"]
+                logger.warning(f"No face detected in image {img_path}, returning None.")
+                data["bbox"] = None
+                data["face_embedding"] = None
 
             # After processing all bounding boxes, store data
             embeddings_info[path_hash] = data
@@ -280,48 +263,6 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
             pickle.dump(data, f)
 
     return embeddings_info
-
-
-def _combine_embeddings(source_info, reference_info):
-    """Combine source and reference embeddings into a unified dataset."""
-    combined_embeddings = []
-    metadata = []  # To track origin and additional data
-    for key, value in source_info.items():
-        combined_embeddings.append(value["face_embedding"])
-        metadata.append({"hash": key, "origin": "source", **value})
-    for key, value in reference_info.items():
-        combined_embeddings.append(value["face_embedding"])
-        metadata.append({"hash": key, "origin": "reference", **value})
-    return np.array(combined_embeddings), metadata
-
-
-def _build_similarity_graph(embeddings, metadata, threshold=0.8):
-    """Build a similarity graph for embeddings."""
-    graph = nx.Graph()
-    similarities = cosine_similarity(embeddings)
-
-    # Add nodes with metadata
-    for i, data in enumerate(metadata):
-        graph.add_node(i, **data)
-
-    # Add edges based on similarity threshold
-    for i in range(len(embeddings)):
-        for j in range(i + 1, len(embeddings)):
-            if similarities[i, j] >= threshold:
-                graph.add_edge(i, j, weight=similarities[i, j])
-
-    return graph
-
-
-def _map_communities_to_metadata(communities, graph):
-    """Map detected communities to their corresponding metadata."""
-    results = []
-    for community in communities:
-        group = []
-        for node in community:
-            group.append(graph.nodes[node])  # Extract node metadata
-        results.append(group)
-    return results
 
 
 def run_dp2_pipeline(
@@ -341,33 +282,15 @@ def run_dp2_pipeline(
 
     # Compute embeddings for source images
     source_embeddings_info = _precompute_embeddings(source_images, debug)
+
+    # off stage (perfect embedding)
     reference_embeddings_info = _precompute_embeddings(reference_images, debug)
-
-    combined_embeddings, metadata = _combine_embeddings(
-        source_embeddings_info, reference_embeddings_info
-    )
-
-    logger.info(
-        "Computed embeddings for source and reference images. Now building similarity graph."
-    )
-    similarity_graph = _build_similarity_graph(
-        combined_embeddings, metadata, threshold=0.99
-    )
-    communities = louvain_communities(similarity_graph, weight="weight")
-    grouped_metadata = _map_communities_to_metadata(communities, similarity_graph)
-
-    # Output results
-    for i, group in enumerate(grouped_metadata):
-        print("---" * 20)
-        print(f"Community {i+1}:")
-        for node in group:
-            print(f"  Origin: {node['origin']}, Image Path: {node['image_path']}")
 
     IPython.embed()
 
 
 if __name__ == "__main__":
     print("Start to run the code")
-    source_images = "~/for_phil/bcit_copy/a"
-    reference_images = "~/for_phil/bcit_copy/b"
+    source_images = r"C:\Users\choph\photomatcher\dataset\subset\stage"
+    reference_images = r"C:\Users\choph\photomatcher\dataset\subset\off"
     run_dp2_pipeline(source_images, reference_images, debug=False)

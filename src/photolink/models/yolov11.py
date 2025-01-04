@@ -1,8 +1,6 @@
 import sys
 from pathlib import Path
-from typing import Union
 
-import coremltools as ct
 import cv2
 import numpy as np
 import onnxruntime as ort
@@ -40,16 +38,16 @@ class Local:
 
     @property
     def session(self):
-        """Lazily initialize and return the ONNX session."""
+        """Lazily initialize and return the ONNX session (Windows or linux)."""
         if self._session is None:
             application_path = get_application_path()
             config = get_config()
 
             # TODO: Change this to support both Windows and Mac
             model_path = str(
-                application_path / Path(config.get("YOLOV11", "LOCAL_PATH"))
+                application_path / Path(config.get("YOLOV11", "LOCAL_PATH_WIN"))
             )
-            remote_path = str(config.get("YOLOV11", "REMOTE_PATH"))
+            remote_path = str(config.get("YOLOV11", "REMOTE_PATH_WIN"))
 
             check_weights_exist(model_path, remote_path)
 
@@ -78,7 +76,6 @@ class Local:
             )
             remote_path = str(config.get("YOLOV11", "REMOTE_PATH_MAC"))
             check_weights_exist(model_path, remote_path)
-            self._model = ct.models.MLModel(model_path)
             self.set_metadata(config)
 
         return self._model
@@ -354,6 +351,7 @@ def run_inference(input: ImageLoader, debug=False, debug_path=None) -> np.ndarra
         preds = session.run(None, {session.get_inputs()[0].name: im})
 
     elif sys.platform == "darwin":
+        import coremltools as ct
         # Mac inference code
         model = local.model
         im = preprocess(downsampled_image, local.height, local.width, np.float32)
@@ -395,7 +393,7 @@ if __name__ == "__main__":
     from photolink.utils.function import search_all_images
     import IPython
 
-    images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
+    images = search_all_images(Path(r"C:\Users\choph\photomatcher\dataset\subset\off").expanduser())
     print(f"Found {len(images)} images.")
 
     for img in images[0:1]:
@@ -410,3 +408,4 @@ if __name__ == "__main__":
         # Inference
         boxes = run_inference(image_loader, debug=True, debug_path=debug_path)
         logger.info(f"Detected {len(boxes)} instances in the image.")
+        print(boxes)

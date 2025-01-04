@@ -257,6 +257,6 @@ def run_scrfd_inference(image_loader: Union[ImageLoader, np.ndarray]) -> dict:
 if __name__ == "__main__":
     print("Starting SCRFD face detection...")
 
-    im_loader = ImageLoader("sample/BCITCS24-C4P1-0008.JPG")
+    im_loader = ImageLoader("sample/IMG_0066.JPG")
     test_result = run_scrfd_inference(im_loader)
     print(test_result)

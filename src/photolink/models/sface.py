@@ -29,7 +29,7 @@ class Local:
             local_path = application_path / Path(config["SFACE"]["LOCAL_PATH"])
             remote_path = config["SFACE"]["REMOTE_PATH"]
             check_weights_exist(local_path, remote_path)
-            
+
             self._model = Sface(modelPath=local_path)
 
         return self._model
@@ -77,8 +77,8 @@ class Sface:
         return self._model.feature(aligned_face)
 
     def _run_embedding_conversion(self, image: np.ndarray, faces: list) -> dict:
-        """Run the embeddings conversion on all the faces, return list of embeddings per face. 
-        
+        """Run the embeddings conversion on all the faces, return list of embeddings per face.
+
         Image is required for aligning the faces properly."""
 
         result = {}
@@ -118,7 +118,7 @@ def get_sface_embedding(image: np.ndarray, faces: list) -> dict:
     image : np.ndarray
         The input image as a NumPy array. It is required for aligning the faces.
     faces : list
-        A list of face bounding boxes, where each bounding box is represented as 
+        A list of face bounding boxes, where each bounding box is represented as
         [x1, y1, x2, y2] in pixel coordinates.
 
     Returns:
@@ -140,7 +140,7 @@ def get_sface_embedding(image: np.ndarray, faces: list) -> dict:
 
 
 if __name__ == "__main__":
-    print('sface')
+    print("sface")
     from photolink.utils.image_loader import ImageLoader
     from photolink.models.scrfd import run_scrfd_inference
     import IPython
@@ -149,6 +149,6 @@ if __name__ == "__main__":
     bb = run_scrfd_inference(im_loader)
 
     # run sface
-    test_result = get_sface_embedding(bb['image'], bb['faces'])
-    
+    test_result = get_sface_embedding(bb["image"], bb["faces"])
+
     IPython.embed()
