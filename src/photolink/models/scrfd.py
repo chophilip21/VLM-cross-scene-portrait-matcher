@@ -244,14 +244,65 @@ class SCRFD:
 local = Local()
 
 
-def run_scrfd_inference(image_loader: Union[ImageLoader, np.ndarray]) -> dict:
+def _x_dist(face_box, center_x):
+    x1, _, x2, _ = face_box
+    box_center_x = (x1 + x2) / 2.0
+    return abs(box_center_x - center_x)
+
+
+def run_scrfd_inference(
+    image_loader: Union[ImageLoader, np.ndarray], heuristic_filter: bool = False
+) -> dict:
     """Run face detection on the image using SCRFD.
 
-    Faces is a list where each face is represented as [x1, y1, x2, y2].
+    Faces is a list where each face is represented as [x1, y1, x2, y2]. Apply heuristic filter to get 1 face.
     """
-    return local.model.run_face_detection(
+    result_dict = local.model.run_face_detection(
         image_loader, local.confidence_threshold, local.nms_threshold
     )
+    
+    if heuristic_filter:
+
+        faces = result_dict.get("faces")
+
+        if faces.ndim == 2 and faces.shape[0] > 1:
+
+            # what matters is the width (x-axis)
+            _, img_width = image_loader.shape[:2]
+            center_x = img_width / 2.0
+
+            sorted_by_xdist = sorted(faces, key=lambda box: _x_dist(box, center_x))
+            closest_box = sorted_by_xdist[0]
+
+            closest_area = (closest_box[2] - closest_box[0]) * (
+                closest_box[3] - closest_box[1]
+            )
+
+            """"
+            We care about box in the middle of x-axis the most.
+            But just in case, if the closest box is too small, we will check if there's any box that is significantly bigger and could be a better candidate.
+            """
+            bigger_candidates = []
+
+            for box in sorted_by_xdist[1:]:
+                x1, y1, x2, y2 = box
+                area = (x2 - x1) * (y2 - y1)
+                if area >= 1.25 * closest_area:
+                    bigger_candidates.append((box, area))
+
+            if not bigger_candidates:
+                # Nothing is significantly bigger, use closest_box
+                faces = np.array([closest_box], dtype=np.float32)
+            else:
+                # Pick the single largest among bigger_candidates
+                best_box, best_area = max(bigger_candidates, key=lambda item: item[1])
+                faces = np.array([best_box], dtype=np.float32)
+                logger.info("favoring bigger face over closest face")
+
+            # overwrite the keys for faces
+            result_dict["faces"] = faces
+
+    return result_dict
 
 
 if __name__ == "__main__":

@@ -352,6 +352,7 @@ def run_inference(input: ImageLoader, debug=False, debug_path=None) -> np.ndarra
 
     elif sys.platform == "darwin":
         import coremltools as ct
+
         # Mac inference code
         model = local.model
         im = preprocess(downsampled_image, local.height, local.width, np.float32)
@@ -393,7 +394,9 @@ if __name__ == "__main__":
     from photolink.utils.function import search_all_images
     import IPython
 
-    images = search_all_images(Path(r"C:\Users\choph\photomatcher\dataset\subset\off").expanduser())
+    images = search_all_images(
+        Path(r"C:\Users\choph\photomatcher\dataset\subset\off").expanduser()
+    )
     print(f"Found {len(images)} images.")
 
     for img in images[0:1]:

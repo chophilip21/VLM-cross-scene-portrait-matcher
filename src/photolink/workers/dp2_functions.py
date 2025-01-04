@@ -47,9 +47,9 @@ def _debug_save_image(img, bounding_box, save_name):
 
     # the output of coreml and onnx is a bit different
     if len(bounding_box) == 6:
-        bb = [int(x) for x in bounding_box[:4]] # is flat list
-    else:    
-        bb = [int(x) for x in bounding_box[0]] # is nested list
+        bb = [int(x) for x in bounding_box[:4]]  # is flat list
+    else:
+        bb = [int(x) for x in bounding_box[0]]  # is nested list
 
     x1, y1, x2, y2 = bb
     # Draw a rectangle with a red color and thickness of 2
@@ -246,16 +246,20 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
             img = np.array(image_loader.get_downsampled_image())
             cropped_instance = copy.deepcopy(img)[y1:y2, x1:x2]
 
-            # run face detection and embedding conversion
-            face_table = scrfd.run_scrfd_inference(cropped_instance)
-
-            face_embedding = sface.get_sface_embedding(
-                cropped_instance, face_table["faces"], heuristic_filter=True
+            # run face detection. Limit to 1 face.
+            face_table = scrfd.run_scrfd_inference(
+                cropped_instance, heuristic_filter=True
             )
 
-            if face_embedding is None:
-                logger.warning(f"No face embedding generated for {img_path}, skipping.")
+            if len(face_table["faces"]) == 0:
+                logger.warning(f"No face detected in {img_path}, skipping.")
                 continue
+
+            # get face embedding
+            face_embedding = sface.get_sface_embedding(
+                cropped_instance,
+                face_table["faces"],
+            )
 
             # Append data
             data["bbox"] = best_prediction
@@ -298,11 +302,14 @@ def run_dp2_pipeline(
     # off stage (perfect embedding)
     reference_embeddings_info = _precompute_embeddings(reference_images, debug)
 
-    IPython.embed()
+    # IPython.embed()
 
 
 if __name__ == "__main__":
     print("Start to run the code")
     source_images = r"C:\Users\choph\photomatcher\dataset\subset\stage"
     reference_images = r"C:\Users\choph\photomatcher\dataset\subset\off"
+
+    # source_images = r"C:\Users\choph\photomatcher\dataset\failure\f1"
+    # reference_images = r"C:\Users\choph\photomatcher\dataset\failure\f2"
     run_dp2_pipeline(source_images, reference_images, debug=True)
