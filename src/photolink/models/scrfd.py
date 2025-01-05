@@ -12,6 +12,7 @@ from photolink import get_application_path, get_config
 from photolink.utils.image_loader import ImageLoader
 from photolink.utils.download import check_weights_exist
 from photolink.models.exceptions import NoFaceDetectedError
+from IPython import embed
 
 
 class Local:
