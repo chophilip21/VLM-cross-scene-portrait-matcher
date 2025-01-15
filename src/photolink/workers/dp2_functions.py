@@ -252,7 +252,6 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
                 cropped_instance, heuristic_filter=True
             )
 
-
             if len(face_table["faces"]) == 0:
                 logger.warning(f"No face detected in {img_path}, skipping.")
                 continue
@@ -285,6 +284,7 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
 
 def _postprocess_result():
     pass
+
 
 def run_dp2_pipeline(
     source_path: str, reference_path: str, debug: bool = False
@@ -323,7 +323,7 @@ def run_dp2_pipeline(
     # index.setQueryTimeParams({"efSearch": 100})
 
     # # 3) Perform the matching, iterate over reference embeddings
-    # results = {} 
+    # results = {}
     # for ref_key, ref_data in reference_embeddings_info.items():
     #     # 1) Extract the face embedding from the reference
     #     ref_embed = ref_data["face_embedding"]

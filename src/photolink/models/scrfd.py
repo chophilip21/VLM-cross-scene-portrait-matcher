@@ -12,7 +12,6 @@ from photolink import get_application_path, get_config
 from photolink.utils.image_loader import ImageLoader
 from photolink.utils.download import check_weights_exist
 from photolink.models.exceptions import NoFaceDetectedError
-from IPython import embed
 
 
 class Local:
@@ -261,7 +260,7 @@ def run_scrfd_inference(
     result_dict = local.model.run_face_detection(
         image_loader, local.confidence_threshold, local.nms_threshold
     )
-    
+
     if heuristic_filter:
 
         faces = result_dict.get("faces")
