@@ -1,7 +1,7 @@
 """Modules for Face detection using SCRFD."""
 
-from typing import Union
 from pathlib import Path
+from typing import Union
 
 import cv2
 import numpy as np
@@ -9,9 +9,9 @@ from loguru import logger
 from onnxruntime import InferenceSession
 
 from photolink import get_application_path, get_config
-from photolink.utils.image_loader import ImageLoader
-from photolink.utils.download import check_weights_exist
 from photolink.models.exceptions import NoFaceDetectedError
+from photolink.utils.download import check_weights_exist
+from photolink.utils.image_loader import ImageLoader
 
 
 class Local:

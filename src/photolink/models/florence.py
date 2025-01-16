@@ -1,26 +1,22 @@
 """Florence model."""
 
-from photolink import get_application_path, get_config
-from pathlib import Path
-from photolink.utils.download import check_weights_exist
 import sys
-import openvino as ov
-import ipywidgets as widgets
-from loguru import logger
-import numpy as np
-from transformers import (
-    AutoProcessor,
-    AutoConfig,
-    AutoModelForCausalLM,
-    GenerationMixin,
-    GenerationConfig,
-)
-import torch
-from typing import Optional, Tuple, List, Union
-from transformers.modeling_outputs import Seq2SeqLMOutput, BaseModelOutput
-from photolink.utils.image_loader import ImageLoader
-import IPython
+from pathlib import Path
+from typing import List, Optional, Tuple, Union
 
+import IPython
+import ipywidgets as widgets
+import numpy as np
+import openvino as ov
+import torch
+from loguru import logger
+from transformers import (AutoConfig, AutoModelForCausalLM, AutoProcessor,
+                          GenerationConfig, GenerationMixin)
+from transformers.modeling_outputs import BaseModelOutput, Seq2SeqLMOutput
+
+from photolink import get_application_path, get_config
+from photolink.utils.download import check_weights_exist
+from photolink.utils.image_loader import ImageLoader
 
 IMAGE_EMBEDDING_NAME = "image_embedding.xml"
 TEXT_EMBEDING_NAME = "text_embedding.xml"
@@ -527,11 +523,13 @@ def run_inference(image_loader: ImageLoader) -> dict:
 
 
 if __name__ == "__main__":
-    import time
-    from photolink.utils.function import search_all_images
-    import os
-    from PIL import Image, ImageDraw
     import copy
+    import os
+    import time
+
+    from PIL import Image, ImageDraw
+
+    from photolink.utils.function import search_all_images
 
     # images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
     # images = search_all_images(Path("/Users/philipcho/photomatcher/sample").expanduser())

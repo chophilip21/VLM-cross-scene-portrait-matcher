@@ -1,9 +1,11 @@
 """All modules related to downloading weights would go here."""
 
-from photolink import get_application_path, get_config
-from huggingface_hub import hf_hub_download, list_repo_files
 import os
+
+from huggingface_hub import hf_hub_download, list_repo_files
 from loguru import logger
+
+from photolink import get_application_path, get_config
 
 
 class Local:
@@ -85,6 +87,11 @@ def check_weights_exist(local_path, remote_path):
                 file for file in files_in_repo if folder_to_download in file
             ]
 
+            if len(files_to_download) == 0:
+                raise ValueError(
+                    "No files found in the remote path, cannot be possible!"
+                )
+
             for file_name in files_to_download:
 
                 hf_hub_download(
@@ -99,6 +106,7 @@ def check_weights_exist(local_path, remote_path):
                 f"Weights downloaded successfully for model : {str(local_path)}"
             )
 
+            return True
         except Exception as e:
             # TODO: Raise proper error to the client.
             logger.error(
@@ -109,7 +117,7 @@ def check_weights_exist(local_path, remote_path):
             import shutil
 
             shutil.rmtree(local_path)
-            return
+            return False
     else:
         logger.info(f"Weights found locally for {str(local_path)}")
-        return
+        return True

@@ -183,3 +183,4 @@ pytorch
 .DS_Store
 failure
 dataset
+*.onnx

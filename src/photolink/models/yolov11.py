@@ -391,8 +391,9 @@ if __name__ == "__main__":
     import os
     from pathlib import Path
 
-    from photolink.utils.function import search_all_images
     import IPython
+
+    from photolink.utils.function import search_all_images
 
     images = search_all_images(
         Path(r"C:\Users\choph\photomatcher\dataset\subset\off").expanduser()

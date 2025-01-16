@@ -1,27 +1,27 @@
 """Add lower level dp2 functions to avoid cluttering the main functional modules."""
 
+import copy
 import os
 import pickle
 import shutil
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+import cv2
+import IPython
+import nmslib
 import numpy as np
 from loguru import logger
 
-import photolink.utils.function as utils
-from photolink import get_config
-import photolink.models.yolov11 as yolo
+import photolink.models.florence as florence
 import photolink.models.scrfd as scrfd
 import photolink.models.sface as sface
-import photolink.models.florence as florence
+import photolink.models.yolov11 as yolo
+import photolink.utils.function as utils
+from photolink import get_config
 from photolink.pipeline import get_cache_dir
 from photolink.utils.function import search_all_images
 from photolink.utils.image_loader import ImageLoader
-import cv2
-import IPython
-import copy
-import nmslib
 
 # set glboal variables
 config = get_config()

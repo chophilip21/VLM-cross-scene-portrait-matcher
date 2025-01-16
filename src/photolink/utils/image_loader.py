@@ -2,11 +2,12 @@
 
 import copy
 from io import BytesIO
-from typing import Union
-from PIL import Image, ImageOps
-from photolink import get_config
 from pathlib import Path
-import copy
+from typing import Union
+
+from PIL import Image, ImageOps
+
+from photolink import get_config
 
 
 class ImageLoader:
