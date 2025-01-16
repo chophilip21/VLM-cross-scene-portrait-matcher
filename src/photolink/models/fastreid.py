@@ -1,4 +1,4 @@
-"""FastReID model for extracting embeddings from images."""
+"""FastReID model for extracting embeddings from images (Remove this later on)."""
 
 from pathlib import Path
 from typing import Union

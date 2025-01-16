@@ -1,3 +1,4 @@
+"""Modules for obtaining landmarks."""
 import copy
 from pathlib import Path
 

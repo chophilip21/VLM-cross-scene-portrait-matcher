@@ -1,4 +1,4 @@
-"""Florence model."""
+"""Florence model for finding objects with text prompts."""
 
 import sys
 from pathlib import Path
