@@ -14,9 +14,12 @@ import numpy as np
 from loguru import logger
 
 import photolink.models.scrfd as scrfd
-import photolink.models.sface as sface
+
+# import photolink.models.sface as sface # deprecated.
 import photolink.utils.enums as enums
 import photolink.utils.function as function
+
+# TODO: Remove Sface.
 
 
 def _run_ml_model(

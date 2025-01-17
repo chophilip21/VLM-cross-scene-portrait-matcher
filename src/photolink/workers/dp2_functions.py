@@ -15,7 +15,8 @@ from loguru import logger
 
 import photolink.models.florence as florence
 import photolink.models.scrfd as scrfd
-import photolink.models.sface as sface
+from photolink.models.facemesh import run_facemesh_inference
+from photolink.models.facetransformer import run_face_recognition
 import photolink.models.yolov11 as yolo
 import photolink.utils.function as utils
 from photolink import get_config
@@ -256,15 +257,19 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
                 logger.warning(f"No face detected in {img_path}, skipping.")
                 continue
 
+            # run face mesh calculation
+            face_mesh = run_facemesh_inference(cropped_instance, face_table["faces"])
+
             # get face embedding
-            face_embedding = sface.get_sface_embedding(
-                cropped_instance,
-                face_table["faces"],
+            face_embedding = run_face_recognition(
+                cropped_instance, face_mesh["five_keypoints_2d"]
             )
 
-            # Append data
+            # Append data (embedding, keypoint, etc)
             data["bbox"] = best_prediction
-            data["face_embedding"] = face_embedding["embeddings"]
+            data["face_embedding"] = face_embedding
+            data["landmarks_2d"] = face_mesh["landmarks_2d"]
+            data["kpts_5"] = face_mesh["five_keypoints_2d"]
 
             # After processing all bounding boxes, store data
             embeddings_info[path_hash] = data

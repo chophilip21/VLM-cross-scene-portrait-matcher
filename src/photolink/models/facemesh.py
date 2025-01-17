@@ -1,19 +1,17 @@
-"""Modules for obtaining landmarks."""
 import copy
 from pathlib import Path
 
 import cv2
 import numpy as np
 import onnxruntime
-from IPython import embed
 from loguru import logger
 from PIL import Image
+from typing import Union
 
 from photolink import get_application_path, get_config
 from photolink.models.scrfd import run_scrfd_inference
 from photolink.utils.download import check_weights_exist
 from photolink.utils.image_loader import ImageLoader
-
 
 class Local:
     _instance = None
@@ -42,17 +40,14 @@ class Local:
             remote_path = str(config["FACEMESH"]["REMOTE_PATH"])
 
             downloaded = check_weights_exist(model_path, remote_path)
-
             if not downloaded:
-                raise MemoryError("Could not download the model")
+                raise MemoryError("Could not download the FaceMesh model")
 
             logger.info(f"Loading FaceMesh model: {model_path}")
             self._session = onnxruntime.InferenceSession(
                 model_path,
                 sess_options=session_option_facemesh,
-                providers=[
-                    "CPUExecutionProvider",
-                ],
+                providers=["CPUExecutionProvider"],
             )
             self._input_names = [inp.name for inp in self._session.get_inputs()]
             self._output_names = [out.name for out in self._session.get_outputs()]
@@ -71,10 +66,8 @@ class Local:
             _ = self.session  # force session creation
         return self._output_names
 
-
 # Instantiate the singleton
 local = Local()
-
 
 def extract_5_keypoints(landmarks_2d):
     """
@@ -110,23 +103,11 @@ def extract_5_keypoints(landmarks_2d):
         ],
         axis=0,
     )
-
     return keypoints_2d
-
-
-def visualize_landmarks(image, landmarks_2d, color=(0, 255, 0), radius=1, thickness=-1):
-    """
-    Draw 2D circles for each (x, y) in `landmarks_2d` onto `image`.
-    """
-    image = copy.deepcopy(image)
-    for lx, ly in landmarks_2d:
-        cv2.circle(image, (int(lx), int(ly)), radius, color, thickness)
-    return image
-
 
 def run_facemesh_inference(
     image: np.ndarray,
-    face_box: list,  # [x1, y1, x2, y2]
+    face_box: Union[list, np.ndarray],  # [x1, y1, x2, y2]
     conf_threshold=0.95,
 ):
     """
@@ -139,26 +120,41 @@ def run_facemesh_inference(
     :param conf_threshold: Confidence threshold for valid face mesh.
     :return: dict with:
         - "score": float
-        - "landmarks_2d": np.ndarray of shape (468, 2) if score >= threshold, else None
-        - "five_keypoints_2d": np.ndarray of shape (5, 2) if score >= threshold, else None
+        - "landmarks_2d": np.ndarray of shape (468, 2)
+        - "five_keypoints_2d": np.ndarray of shape (5, 2)
     """
+
+    # If face_box is an array, flatten it to a list
+    if isinstance(face_box, np.ndarray):
+        face_box = face_box.squeeze()
+        if not face_box.shape == (4,):
+            raise ValueError(f"Invalid face_box shape. Expected (4,), not {face_box.shape}")
+        face_box = face_box.tolist()
+
     x1, y1, x2, y2 = [int(v) for v in face_box]
+
+    # Ensure bounding box is within image bounds
+    x1 = max(0, x1)
+    y1 = max(0, y1)
+    x2 = min(image.shape[1], x2)
+    y2 = min(image.shape[0], y2)
     w = x2 - x1
     h = y2 - y1
 
-    # if instance is PIL, convert to numpy
+    # If the image is a PIL image, convert to NumPy
     if isinstance(image, Image.Image):
         image = np.array(image)
 
-    # Crop & Resize to 192x192
+    # Prepare the 192x192 face input
     cropped_face = image[y1:y2, x1:x2, :]
     resized_face = cv2.resize(cropped_face, (192, 192))
-    # BGR->RGB and scale to [0..1]
+
+    # Convert BGR->RGB and scale to [0..1]
     resized_face = resized_face[..., ::-1] / 255.0
-    # (192,192,3)->float32->(1,3,192,192)
-    resized_face = resized_face.astype(np.float32)
+    resized_face = resized_face.astype(np.float32)  # => (192,192,3)
+    # NHWC -> NCHW
     resized_face = np.transpose(resized_face, (2, 0, 1))
-    resized_face = np.expand_dims(resized_face, axis=0)
+    resized_face = np.expand_dims(resized_face, axis=0)  # (1,3,192,192)
 
     # Prepare bounding box arrays for the model
     np_crop_x1 = np.array([x1], dtype=np.int32).reshape(-1, 1)
@@ -171,7 +167,7 @@ def run_facemesh_inference(
     input_names = local.input_names
     output_names = local.output_names
 
-    # Typically: input_names -> ['input_img', 'crop_x1', 'crop_y1', 'crop_width', 'crop_height']
+    # Typically: ['input_img', 'crop_x1', 'crop_y1', 'crop_width', 'crop_height']
     scores, final_landmarks = session.run(
         output_names,
         {
@@ -183,6 +179,7 @@ def run_facemesh_inference(
         },
     )
 
+    # Build result dict
     result = {
         "score": None,
         "landmarks_2d": None,
@@ -191,17 +188,34 @@ def run_facemesh_inference(
     score = scores[0]
     result["score"] = score
 
-    if score >= conf_threshold:
-        # final_landmarks shape => (1, 468, 3)
-        # We'll drop the Z-axis => shape (468, 2)
-        lm_2d = final_landmarks[0][:, :2]
-        result["landmarks_2d"] = lm_2d
+    # Extract the 2D portion (dropping Z)
+    lm_2d = final_landmarks[0][:, :2]
+    result["landmarks_2d"] = lm_2d
 
-        # Convert 468 => 5 (2D)
-        keypoints_2d = extract_5_keypoints(lm_2d)
-        result["five_keypoints_2d"] = keypoints_2d
-    else:
-        logger.warning(f"FaceMesh confidence below threshold: {score:.4f}")
+    keypoints_2d = extract_5_keypoints(lm_2d)
+    result["five_keypoints_2d"] = keypoints_2d
+
+    # Print a warning if the confidence is below threshold
+    if score < conf_threshold:
+        logger.warning(f"FaceMesh confidence below threshold {score} < {conf_threshold})")
+
+        # # sanity check
+        # debug_image = image.copy()
+        # # Draw the bounding box
+        # cv2.rectangle(debug_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+        # # Draw the 5 keypoints in RED
+        # for (px, py) in keypoints_2d:
+        #     cv2.circle(debug_image, (int(px), int(py)), 3, (0, 0, 255), -1)
+
+        # # If you want to see the entire 468 landmarks as well
+        # for (lx, ly) in lm_2d:
+        #     cv2.circle(debug_image, (int(lx), int(ly)), 1, (255, 255, 0), -1)
+
+        # debug_image = cv2.cvtColor(debug_image, cv2.COLOR_BGR2RGB)
+        # cv2.imwrite("test_debug.jpg", debug_image)
+        # import IPython
+        # IPython.embed()
 
     return result
 
@@ -222,21 +236,3 @@ if __name__ == "__main__":
     print(mesh_result)
     score = mesh_result["score"]
     logger.info(f"FaceMesh Score: {score}")
-
-    if mesh_result["landmarks_2d"] is not None:
-        # Visualize the 468-landmarks
-        figure = visualize_landmarks(
-            ds_image, mesh_result["landmarks_2d"], color=(0, 255, 0)
-        )
-        cv2.imwrite("output_468.jpg", figure)
-
-        # Also show the 5 keypoints in red
-        kpts_5 = mesh_result["five_keypoints_2d"]  # shape (5, 2)
-        for px, py in kpts_5:
-            cv2.circle(figure, (int(px), int(py)), 3, (0, 0, 255), -1)
-
-        cv2.imwrite("output_5.jpg", figure)
-    else:
-        logger.warning(
-            "FaceMesh inference was too low-confidence to produce landmarks."
-        )

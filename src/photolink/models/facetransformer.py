@@ -1,4 +1,5 @@
 """Modules for obtaining embeddings."""
+
 from pathlib import Path
 
 import cv2

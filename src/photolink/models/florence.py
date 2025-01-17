@@ -10,8 +10,13 @@ import numpy as np
 import openvino as ov
 import torch
 from loguru import logger
-from transformers import (AutoConfig, AutoModelForCausalLM, AutoProcessor,
-                          GenerationConfig, GenerationMixin)
+from transformers import (
+    AutoConfig,
+    AutoModelForCausalLM,
+    AutoProcessor,
+    GenerationConfig,
+    GenerationMixin,
+)
 from transformers.modeling_outputs import BaseModelOutput, Seq2SeqLMOutput
 
 from photolink import get_application_path, get_config

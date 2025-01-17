@@ -1,4 +1,5 @@
 """YOLOv1.1 model for person detection."""
+
 import sys
 from pathlib import Path
 

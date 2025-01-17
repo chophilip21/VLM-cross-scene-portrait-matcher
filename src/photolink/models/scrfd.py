@@ -12,6 +12,7 @@ from photolink import get_application_path, get_config
 from photolink.models.exceptions import NoFaceDetectedError
 from photolink.utils.download import check_weights_exist
 from photolink.utils.image_loader import ImageLoader
+from PIL import Image
 
 
 class Local:
@@ -202,13 +203,10 @@ class SCRFD:
         elif isinstance(image_loader, ImageLoader):
             image = np.array(image_loader.get_downsampled_image())
 
-        else:
-            raise ValueError(
-                "Image loader must be an instance of ImageLoader or np.ndarray."
-            )
+        elif isinstance(image_loader, Image.Image):
+            image = np.array(image_loader)
 
         # Preprocess the image according to SCRFD requirements
-
         img_height, img_width = image.shape[:2]
         input_height, input_width = self.input_shape[2], self.input_shape[3]
 
