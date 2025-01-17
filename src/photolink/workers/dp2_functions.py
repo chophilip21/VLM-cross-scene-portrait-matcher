@@ -312,56 +312,62 @@ def run_dp2_pipeline(
     # off stage (perfect embedding)
     reference_embeddings_info = _precompute_embeddings(reference_images, debug)
 
-    # # 1) Initialize the nmslib index
-    # index = nmslib.init(method="hnsw", space="l2")
+    # 1) Initialize the nmslib index
+    index = nmslib.init(method="hnsw", space="l2")
 
-    # # 2) Add the source embeddings to the index
-    # src_vectors = []
-    # idx_to_source_key = []
-    # for src_key, src_data in source_embeddings_info.items():
-    #     src_embed = src_data["face_embedding"]
-    #     src_vectors.append(src_embed)
-    #     idx_to_source_key.append(src_key)
 
-    # index.addDataPointBatch(src_vectors)
-    # index.createIndex({"post": 2}, print_progress=False)
-    # index.setQueryTimeParams({"efSearch": 100})
+    """
+    Reference embedding is the perfect embedding.
 
-    # # 3) Perform the matching, iterate over reference embeddings
-    # results = {}
-    # for ref_key, ref_data in reference_embeddings_info.items():
-    #     # 1) Extract the face embedding from the reference
-    #     ref_embed = ref_data["face_embedding"]
+    Therefore, it only makes sense to iterate over the reference embeddings and find the best match in the source embeddings.
+    It does not make sense to iterate over noisy source embeddings, because the sample you are looking at could be a noise with no match.
+    """
 
-    #     # 2) Perform a top-1 search against source.
-    #     nbrs_idx, nbrs_dist = index.knnQuery(ref_embed, k=1)
-    #     best_idx = int(nbrs_idx[0])
-    #     best_dist = float(nbrs_dist[0])
+    # 2) Add the source embeddings to the index
+    src_vectors = []
+    idx_to_source_key = []
+    for src_key, src_data in source_embeddings_info.items():
+        src_embed = src_data["face_embedding"]
+        src_vectors.append(src_embed)
+        idx_to_source_key.append(src_key)
 
-    #     # 3) Map nmslib index back to source key
-    #     best_src_key = idx_to_source_key[best_idx]
-    #     ref_path = ref_data["image_path"]
-    #     src_path = source_embeddings_info[best_src_key]["image_path"]
+    index.addDataPointBatch(src_vectors)
+    index.createIndex({"post": 2}, print_progress=False)
+    index.setQueryTimeParams({"efSearch": 100})
 
-    #     print(best_src_key)
+    # 3) Perform the matching, iterate over reference embeddings
+    results = {}
+    for ref_key, ref_data in reference_embeddings_info.items():
+        # 1) Extract the face embedding from the reference
+        ref_embed = ref_data["face_embedding"]
 
-    #     # 4) Store the results, if the result is good.
-    #     if best_src_key not in results:
-    #         results[best_src_key] = {
-    #             "source_path": src_path,
-    #             "reference_path": ref_path,
-    #             "distance": best_dist,
-    #         }
-    #     else:
-    #         # If the distance is lower, update the result
-    #         if best_dist < results[best_src_key]["distance"]:
-    #             results[best_src_key] = {
-    #                 "source_path": src_path,
-    #                 "reference_path": ref_path,
-    #                 "distance": best_dist,
-    #             }
+        # 2) Perform a top-1 search against source.
+        nbrs_idx, nbrs_dist = index.knnQuery(ref_embed, k=1)
+        best_idx = int(nbrs_idx[0])
+        best_dist = float(nbrs_dist[0])
 
-    # IPython.embed()
+        # 3) Map nmslib index back to source key
+        best_src_key = idx_to_source_key[best_idx]
+        ref_path = ref_data["image_path"]
+        src_path = source_embeddings_info[best_src_key]["image_path"]
+
+        # 4) Store the results, if the result is good.
+        if best_src_key not in results:
+            results[best_src_key] = {
+                "source_path": src_path,
+                "reference_path": ref_path,
+                "distance": best_dist,
+            }
+        else:
+            # If the distance is lower, update the result
+            if best_dist < results[best_src_key]["distance"]:
+                results[best_src_key] = {
+                    "source_path": src_path,
+                    "reference_path": ref_path,
+                    "distance": best_dist,
+                }
+
+    IPython.embed()
 
 
 if __name__ == "__main__":
@@ -371,4 +377,4 @@ if __name__ == "__main__":
 
     # source_images = r"C:\Users\choph\photomatcher\dataset\failure\f1"
     # reference_images = r"C:\Users\choph\photomatcher\dataset\failure\f2"
-    run_dp2_pipeline(source_images, reference_images, debug=True)
+    run_dp2_pipeline(source_images, reference_images, debug=False)
