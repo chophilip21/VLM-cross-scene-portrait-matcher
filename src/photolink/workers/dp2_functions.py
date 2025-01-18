@@ -1,5 +1,3 @@
-"""Add lower level dp2 functions to avoid cluttering the main functional modules."""
-
 import copy
 import os
 import pickle
@@ -233,7 +231,6 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
                     )
 
                 best_prediction = _screen_bb_by_iou(bounding_boxes, florence_bboxes)
-                # If no match found, crash
 
                 if best_prediction is None:
                     raise ValueError(
@@ -308,24 +305,14 @@ def run_dp2_pipeline(
 
     # Compute embeddings for source images
     source_embeddings_info = _precompute_embeddings(source_images, debug)
-
-    # off stage (perfect embedding)
+    # Compute embeddings for reference images
     reference_embeddings_info = _precompute_embeddings(reference_images, debug)
 
     # 1) Initialize the nmslib index
     index = nmslib.init(method="hnsw", space="l2")
-
-
-    """
-    Reference embedding is the perfect embedding.
-
-    Therefore, it only makes sense to iterate over the reference embeddings and find the best match in the source embeddings.
-    It does not make sense to iterate over noisy source embeddings, because the sample you are looking at could be a noise with no match.
-    """
-
-    # 2) Add the source embeddings to the index
     src_vectors = []
     idx_to_source_key = []
+
     for src_key, src_data in source_embeddings_info.items():
         src_embed = src_data["face_embedding"]
         src_vectors.append(src_embed)
@@ -335,39 +322,72 @@ def run_dp2_pipeline(
     index.createIndex({"post": 2}, print_progress=False)
     index.setQueryTimeParams({"efSearch": 100})
 
-    # 3) Perform the matching, iterate over reference embeddings
+    # Keep track of which source indices are already matched (1:1 usage)
+    used_indices = set()
+    # Keep track of references that couldn't match a source
+    unmatched_refs = {}
+
     results = {}
+
+    # 2) Perform the matching, iterate over reference embeddings
     for ref_key, ref_data in reference_embeddings_info.items():
-        # 1) Extract the face embedding from the reference
         ref_embed = ref_data["face_embedding"]
 
-        # 2) Perform a top-1 search against source.
-        nbrs_idx, nbrs_dist = index.knnQuery(ref_embed, k=1)
-        best_idx = int(nbrs_idx[0])
-        best_dist = float(nbrs_dist[0])
+        # Skip if no embedding
+        if ref_embed is None:
+            logger.warning(f"No embedding for reference {ref_key}. Skipping.")
+            unmatched_refs[ref_key] = ref_data["image_path"]
+            continue
 
-        # 3) Map nmslib index back to source key
+        # Query for all possible neighbors, sorted by ascending distance
+        nbrs_idx, nbrs_dist = index.knnQuery(ref_embed, k=len(src_vectors))
+
+        best_idx = None
+        best_dist = None
+
+        # Find the first neighbor not in used_indices
+        for i, candidate_idx in enumerate(nbrs_idx):
+            if candidate_idx not in used_indices:
+                best_idx = candidate_idx
+                best_dist = float(nbrs_dist[i])
+                break
+
+        if best_idx is None:
+            # All sources used or not suitable
+            logger.info(f"No available source left for reference {ref_key}.")
+            unmatched_refs[ref_key] = ref_data["image_path"]
+            continue
+
+        # Mark this source as used
+        used_indices.add(best_idx)
+
+        # Map nmslib index back to source key
         best_src_key = idx_to_source_key[best_idx]
         ref_path = ref_data["image_path"]
         src_path = source_embeddings_info[best_src_key]["image_path"]
 
-        # 4) Store the results, if the result is good.
-        if best_src_key not in results:
-            results[best_src_key] = {
-                "source_path": src_path,
-                "reference_path": ref_path,
-                "distance": best_dist,
-            }
-        else:
-            # If the distance is lower, update the result
-            if best_dist < results[best_src_key]["distance"]:
-                results[best_src_key] = {
-                    "source_path": src_path,
-                    "reference_path": ref_path,
-                    "distance": best_dist,
-                }
+        # Store the match
+        results[best_src_key] = {
+            "source_path": src_path,
+            "reference_path": ref_path,
+            "distance": best_dist,
+        }
+
+    # Collect sources that were NEVER matched by any reference
+    unused_sources = {}
+    for i, src_key in enumerate(idx_to_source_key):
+        if i not in used_indices:
+            unused_sources[src_key] = source_embeddings_info[src_key]["image_path"]
+
+    logger.info("Finished matching references to sources.")
+    logger.info(f"Found {len(results)} matched pairs.")
+    logger.info(f"{len(unused_sources)} source images got no match.")
+    logger.info(f"{len(unmatched_refs)} references had no matching source.")
 
     IPython.embed()
+
+    # Return or handle however you'd like
+    return results, unused_sources, unmatched_refs
 
 
 if __name__ == "__main__":
