@@ -22,6 +22,7 @@ from photolink.pipeline import get_cache_dir
 from photolink.utils.function import search_all_images
 from photolink.utils.image_loader import ImageLoader
 
+
 # set glboal variables
 config = get_config()
 cache_dir = get_cache_dir() / Path(config["FASTREID"]["EMBEDDING_CACHE_DIR"])
@@ -250,7 +251,7 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
                 cropped_instance, heuristic_filter=True
             )
 
-            if len(face_table["faces"]) == 0:
+            if "faces" not in face_table or len(face_table["faces"]) == 0:
                 logger.warning(f"No face detected in {img_path}, skipping.")
                 continue
 
@@ -282,10 +283,6 @@ def _precompute_embeddings(image_paths: List[str], debug: bool = False) -> Dict:
             pickle.dump(data, f)
 
     return embeddings_info
-
-
-def _postprocess_result():
-    pass
 
 
 def run_dp2_pipeline(
@@ -392,9 +389,13 @@ def run_dp2_pipeline(
 
 if __name__ == "__main__":
     print("Start to run the code")
-    source_images = r"C:\Users\choph\photomatcher\dataset\subset\stage"
-    reference_images = r"C:\Users\choph\photomatcher\dataset\subset\off"
 
-    # source_images = r"C:\Users\choph\photomatcher\dataset\failure\f1"
-    # reference_images = r"C:\Users\choph\photomatcher\dataset\failure\f2"
+    # Windows
+    # source_images = r"C:\Users\choph\photomatcher\dataset\subset\stage"
+    # reference_images = r"C:\Users\choph\photomatcher\dataset\subset\off"
+
+    # Mac
+    source_images = r"~/for_phil/bcit_copy/a"
+    reference_images = r"~/for_phil/bcit_copy/b"
+
     run_dp2_pipeline(source_images, reference_images, debug=False)

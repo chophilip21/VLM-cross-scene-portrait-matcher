@@ -536,11 +536,11 @@ if __name__ == "__main__":
 
     from photolink.utils.function import search_all_images
 
-    # images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
+    images = search_all_images(Path("~/for_phil/bcit_copy").expanduser())
     # images = search_all_images(Path("/Users/philipcho/photomatcher/sample").expanduser())
-    images = search_all_images(
-        Path(r"C:\Users\choph\photomatcher\dataset\subset\stage").expanduser()
-    )
+    # images = search_all_images(
+    #     Path(r"C:\Users\choph\photomatcher\dataset\subset\stage").expanduser()
+    # )
 
     print(f"Found {len(images)} images.")
 

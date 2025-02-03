@@ -80,6 +80,10 @@ class Local:
             check_weights_exist(model_path, remote_path)
             self.set_metadata(config)
 
+            # Load the CoreML model
+            import coremltools as ct
+            self._model = ct.models.MLModel(model_path)
+
         return self._model
 
     def set_metadata(self, config):
@@ -353,8 +357,7 @@ def run_inference(input: ImageLoader, debug=False, debug_path=None) -> np.ndarra
         preds = session.run(None, {session.get_inputs()[0].name: im})
 
     elif sys.platform == "darwin":
-        import coremltools as ct
-
+        
         # Mac inference code
         model = local.model
         im = preprocess(downsampled_image, local.height, local.width, np.float32)

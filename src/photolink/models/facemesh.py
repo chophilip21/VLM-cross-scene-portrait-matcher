@@ -194,6 +194,9 @@ def run_facemesh_inference(
 
     keypoints_2d = extract_5_keypoints(lm_2d)
     result["five_keypoints_2d"] = keypoints_2d
+    
+
+    # TODO: If the conf is too low, we can flag these later on. 
 
     # Print a warning if the confidence is below threshold
     if score < conf_threshold:

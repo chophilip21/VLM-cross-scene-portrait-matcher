@@ -229,7 +229,8 @@ class SCRFD:
 
         # No face detected. Just return without 'faces' key.
         if dets.size == 0:
-            raise NoFaceDetectedError("No faces detected.")
+            logger.error("No face detected.")
+            return face_table
 
         # Adjust bounding boxes back to original image scale
         dets[:, :4] /= scale
@@ -259,7 +260,7 @@ def run_scrfd_inference(
         image_loader, local.confidence_threshold, local.nms_threshold
     )
 
-    if heuristic_filter:
+    if heuristic_filter and "faces" in result_dict:
 
         faces = result_dict.get("faces")
 
