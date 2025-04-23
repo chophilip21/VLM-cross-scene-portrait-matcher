@@ -11,17 +11,6 @@ To give you more detail,
 - Face detection and recognition model runs on the three candidates captured in a single photo of scene A. All subjects on Scene B are converted into face vectors.
 - Iterate over all possible combination and group face vectors in both scenes. Remove face vectors that appear a lot, because these are most likely photos of teachers.      
 
-<div style="display: flex; gap: 1em; justify-content: center;">
-  <figure>
-    <img src="https://tamupvfa.b-cdn.net/app/uploads/2023/12/web20231214_PVFA_Commencement_AS_0078-1024x683.jpg" alt="Alt text 1" />
-    <figcaption>Example of image from group A</figcaption>
-  </figure>
-  <figure>
-    <img src="https://gsrstudio.ca/wp-content/uploads/2023/06/grads-photos-Toronto-2023.jpg" alt="Alt text 2" />
-    <figcaption>Example of image from group B</figcaption>
-  </figure>
-</div>
-
 | ![Alt 1](https://tamupvfa.b-cdn.net/app/uploads/2023/12/web20231214_PVFA_Commencement_AS_0078-1024x683.jpg) | ![Alt 2](https://gsrstudio.ca/wp-content/uploads/2023/06/grads-photos-Toronto-2023.jpg) |
 |:----------------------------:|:----------------------------:|
 | *Example of image from group A*                  | *Example of image from group B                  |
