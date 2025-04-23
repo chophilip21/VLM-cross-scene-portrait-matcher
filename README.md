@@ -22,9 +22,10 @@ To give you more detail,
   </figure>
 </div>
 
-| ![Alt 1]([path/to/image1.png](https://tamupvfa.b-cdn.net/app/uploads/2023/12/web20231214_PVFA_Commencement_AS_0078-1024x683.jpg)) | ![Alt 2]([path/to/image2.png](https://gsrstudio.ca/wp-content/uploads/2023/06/grads-photos-Toronto-2023.jpg)) |
+| ![Alt 1](https://tamupvfa.b-cdn.net/app/uploads/2023/12/web20231214_PVFA_Commencement_AS_0078-1024x683.jpg) | ![Alt 2](https://gsrstudio.ca/wp-content/uploads/2023/06/grads-photos-Toronto-2023.jpg) |
 |:----------------------------:|:----------------------------:|
-| *Caption 1*                  | *Caption 2*                  |
+| *Example of image from group A*                  | *Example of image from group B                  |
+
 
 
 
