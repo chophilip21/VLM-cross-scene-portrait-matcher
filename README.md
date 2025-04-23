@@ -13,7 +13,7 @@ To give you more detail,
 
 | ![Alt 1](https://tamupvfa.b-cdn.net/app/uploads/2023/12/web20231214_PVFA_Commencement_AS_0078-1024x683.jpg) | ![Alt 2](https://gsrstudio.ca/wp-content/uploads/2023/06/grads-photos-Toronto-2023.jpg) |
 |:----------------------------:|:----------------------------:|
-| *Example of image from group A*                  | *Example of image from group B                  |
+| *Example of image from group A*                  | *Example of image from group B*                  |
 
 
 
